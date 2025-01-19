@@ -1,0 +1,588 @@
+2025-01-17 04:43:18,159 [DEBUG] app: Application starting...
+2025-01-17 04:47:58,904 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 04:47:59,184 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 04:48:10,222 [ERROR] app: Unhandled exception: 405 Method Not Allowed: The method is not allowed for the requested URL.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2042, in match
+    raise MethodNotAllowed(valid_methods=list(have_match_for))
+werkzeug.exceptions.MethodNotAllowed: 405 Method Not Allowed: The method is not allowed for the requested URL.
+2025-01-17 04:48:10,495 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 09:07:57,819 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 09:07:58,125 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 09:08:01,674 [ERROR] app: Unhandled exception: 405 Method Not Allowed: The method is not allowed for the requested URL.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2042, in match
+    raise MethodNotAllowed(valid_methods=list(have_match_for))
+werkzeug.exceptions.MethodNotAllowed: 405 Method Not Allowed: The method is not allowed for the requested URL.
+2025-01-17 09:08:01,921 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 09:10:03,159 [ERROR] app: Unhandled exception: 405 Method Not Allowed: The method is not allowed for the requested URL.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2042, in match
+    raise MethodNotAllowed(valid_methods=list(have_match_for))
+werkzeug.exceptions.MethodNotAllowed: 405 Method Not Allowed: The method is not allowed for the requested URL.
+2025-01-17 09:10:03,451 [ERROR] app: Unhandled exception: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1523, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1499, in dispatch_request
+    self.raise_routing_exception(req)
+  File "/usr/local/lib/python3.10/site-packages/flask/app.py", line 1481, in raise_routing_exception
+    raise request.routing_exception  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/flask/ctx.py", line 397, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "/usr/local/lib/python3.10/site-packages/werkzeug/routing.py", line 2047, in match
+    raise NotFound()
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2025-01-17 09:13:00,994 [DEBUG] app: Application starting...
+2025-01-17 09:13:27,017 [DEBUG] app: Application starting...
+2025-01-17 09:13:47,014 [DEBUG] app: Application starting...
+2025-01-17 09:14:16,330 [DEBUG] app: Application starting...
+2025-01-17 09:22:58,468 [ERROR] utils.logger: Error in webhook: 'MediaHandler' object has no attribute 'handle_pending_description'
+Traceback (most recent call last):
+  File "/home/sagary/docsapp/routes/webhook.py", line 63, in handle_webhook
+    response_text = media_handler.handle_pending_description(user_phone, incoming_msg)
+AttributeError: 'MediaHandler' object has no attribute 'handle_pending_description'
+2025-01-17 09:25:51,467 [DEBUG] app: Application starting...
+2025-01-17 09:27:06,407 [DEBUG] app: Application starting...
+2025-01-17 09:28:19,586 [ERROR] routes.handlers.media_handler: Failed to download media. Status: 404
+2025-01-17 09:31:11,786 [DEBUG] app: Application starting...
+2025-01-17 09:31:24,075 [ERROR] routes.handlers.media_handler: Missing message_sid or media_sid
+2025-01-17 09:32:30,949 [DEBUG] app: Application starting...
+2025-01-17 09:32:57,549 [INFO] googleapiclient.discovery_cache: file_cache is only supported with oauth2client<4.0.0
+2025-01-17 09:33:17,826 [INFO] googleapiclient.discovery_cache: file_cache is only supported with oauth2client<4.0.0
+2025-01-17 09:39:51,885 [DEBUG] app: Application starting...
+2025-01-17 09:42:17,641 [DEBUG] app: Application starting...
+2025-01-17 09:42:41,607 [INFO] googleapiclient.discovery_cache: file_cache is only supported with oauth2client<4.0.0
+2025-01-17 09:47:30,898 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 09:47:30,909 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 09:48:24,399 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-17 09:50:25,092 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 09:50:25,105 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 09:50:25,109 - app - DEBUG - Application starting...
+2025-01-17 09:50:58,600 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-17 10:29:53,630 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 10:29:53,650 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 10:29:53,655 - app - DEBUG - Application starting...
+2025-01-17 10:30:46,367 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-17 10:38:53,508 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 10:38:53,530 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 10:38:53,536 - app - DEBUG - Application starting...
+2025-01-17 10:41:44,118 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 10:41:44,142 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 10:41:44,146 - app - DEBUG - Application starting...
+2025-01-17 16:19:48,556 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 16:19:48,574 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 16:19:48,581 - app - DEBUG - Application starting...
+2025-01-17 16:21:39,323 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-17 16:25:13,215 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 16:25:13,237 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 16:25:13,242 - app - DEBUG - Application starting...
+2025-01-17 16:26:46,608 - routes.handlers.media_handler - ERROR - Error processing media #1: name 'docs_app' is not defined
+2025-01-17 16:26:46,609 - routes.handlers.media_handler - ERROR - name 'docs_app' is not defined
+Traceback (most recent call last):
+  File "/home/sagary/docsapp/routes/handlers/media_handler.py", line 63, in handle_media_upload
+    if docs_app.store_document(user_phone, temp_path, description or "", original_filename):
+NameError: name 'docs_app' is not defined
+2025-01-17 16:27:22,866 - routes.handlers.media_handler - ERROR - Error processing media #1: name 'docs_app' is not defined
+2025-01-17 16:27:22,866 - routes.handlers.media_handler - ERROR - name 'docs_app' is not defined
+Traceback (most recent call last):
+  File "/home/sagary/docsapp/routes/handlers/media_handler.py", line 63, in handle_media_upload
+    if docs_app.store_document(user_phone, temp_path, description or "", original_filename):
+NameError: name 'docs_app' is not defined
+2025-01-17 16:31:50,479 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-17 16:31:50,500 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-17 16:31:50,505 - app - DEBUG - Application starting...
+2025-01-17 16:33:44,284 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-17 16:35:17,572 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-18 04:35:38,427 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-18 04:35:38,459 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-18 04:35:38,465 - app - DEBUG - Application starting...
+2025-01-18 04:40:40,330 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-18 04:43:48,864 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-18 04:43:48,875 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-18 04:45:15,959 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-18 04:48:40,853 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-18 05:06:57,547 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-18 05:06:57,568 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-18 05:07:49,699 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-18 05:10:13,059 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-18 05:10:13,094 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-18 05:50:58,400 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-18 05:50:58,412 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-18 06:11:11,997 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-18 06:11:12,022 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-18 06:18:36,529 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:09:59,351 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:09:59,384 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:10:37,352 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:12:20,075 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:12:20,096 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:13:16,789 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:14:46,639 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:14:46,660 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:15:36,403 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:15:36,403 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM72955d423018190ff9071783fb4447e5.json
+2025-01-19 04:15:36,403 - twilio.http_client - INFO - Headers:
+2025-01-19 04:15:36,403 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:15:36,404 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:15:36,404 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:15:36,404 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:15:36,404 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:15:36,493 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:15:36,493 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '390', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:15:36 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '02189068917f3c1c6ec95e3dfcebc546--gzip', 'Last-Modified': '2025-01-18T20:15:36.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQb985949a9830baa8a7c4e137cf895965', 'Twilio-Request-Duration': '0.056', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 fe40bff56d1483fa61dd95ff72f0b9c0.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'ZXTR-9kUOebIujvKuN5biSKe3dg1IphSQToxOw2Mbur9PdtSvfwV9w=='}
+2025-01-19 04:15:36,494 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:15:36,494 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM72955d423018190ff9071783fb4447e5/Media.json
+2025-01-19 04:15:36,494 - twilio.http_client - INFO - Headers:
+2025-01-19 04:15:36,494 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:15:36,495 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:15:36,495 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:15:36,495 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:15:36,495 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:15:36,574 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:15:36,574 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '852', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:15:36 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ5eb49808f495adf8494743d2fd7c2ef5', 'Twilio-Request-Duration': '0.039', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 fe40bff56d1483fa61dd95ff72f0b9c0.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'TpF7ErgsLZDBZEkRR-XCHQ3dbox3jOIIZis-AstiTyNzqpyLlnRzUg=='}
+2025-01-19 04:15:54,673 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:15:54,673 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM066c0d0852e096f37d6da3beafec010b.json
+2025-01-19 04:15:54,673 - twilio.http_client - INFO - Headers:
+2025-01-19 04:15:54,673 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:15:54,673 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:15:54,674 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:15:54,674 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:15:54,674 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:15:54,737 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:15:54,738 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '387', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:15:54 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '146f151576f740894917ab87e1747d2b--gzip', 'Last-Modified': '2025-01-18T20:15:54.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ7ca52eae2326d22e1898d3fdf999cc05', 'Twilio-Request-Duration': '0.054', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 fe40bff56d1483fa61dd95ff72f0b9c0.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': '0SOdqjrjLm2h1M38b-GRj3yrkmjOpW0tqyKzOjfEl0BnEfsw94lKYw=='}
+2025-01-19 04:15:54,738 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:15:54,738 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM066c0d0852e096f37d6da3beafec010b/Media.json
+2025-01-19 04:15:54,738 - twilio.http_client - INFO - Headers:
+2025-01-19 04:15:54,738 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:15:54,739 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:15:54,739 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:15:54,739 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:15:54,739 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:15:54,811 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:15:54,811 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '902', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:15:54 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ3280d9079b6c63768770581e6e2776c9', 'Twilio-Request-Duration': '0.035', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 fe40bff56d1483fa61dd95ff72f0b9c0.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'etGsuHDfdsMUg2WEczJrmF4ZmuY-YA_3eUrst170PsATjegNOn-Zow=='}
+2025-01-19 04:17:14,517 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:17:14,539 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:18:22,744 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:19:58,216 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:19:58,236 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:20:43,538 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:20:43,538 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM35546147c45575c7d2ae5e7b504be880.json
+2025-01-19 04:20:43,539 - twilio.http_client - INFO - Headers:
+2025-01-19 04:20:43,539 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:20:43,539 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:20:43,539 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:20:43,539 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:20:43,540 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:20:43,630 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:20:43,630 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '389', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:20:43 GMT', 'X-Powered-By': 'AT-5000', 'Etag': 'c250dc1ad593141ab597b86d10083014--gzip', 'Last-Modified': '2025-01-18T20:20:43.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQacc00382db36e077c5b905fbc2396218', 'Twilio-Request-Duration': '0.053', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 03c28758fe0abb70088fb45c6855d854.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': '1gtHTAVgXtyLqKnW0XrQwFUOuKBpbbuMA9QBKMppxBaFApcxh-fUuQ=='}
+2025-01-19 04:20:43,753 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:22:57,435 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:22:57,459 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:23:38,490 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:29:35,947 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:29:35,968 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:30:02,153 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:33:51,181 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:33:51,203 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:34:17,965 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:34:17,965 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM272840ea4e185ca08735412c5294a91b/Media/MEf0602275f65818951abfdeaeb205e114.json
+2025-01-19 04:34:17,965 - twilio.http_client - INFO - Headers:
+2025-01-19 04:34:17,966 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:34:17,966 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:34:17,966 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:34:17,966 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:34:17,966 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:34:18,061 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:34:18,061 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '493', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:34:18 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQd4b410a6fe0ba4776b8d89b1fabfa3eb', 'Twilio-Request-Duration': '0.030', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 d907e6ff1d7c4efa4a8fcfcbb0b5531c.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'OzydWhYMdL7-Wl_yC-ONx3KTrkJbT4hL0NEYGVb-MQ3wFqzTsp7KHA=='}
+2025-01-19 04:34:18,061 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:34:18,061 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM272840ea4e185ca08735412c5294a91b.json
+2025-01-19 04:34:18,061 - twilio.http_client - INFO - Headers:
+2025-01-19 04:34:18,062 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:34:18,062 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:34:18,062 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:34:18,062 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:34:18,062 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:34:18,128 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:34:18,128 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:34:18 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '52ee30d4201de50932a4fceebbc7a654--gzip', 'Last-Modified': '2025-01-18T20:34:17.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQcc6322dd743892b1da3df350d86c5c56', 'Twilio-Request-Duration': '0.052', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 d907e6ff1d7c4efa4a8fcfcbb0b5531c.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'uoJoauh_n2i-JPJqwMp6NAOxwvZJ1XyQWxc6pCieHsTS5ZDa5_PUug=='}
+2025-01-19 04:34:18,249 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:36:37,096 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:36:37,124 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:38:35,774 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:38:35,775 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM579eb5acf21ad1f2533af80c5b611b1c.json
+2025-01-19 04:38:35,775 - twilio.http_client - INFO - Headers:
+2025-01-19 04:38:35,776 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:38:35,776 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:38:35,776 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:38:35,776 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:38:35,777 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:38:35,847 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:38:35,848 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '390', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:38:35 GMT', 'Etag': '635144716cdeed7cb04b9435335382bc--gzip', 'Last-Modified': '2025-01-18T20:38:35.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ4c99f8f7b664ccc4df3abbe3092ae74a', 'Twilio-Request-Duration': '0.042', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 ff071fa99e74a44c6556cef90e125ca8.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'LnGzqsg6igW-ZPhoDxpKvJiCidjijSZNrcav8hGPtgEDK8QE-qIdcw=='}
+2025-01-19 04:38:35,849 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:38:35,849 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM579eb5acf21ad1f2533af80c5b611b1c/Media/ME98b632f5375442db3ce54400e3e994a5.json
+2025-01-19 04:38:35,849 - twilio.http_client - INFO - Headers:
+2025-01-19 04:38:35,850 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:38:35,850 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:38:35,850 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:38:35,850 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:38:35,851 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:38:35,920 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:38:35,921 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '493', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:38:35 GMT', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQbe19979c21b6428e8a98db1604da14f0', 'Twilio-Request-Duration': '0.023', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-API-Domain': 'api.twilio.com', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 ff071fa99e74a44c6556cef90e125ca8.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'UQIq8Pv_Xl-LonfQPASmfhVokTebZM6YH6HctDzUWSp1sdJIsQdIhw=='}
+2025-01-19 04:38:35,921 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:38:35,922 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM579eb5acf21ad1f2533af80c5b611b1c.json
+2025-01-19 04:38:35,922 - twilio.http_client - INFO - Headers:
+2025-01-19 04:38:35,922 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:38:35,923 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:38:35,923 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:38:35,924 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:38:35,924 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:38:35,989 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:38:35,989 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '390', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:38:35 GMT', 'Etag': '635144716cdeed7cb04b9435335382bc--gzip', 'Last-Modified': '2025-01-18T20:38:35.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ5ed369feb973dbb4f4d3ba69b130817c', 'Twilio-Request-Duration': '0.053', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 ff071fa99e74a44c6556cef90e125ca8.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'ot9jjkpRKrudQHmyOFB3u8Md5hK5Rr8CE0zAhuzFmypNuJr1C-kHfA=='}
+2025-01-19 04:38:36,125 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 04:40:48,496 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 04:40:48,523 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 04:41:26,267 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:41:26,267 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM59dadc91e5a395c0b1de63928117f147.json
+2025-01-19 04:41:26,268 - twilio.http_client - INFO - Headers:
+2025-01-19 04:41:26,268 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:41:26,268 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:41:26,268 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:41:26,269 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:41:26,269 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:41:26,349 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:41:26,349 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '389', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:41:26 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '7d2e32b0ab5eef18b8a21150f1faddf4--gzip', 'Last-Modified': '2025-01-18T20:41:26.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ94906084c7bda8f27d7cafd34837e218', 'Twilio-Request-Duration': '0.054', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 bbdd9119a4551c40158761d607b7997a.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'tCmH1zXgIuTPoT6jx3v91qEduedqanohsaCZy8lKef3VLTNCF-HLCQ=='}
+2025-01-19 04:41:26,350 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:41:26,350 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM59dadc91e5a395c0b1de63928117f147/Media/MEb7c4800e01947eb107c7cf73af580092.json
+2025-01-19 04:41:26,350 - twilio.http_client - INFO - Headers:
+2025-01-19 04:41:26,351 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:41:26,351 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:41:26,351 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:41:26,351 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:41:26,351 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:41:26,423 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:41:26,423 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '493', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:41:26 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQc5b676d96f07790afd3e67ab2132c0fb', 'Twilio-Request-Duration': '0.031', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 bbdd9119a4551c40158761d607b7997a.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'qW8LBpFiz69tmmyD1s4z2NAV8KTp6__tHDL077QDdvFsogJo9oJJ5A=='}
+2025-01-19 04:41:26,424 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 04:41:26,424 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM59dadc91e5a395c0b1de63928117f147.json
+2025-01-19 04:41:26,424 - twilio.http_client - INFO - Headers:
+2025-01-19 04:41:26,424 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 04:41:26,424 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 04:41:26,424 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 04:41:26,425 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 04:41:26,425 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 04:41:26,484 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 04:41:26,484 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 04:41:26 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '7d2e32b0ab5eef18b8a21150f1faddf4--gzip', 'Last-Modified': '2025-01-18T20:41:26.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQec0998cbd4d3859a99791c363a2e058f', 'Twilio-Request-Duration': '0.049', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 bbdd9119a4551c40158761d607b7997a.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'U-nr6Q1UV5gcTugODYswlOIgt3p_8y38c5pPX63iC238ODi9IGaEqw=='}
+2025-01-19 04:41:26,685 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 09:19:55,513 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:19:55,515 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM58e52cfedb035551bf139d689ccad62b.json
+2025-01-19 09:19:55,515 - twilio.http_client - INFO - Headers:
+2025-01-19 09:19:55,515 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:19:55,516 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:19:55,516 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:19:55,516 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:19:55,516 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:19:55,603 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:19:55,603 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '387', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:19:55 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '2f2a4c86670dc72a674212a03440c313--gzip', 'Last-Modified': '2025-01-19T01:19:54.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQcd348e305e5167e8f88c451795a6c1e5', 'Twilio-Request-Duration': '0.053', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 7c52bc60e0da5f557ed6047264a41c18.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'IchA0dUOniIi-jOmW-bOhKQdjnEtgRP2_A0oKCNyauUU-XxnZ1p-ag=='}
+2025-01-19 09:19:55,605 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:19:55,605 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM58e52cfedb035551bf139d689ccad62b/Media/MEa2c4a156283659c49f527c8969ef6656.json
+2025-01-19 09:19:55,606 - twilio.http_client - INFO - Headers:
+2025-01-19 09:19:55,606 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:19:55,606 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:19:55,607 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:19:55,607 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:19:55,607 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:19:55,679 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:19:55,679 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '443', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:19:55 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ94ed19963558b32bcd42b7e5c8e958e7', 'Twilio-Request-Duration': '0.028', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 7c52bc60e0da5f557ed6047264a41c18.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'ohfPCg0dDmMkahXIOkscUNIkkdj0066AHzoIPb5V9ZmR_rZHMbum7Q=='}
+2025-01-19 09:19:55,680 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:19:55,680 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM58e52cfedb035551bf139d689ccad62b.json
+2025-01-19 09:19:55,680 - twilio.http_client - INFO - Headers:
+2025-01-19 09:19:55,680 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:19:55,681 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:19:55,681 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:19:55,681 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:19:55,682 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:19:55,731 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:19:55,731 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '387', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:19:55 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '2f2a4c86670dc72a674212a03440c313--gzip', 'Last-Modified': '2025-01-19T01:19:54.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQb93f8f8903d21d8d5340b7f1eeee036d', 'Twilio-Request-Duration': '0.037', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 7c52bc60e0da5f557ed6047264a41c18.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'YN4ldGzIpGlxNxygdpvnPtI-JarAciup-OAz1Ev84WR2I3wKrIjKaA=='}
+2025-01-19 09:19:56,040 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 09:20:05,875 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:20:05,876 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMce486b46662f68adb8301cf2d650fd86.json
+2025-01-19 09:20:05,876 - twilio.http_client - INFO - Headers:
+2025-01-19 09:20:05,876 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:20:05,877 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:20:05,877 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:20:05,877 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:20:05,877 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:20:05,946 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:20:05,946 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:20:05 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '24d45a6699bc3ce640256b00cdd557c5--gzip', 'Last-Modified': '2025-01-19T01:20:05.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ8d67c0e09343a3a13c29a154d44b4270', 'Twilio-Request-Duration': '0.058', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 7c52bc60e0da5f557ed6047264a41c18.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'nazNvqiW2Ypj3RYzmz1Vx7Ys06eE1ts6rglNabu6OggQRiRcgoN-Ng=='}
+2025-01-19 09:20:05,948 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:20:05,949 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMce486b46662f68adb8301cf2d650fd86/Media/MEa4da0654309a3e0436e66b8fa7f09e4f.json
+2025-01-19 09:20:05,949 - twilio.http_client - INFO - Headers:
+2025-01-19 09:20:05,949 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:20:05,949 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:20:05,950 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:20:05,950 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:20:05,950 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:20:06,021 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:20:06,021 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '438', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:20:06 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ6727c59976de9cb8380cbb39e06f18e0', 'Twilio-Request-Duration': '0.026', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 7c52bc60e0da5f557ed6047264a41c18.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'z4WcFbtNJZ2gPsHcgTp8fMorV6FvrQgJbk8Zc1CG86hkWE2JtTGf0A=='}
+2025-01-19 09:20:06,022 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:20:06,022 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMce486b46662f68adb8301cf2d650fd86.json
+2025-01-19 09:20:06,022 - twilio.http_client - INFO - Headers:
+2025-01-19 09:20:06,023 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:20:06,023 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:20:06,023 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:20:06,023 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:20:06,023 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:20:06,073 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:20:06,073 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:20:06 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '24d45a6699bc3ce640256b00cdd557c5--gzip', 'Last-Modified': '2025-01-19T01:20:05.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ56e6aff46ed6833672e9a9a32fa2de7b', 'Twilio-Request-Duration': '0.040', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 7c52bc60e0da5f557ed6047264a41c18.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': '6su17IJ_eVh-6wRyvERMLIO2Uk5TtdPtNUNOqM80JR2yo7dMc1dZRw=='}
+2025-01-19 09:20:06,299 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 09:22:21,562 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 09:22:21,602 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 09:23:08,862 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:23:08,863 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM526ffa63d629334c7bbbb36f913cf9c5.json
+2025-01-19 09:23:08,863 - twilio.http_client - INFO - Headers:
+2025-01-19 09:23:08,863 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:23:08,863 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:23:08,863 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:23:08,863 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:23:08,864 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:23:08,936 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:23:08,936 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:23:08 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '2184c739c126adfcf2d78db9d7735eb9--gzip', 'Last-Modified': '2025-01-19T01:23:08.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ5118334ae3605c69aeeb033ca6041f80', 'Twilio-Request-Duration': '0.048', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 8dd4c7f1d7b55b5ac0fc5b7f8532cf32.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'zF0t4XLMtgaGCkEcXEwsi9eTyk-JfW7fIE5EJ-mTilUEqoh2_yvBDw=='}
+2025-01-19 09:23:08,937 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:23:08,937 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM526ffa63d629334c7bbbb36f913cf9c5/Media/MEbf7a41900bd3d184296325ec5b981756.json
+2025-01-19 09:23:08,937 - twilio.http_client - INFO - Headers:
+2025-01-19 09:23:08,938 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:23:08,938 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:23:08,938 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:23:08,938 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:23:08,938 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:23:09,005 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:23:09,006 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '493', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:23:09 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQbf2920f53c7c6f2cff60d133f0c3c4ce', 'Twilio-Request-Duration': '0.028', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 8dd4c7f1d7b55b5ac0fc5b7f8532cf32.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'NkOVu1OdFUsFrh3JSx6tkqWzk5cQC_qlaJo2HQPp9V7iz6L6nBoOhg=='}
+2025-01-19 09:23:09,006 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:23:09,006 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM526ffa63d629334c7bbbb36f913cf9c5.json
+2025-01-19 09:23:09,006 - twilio.http_client - INFO - Headers:
+2025-01-19 09:23:09,006 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:23:09,007 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:23:09,007 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:23:09,007 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:23:09,007 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:23:09,060 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:23:09,060 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:23:09 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '2184c739c126adfcf2d78db9d7735eb9--gzip', 'Last-Modified': '2025-01-19T01:23:08.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ79b57e1b8547579b9603aacd03f0a561', 'Twilio-Request-Duration': '0.043', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 8dd4c7f1d7b55b5ac0fc5b7f8532cf32.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'u_3Y8vmd5SRYbba-llYMh5JggViN8jVk1C3iISj7D2pq2e6iBbYzBQ=='}
+2025-01-19 09:23:09,131 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:23:09,131 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM526ffa63d629334c7bbbb36f913cf9c5.json
+2025-01-19 09:23:09,131 - twilio.http_client - INFO - Headers:
+2025-01-19 09:23:09,132 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:23:09,132 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:23:09,132 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:23:09,132 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:23:09,132 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:23:09,188 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:23:09,189 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '388', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:23:09 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '2184c739c126adfcf2d78db9d7735eb9--gzip', 'Last-Modified': '2025-01-19T01:23:08.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ96deb1cd1bc7daa7fd5813754ca069f0', 'Twilio-Request-Duration': '0.046', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 8dd4c7f1d7b55b5ac0fc5b7f8532cf32.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'N0B4ssK_wyJRYQ6zzlPX86B93Qbe31jQ6l0s790TYdpaII5NAmix8A=='}
+2025-01-19 09:23:09,299 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:23:09,300 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MM526ffa63d629334c7bbbb36f913cf9c5/Media.json
+2025-01-19 09:23:09,300 - twilio.http_client - INFO - Headers:
+2025-01-19 09:23:09,300 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:23:09,300 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:23:09,301 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:23:09,301 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:23:09,301 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:23:09,373 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:23:09,373 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '902', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:23:09 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ9041555381f78a9e1e38f1fa5aaa88ff', 'Twilio-Request-Duration': '0.031', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 8dd4c7f1d7b55b5ac0fc5b7f8532cf32.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'ns0JZcKb4ryXNdluHjEGp6ssTdVPGkAPptalNp2_2d3BIrR66DMPNw=='}
+2025-01-19 09:23:09,390 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 09:25:16,832 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 09:25:16,859 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 09:26:11,758 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:26:11,759 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMe76cde787c19176214a9432086bdc333.json
+2025-01-19 09:26:11,759 - twilio.http_client - INFO - Headers:
+2025-01-19 09:26:11,759 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:26:11,759 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:26:11,759 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:26:11,759 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:26:11,760 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:26:11,844 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:26:11,844 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '390', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:26:11 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '9217e01333651421d3a620290adf3cd5--gzip', 'Last-Modified': '2025-01-19T01:26:11.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ71a98067c0a3abcd624295ed06c0ea33', 'Twilio-Request-Duration': '0.058', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 1fecb697c6f121d7ce54a35628ac154e.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': '1Q3Nn1gSGO2XUmtjBcFcb3uHFktmu_aIW2g5n0j08EqwzOa9sS33vg=='}
+2025-01-19 09:26:11,845 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:26:11,846 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMe76cde787c19176214a9432086bdc333/Media/ME0443309d39bff7336188b2319945974d.json
+2025-01-19 09:26:11,846 - twilio.http_client - INFO - Headers:
+2025-01-19 09:26:11,846 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:26:11,846 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:26:11,847 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:26:11,847 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:26:11,847 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:26:11,917 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:26:11,917 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '443', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:26:11 GMT', 'X-API-Domain': 'api.twilio.com', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ8545200fe1d11e0fa9ba009a5c8245ff', 'Twilio-Request-Duration': '0.027', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 1fecb697c6f121d7ce54a35628ac154e.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'oU29TITLrnhF0jY7og93Ha6Y2_oGxQx80TRa_4fUvm8mmhX02xod9w=='}
+2025-01-19 09:26:11,918 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:26:11,918 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMe76cde787c19176214a9432086bdc333.json
+2025-01-19 09:26:11,918 - twilio.http_client - INFO - Headers:
+2025-01-19 09:26:11,918 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:26:11,918 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:26:11,919 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:26:11,919 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:26:11,919 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:26:11,973 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:26:11,974 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '390', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:26:11 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '9217e01333651421d3a620290adf3cd5--gzip', 'Last-Modified': '2025-01-19T01:26:11.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ7c714690215d1d050d0def31f0423400', 'Twilio-Request-Duration': '0.043', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 1fecb697c6f121d7ce54a35628ac154e.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'm8wCSTE-5k-zKPU24tovbtZoNyHNbj138k_9vrj-jnpnf_0TMz71UQ=='}
+2025-01-19 09:26:12,061 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:26:12,062 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMe76cde787c19176214a9432086bdc333.json
+2025-01-19 09:26:12,062 - twilio.http_client - INFO - Headers:
+2025-01-19 09:26:12,062 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:26:12,062 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:26:12,063 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:26:12,063 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:26:12,063 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:26:12,127 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:26:12,127 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json;charset=utf-8', 'Content-Length': '390', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:26:12 GMT', 'X-Powered-By': 'AT-5000', 'Etag': '9217e01333651421d3a620290adf3cd5--gzip', 'Last-Modified': '2025-01-19T01:26:11.000-08:00', 'Twilio-Concurrent-Requests': '1', 'Twilio-Request-Id': 'RQ7a4971a290871a08697cb895bc75523b', 'Twilio-Request-Duration': '0.054', 'X-Home-Region': 'us1', 'X-Api-Domain': 'api.twilio.com', 'Strict-Transport-Security': 'max-age=31536000', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key, X-Pre-Auth-Context, X-Target-Region', 'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag, Twilio-Request-Id', 'Access-Control-Allow-Credentials': 'true', 'Vary': 'Accept-Encoding', 'Content-Encoding': 'gzip', 'X-Shenanigans': 'none', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 1fecb697c6f121d7ce54a35628ac154e.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'yazkv91GymOjdIhBxF6pGOEeCNm5tRXEaWf5X3-JES7VRR4qUODp0w=='}
+2025-01-19 09:26:12,275 - twilio.http_client - INFO - -- BEGIN Twilio API Request --
+2025-01-19 09:26:12,276 - twilio.http_client - INFO - GET Request: https://api.twilio.com/2010-04-01/Accounts/ACc02f635df0f15ee3e7f85279cf406b4c/Messages/MMe76cde787c19176214a9432086bdc333/Media.json
+2025-01-19 09:26:12,276 - twilio.http_client - INFO - Headers:
+2025-01-19 09:26:12,277 - twilio.http_client - INFO - User-Agent : twilio-python/7.9.1 (Linux x86_64) Python/3.10.5
+2025-01-19 09:26:12,277 - twilio.http_client - INFO - X-Twilio-Client : python-7.9.1
+2025-01-19 09:26:12,277 - twilio.http_client - INFO - Accept-Charset : utf-8
+2025-01-19 09:26:12,277 - twilio.http_client - INFO - Accept : application/json
+2025-01-19 09:26:12,277 - twilio.http_client - INFO - -- END Twilio API Request --
+2025-01-19 09:26:12,341 - twilio.http_client - INFO - Response Status Code: 200
+2025-01-19 09:26:12,341 - twilio.http_client - INFO - Response Headers: {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '852', 'Connection': 'keep-alive', 'Date': 'Sun, 19 Jan 2025 09:26:12 GMT', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type, If-Match, If-Modified-Since, If-None-Match, If-Unmodified-Since, Idempotency-Key', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Expose-Headers': 'ETag', 'Twilio-Request-Id': 'RQ8e9e60b8218ee051ad6a32116d9b3b68', 'Twilio-Request-Duration': '0.033', 'Twilio-Concurrent-Requests': '1', 'X-Shenanigans': 'none', 'X-Powered-By': 'AT-5000', 'X-Home-Region': 'us1', 'X-API-Domain': 'api.twilio.com', 'X-Cache': 'Miss from cloudfront', 'Via': '1.1 1fecb697c6f121d7ce54a35628ac154e.cloudfront.net (CloudFront)', 'X-Amz-Cf-Pop': 'IAD61-P2', 'X-Amz-Cf-Id': 'oWks98fkcNoCAHqnnyvcaAaHcwuFYIzj5sDP5FIFXiKWGss8LB7Sjw=='}
+2025-01-19 09:26:12,358 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 09:29:51,686 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 09:29:51,716 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 09:29:51,729 - root - ERROR - Error running WSGI application
+2025-01-19 09:29:51,739 - root - ERROR - ImportError: cannot import name 'handle_oauth_callback' from 'routes.webhook' (/home/sagary/docsapp/routes/webhook.py)
+2025-01-19 09:29:51,740 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-19 09:29:51,740 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-19 09:29:51,741 - root - ERROR - 
+2025-01-19 09:29:51,742 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 7, in <module>
+2025-01-19 09:29:51,742 - root - ERROR -     from routes.webhook import handle_webhook, handle_oauth_callback
+2025-01-19 09:29:51,743 - root - ERROR - 
+2025-01-19 09:29:51,743 - root - ERROR -   File "/home/sagary/docsapp/routes/__init__.py", line 1, in <module>
+2025-01-19 09:29:51,744 - root - ERROR -     from .webhook import handle_webhook, handle_oauth_callback
+2025-01-19 09:29:51,744 - root - ERROR - ***************************************************
+2025-01-19 09:29:51,745 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-19 09:29:51,745 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-19 09:29:51,745 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-19 09:29:51,746 - root - ERROR - ***************************************************
+2025-01-19 09:30:14,632 - root - ERROR - Error running WSGI application
+2025-01-19 09:30:14,633 - root - ERROR - ImportError: cannot import name 'handle_oauth_callback' from 'routes.webhook' (/home/sagary/docsapp/routes/webhook.py)
+2025-01-19 09:30:14,633 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-19 09:30:14,634 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-19 09:30:14,634 - root - ERROR - 
+2025-01-19 09:30:14,634 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 7, in <module>
+2025-01-19 09:30:14,635 - root - ERROR -     from routes.webhook import handle_webhook, handle_oauth_callback
+2025-01-19 09:30:14,635 - root - ERROR - 
+2025-01-19 09:30:14,635 - root - ERROR -   File "/home/sagary/docsapp/routes/__init__.py", line 1, in <module>
+2025-01-19 09:30:14,635 - root - ERROR -     from .webhook import handle_webhook, handle_oauth_callback
+2025-01-19 09:30:14,636 - root - ERROR - ***************************************************
+2025-01-19 09:30:14,636 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-19 09:30:14,636 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-19 09:30:14,637 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-19 09:30:14,637 - root - ERROR - ***************************************************
+2025-01-19 09:30:50,969 - root - ERROR - Error running WSGI application
+2025-01-19 09:30:50,970 - root - ERROR - ImportError: cannot import name 'handle_oauth_callback' from 'routes.webhook' (/home/sagary/docsapp/routes/webhook.py)
+2025-01-19 09:30:50,970 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-19 09:30:50,971 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-19 09:30:50,971 - root - ERROR - 
+2025-01-19 09:30:50,971 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 7, in <module>
+2025-01-19 09:30:50,971 - root - ERROR -     from routes.webhook import handle_webhook, handle_oauth_callback
+2025-01-19 09:30:50,971 - root - ERROR - 
+2025-01-19 09:30:50,971 - root - ERROR -   File "/home/sagary/docsapp/routes/__init__.py", line 1, in <module>
+2025-01-19 09:30:50,972 - root - ERROR -     from .webhook import handle_webhook, handle_oauth_callback
+2025-01-19 09:30:50,972 - root - ERROR - ***************************************************
+2025-01-19 09:30:50,972 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-19 09:30:50,972 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-19 09:30:50,972 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-19 09:30:50,972 - root - ERROR - ***************************************************
+2025-01-19 09:32:27,122 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-19 09:32:27,133 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-19 09:32:50,064 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-19 09:33:58,279 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
