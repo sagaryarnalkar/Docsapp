@@ -1,3 +1,4 @@
+# routes/handlers/auth_handler.py
 import os
 import json
 import logging
@@ -20,7 +21,7 @@ class AuthHandler:
                 redirect_uri=OAUTH_REDIRECT_URI
             )
             auth_url, state = flow.authorization_url(
-                prompt='consent',
+                prompt='select_account',
                 access_type='offline',
                 include_granted_scopes='true'
             )

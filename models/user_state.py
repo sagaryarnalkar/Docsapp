@@ -1,40 +1,35 @@
 import os
 import json
-import sqlite3
 import logging
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from config import DB_DIR, SCOPES
+from models.database import DatabasePool
 
 logger = logging.getLogger(__name__)
 
 class UserState:
     def __init__(self):
-        self.db_path = os.path.join(DB_DIR, 'users.db')
+        self.db_pool = DatabasePool('users.db')
         self.init_database()
 
     def init_database(self):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                phone TEXT PRIMARY KEY,
-                google_authorized BOOLEAN DEFAULT FALSE,
-                tokens TEXT
-            )
-        ''')
-        conn.commit()
-        conn.close()
+        with self.db_pool.get_cursor() as cursor:
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    phone TEXT PRIMARY KEY,
+                    google_authorized BOOLEAN DEFAULT FALSE,
+                    tokens TEXT
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_phone ON users(phone)')
 
     def store_tokens(self, phone, tokens):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO users (phone, google_authorized, tokens)
-            VALUES (?, TRUE, ?)
-        ''', (phone, json.dumps(tokens)))
-        conn.commit()
-        conn.close()
+        with self.db_pool.get_cursor() as cursor:
+            cursor.execute('''
+                INSERT OR REPLACE INTO users (phone, google_authorized, tokens)
+                VALUES (?, TRUE, ?)
+            ''', (phone, json.dumps(tokens)))
         logger.debug(f"Stored tokens for user {phone}")
 
     def is_authorized(self, phone):
@@ -52,27 +47,29 @@ class UserState:
             return False
 
     def get_credentials(self, phone):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT tokens FROM users WHERE phone = ?', (phone,))
-        result = cursor.fetchone()
-        conn.close()
+        try:
+            with self.db_pool.get_cursor() as cursor:
+                cursor.execute('SELECT tokens FROM users WHERE phone = ?', (phone,))
+                result = cursor.fetchone()
 
-        logger.debug(f"Getting credentials for {phone}")
-        logger.debug(f"Database result: {bool(result)}")
+            logger.debug(f"Getting credentials for {phone}")
+            logger.debug(f"Database result: {bool(result)}")
 
-        if result and result[0]:
-            token_data = json.loads(result[0])
-            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+            if result and result[0]:
+                token_data = json.loads(result[0])
+                creds = Credentials.from_authorized_user_info(token_data, SCOPES)
 
-            if creds.expired and creds.refresh_token:
-                logger.debug("Refreshing expired credentials")
-                try:
-                    creds.refresh(Request())
-                    # Store refreshed tokens
-                    self.store_tokens(phone, json.loads(creds.to_json()))
-                except Exception as e:
-                    logger.error(f"Error refreshing token: {str(e)}")
-                    return None
-            return creds
-        return None
+                if creds.expired and creds.refresh_token:
+                    logger.debug("Refreshing expired credentials")
+                    try:
+                        creds.refresh(Request())
+                        # Store refreshed tokens
+                        self.store_tokens(phone, json.loads(creds.to_json()))
+                    except Exception as e:
+                        logger.error(f"Error refreshing token: {str(e)}")
+                        return None
+                return creds
+            return None
+        except Exception as e:
+            logger.error(f"Error getting credentials: {str(e)}")
+            return None

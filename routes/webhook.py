@@ -1,3 +1,4 @@
+# routes/webhook.py
 from flask import request, Response
 from datetime import datetime
 from twilio.twiml.messaging_response import MessagingResponse
@@ -34,7 +35,7 @@ def handle_webhook():
     start_time = datetime.now()
     
     # Print complete raw request data
-    print("\n=== RAW REQUEST DATA ===")
+    print("\n=== WEBHOOK REQUEST DATA ===")
     print("Method:", request.method)
     print("Headers:", dict(request.headers))
     
