@@ -2,9 +2,26 @@ from flask import Flask, send_from_directory, request
 import logging
 import os
 import sys
+# Add these to your imports
+import json
+import requests
 from datetime import timedelta
 from config import TEMP_DIR, BASE_DIR
 from routes.webhook import handle_webhook, handle_oauth_callback
+from models.user_state import UserState
+from models.docs_app import DocsApp
+from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
+from routes.handlers.whatsapp_handler import WhatsAppHandler
+
+# At the top with your other imports
+from config import (
+    TEMP_DIR,
+    BASE_DIR,
+    WHATSAPP_API_VERSION,
+    WHATSAPP_PHONE_NUMBER_ID,
+    WHATSAPP_ACCESS_TOKEN,
+    WHATSAPP_BUSINESS_ACCOUNT_ID
+)
 
 # Ensure logs directory exists
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
@@ -32,6 +49,19 @@ print(f"Temp directory: {TEMP_DIR}")
 print(f"Base directory: {BASE_DIR}")
 
 app = Flask(__name__)
+
+# Initialize all required objects
+user_state = UserState()
+docs_app = DocsApp()
+pending_descriptions = {}
+user_documents = {}
+
+# Initialize all handlers
+auth_handler = AuthHandler(user_state)
+media_handler = MediaHandler(docs_app, pending_descriptions)
+document_handler = DocumentHandler(docs_app, user_documents)
+command_handler = CommandHandler(media_handler, document_handler)
+whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
 
 @app.before_request
 def before_request():
@@ -86,6 +116,86 @@ def oauth2callback():
 def serve_file(filename):
     print(f"Serving file: {filename}")
     return send_from_directory(TEMP_DIR, filename)
+
+# Add this route to test WhatsApp sending
+@app.route("/test-whatsapp")
+def test_whatsapp():
+    output = []
+    try:
+        test_phone = '919823623966'
+        url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
+
+        headers = {
+            'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+
+        data = {
+            'messaging_product': 'whatsapp',
+            'to': test_phone,
+            'type': 'text',
+            'text': {'body': "This is a test message from DocsApp!"}
+        }
+
+        output.append(f"URL: {url}")
+        output.append(f"Headers: {headers}")
+        output.append(f"Request Data: {json.dumps(data, indent=2)}")
+
+        response = requests.post(url, headers=headers, json=data)
+
+        output.append(f"Response Status: {response.status_code}")
+        output.append(f"Response Body: {response.text}")
+
+        html_output = "<br>".join(output).replace("\n", "<br>")
+        return f"<pre>{html_output}</pre>"
+
+    except Exception as e:
+        import traceback
+        return f"<pre>Error: {str(e)}\n\n{traceback.format_exc()}\n\nDebug Info:\n{chr(10).join(output)}</pre>"
+
+@app.route("/whatsapp-webhook", methods=['GET', 'POST'])
+def whatsapp_route():
+    print("\n=== WhatsApp Webhook Called ===")
+    print(f"Method: {request.method}")
+    print(f"Headers: {dict(request.headers)}")
+
+    if request.method == "GET":
+        print("=== Verification Request ===")
+        print(f"Args: {dict(request.args)}")
+
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
+
+        print(f"Mode: {mode}")
+        print(f"Token: {token}")
+        print(f"Challenge: {challenge}")
+
+        VERIFY_TOKEN = "sagar"
+
+        if mode and token:
+            if mode == "subscribe" and token == VERIFY_TOKEN:
+                print("Verification successful!")
+                return challenge
+            else:
+                print("Verification failed - token mismatch")
+                return "Forbidden", 403
+    else:
+        print("=== Incoming Message ===")
+        data = request.get_json()
+        print(f"Request Data: {json.dumps(data, indent=2)}")
+
+        try:
+            if data.get('object') == 'whatsapp_business_account':
+                result = whatsapp_handler.handle_incoming_message(data)
+                print(f"Handler Result: {result}")
+                return result
+            return "Invalid request", 404
+        except Exception as e:
+            print(f"Error processing message: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return "Error", 500
 
 @app.route("/test_log")
 def test_log():
