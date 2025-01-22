@@ -15,29 +15,59 @@ class AuthHandler:
     def handle_authorization(self, user_phone):
         """Handle Google Drive authorization"""
         try:
+            print(f"\n=== Starting Authorization for {user_phone} ===")
             flow = InstalledAppFlow.from_client_secrets_file(
                 os.path.join(BASE_DIR, 'credentials.json'),
                 SCOPES, 
                 redirect_uri=OAUTH_REDIRECT_URI
             )
             auth_url, state = flow.authorization_url(
-                prompt='select_account',
+                prompt='consent',
                 access_type='offline',
                 include_granted_scopes='true'
             )
             
+            print(f"Generated auth URL: {auth_url}")
+            
             with open(os.path.join(TEMP_DIR, 'temp_user.txt'), 'w') as f:
                 f.write(user_phone)
             
-            return ResponseBuilder.create_response(
-                ResponseBuilder.get_auth_message(auth_url)
-            )
+            response = ResponseBuilder.get_auth_message(auth_url)
+            print(f"Auth response: {response}")
+            return response
             
         except Exception as e:
             logger.error(f"Error in handle_authorization: {str(e)}")
             return ResponseBuilder.create_response(
                 "❌ Error setting up authorization. Please try again."
             )
+
+    def _get_success_html(self):
+        """Get HTML for successful authorization"""
+        return """
+        <html>
+            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
+                <div style="text-align: center; padding: 20px;">
+                    <h1 style="color: #4CAF50;">✅ Authorization Successful!</h1>
+                    <p style="font-size: 18px;">You can now close this window and return to WhatsApp.</p>
+                </div>
+            </body>
+        </html>
+        """
+
+    def _get_error_html(self, error):
+        """Get HTML for failed authorization"""
+        return f"""
+        <html>
+            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
+                <div style="text-align: center; padding: 20px;">
+                    <h1 style="color: #f44336;">❌ Authorization Failed</h1>
+                    <p style="font-size: 18px;">Error: {error}</p>
+                    <p>Please try again. You can close this window and return to WhatsApp.</p>
+                </div>
+            </body>
+        </html>
+        """
 
     def handle_oauth_callback(self, request_url):
         """Handle OAuth callback"""
@@ -69,30 +99,3 @@ class AuthHandler:
         except Exception as e:
             logger.error(f"Error in OAuth callback: {str(e)}")
             return self._get_error_html(str(e))
-
-    def _get_success_html(self):
-        """Get HTML for successful authorization"""
-        return """
-        <html>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
-                <div style="text-align: center; padding: 20px;">
-                    <h1 style="color: #4CAF50;">✅ Authorization Successful!</h1>
-                    <p style="font-size: 18px;">You can now close this window and return to WhatsApp.</p>
-                </div>
-            </body>
-        </html>
-        """
-
-    def _get_error_html(self, error):
-        """Get HTML for failed authorization"""
-        return f"""
-        <html>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif;">
-                <div style="text-align: center; padding: 20px;">
-                    <h1 style="color: #f44336;">❌ Authorization Failed</h1>
-                    <p style="font-size: 18px;">Error: {error}</p>
-                    <p>Please try again. You can close this window and return to WhatsApp.</p>
-                </div>
-            </body>
-        </html>
-        """

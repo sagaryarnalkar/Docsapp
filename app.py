@@ -61,7 +61,7 @@ auth_handler = AuthHandler(user_state)
 media_handler = MediaHandler(docs_app, pending_descriptions)
 document_handler = DocumentHandler(docs_app, user_documents)
 command_handler = CommandHandler(media_handler, document_handler)
-whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
 
 @app.before_request
 def before_request():

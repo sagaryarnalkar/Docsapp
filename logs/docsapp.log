@@ -3031,3 +3031,160 @@ NameError: name 'docs_app' is not defined
 2025-01-21 17:58:08,395 - root - ERROR - we have a dedicated help page to help you debug: 
 2025-01-21 17:58:08,395 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
 2025-01-21 17:58:08,396 - root - ERROR - ***************************************************
+2025-01-21 18:25:12,386 - root - ERROR - Error running WSGI application
+2025-01-21 18:25:12,389 - root - ERROR - NameError: name 'UserState' is not defined
+2025-01-21 18:25:12,389 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-21 18:25:12,389 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-21 18:25:12,389 - root - ERROR - 
+2025-01-21 18:25:12,390 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-21 18:25:12,390 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-21 18:25:12,390 - root - ERROR - 
+2025-01-21 18:25:12,390 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 24, in __init__
+2025-01-21 18:25:12,390 - root - ERROR -     self.user_state = UserState()
+2025-01-21 18:25:12,391 - root - ERROR - ***************************************************
+2025-01-21 18:25:12,391 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-21 18:25:12,391 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-21 18:25:12,391 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-21 18:25:12,391 - root - ERROR - ***************************************************
+2025-01-21 18:26:47,108 - root - ERROR - Error running WSGI application
+2025-01-21 18:26:47,110 - root - ERROR - NameError: name 'UserState' is not defined
+2025-01-21 18:26:47,110 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-21 18:26:47,110 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-21 18:26:47,110 - root - ERROR - 
+2025-01-21 18:26:47,111 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-21 18:26:47,111 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-21 18:26:47,111 - root - ERROR - 
+2025-01-21 18:26:47,111 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 24, in __init__
+2025-01-21 18:26:47,111 - root - ERROR -     self.user_state = UserState()
+2025-01-21 18:26:47,111 - root - ERROR - ***************************************************
+2025-01-21 18:26:47,111 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-21 18:26:47,112 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-21 18:26:47,112 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-21 18:26:47,112 - root - ERROR - ***************************************************
+2025-01-21 18:53:32,661 - root - ERROR - Error running WSGI application
+2025-01-21 18:53:32,667 - root - ERROR - NameError: name 'UserState' is not defined
+2025-01-21 18:53:32,667 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-21 18:53:32,668 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-21 18:53:32,668 - root - ERROR - 
+2025-01-21 18:53:32,668 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-21 18:53:32,668 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-21 18:53:32,669 - root - ERROR - 
+2025-01-21 18:53:32,676 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 24, in __init__
+2025-01-21 18:53:32,677 - root - ERROR -     self.user_state = UserState()
+2025-01-21 18:53:32,677 - root - ERROR - ***************************************************
+2025-01-21 18:53:32,677 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-21 18:53:32,677 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-21 18:53:32,678 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-21 18:53:32,678 - root - ERROR - ***************************************************
+2025-01-21 19:49:17,611 - root - ERROR - Error running WSGI application
+2025-01-21 19:49:17,617 - root - ERROR - NameError: name 'UserState' is not defined
+2025-01-21 19:49:17,617 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-21 19:49:17,618 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-21 19:49:17,618 - root - ERROR - 
+2025-01-21 19:49:17,618 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-21 19:49:17,618 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-21 19:49:17,619 - root - ERROR - 
+2025-01-21 19:49:17,619 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 24, in __init__
+2025-01-21 19:49:17,619 - root - ERROR -     self.user_state = UserState()
+2025-01-21 19:49:17,620 - root - ERROR - ***************************************************
+2025-01-21 19:49:17,620 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-21 19:49:17,620 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-21 19:49:17,620 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-21 19:49:17,621 - root - ERROR - ***************************************************
+2025-01-22 03:39:15,393 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:39:15,424 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:39:15,446 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:39:15,464 - root - ERROR - Error running WSGI application
+2025-01-22 03:39:15,471 - root - ERROR - NameError: name 'UserState' is not defined
+2025-01-22 03:39:15,472 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-22 03:39:15,472 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-22 03:39:15,472 - root - ERROR - 
+2025-01-22 03:39:15,473 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-22 03:39:15,473 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-22 03:39:15,473 - root - ERROR - 
+2025-01-22 03:39:15,474 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 24, in __init__
+2025-01-22 03:39:15,474 - root - ERROR -     self.user_state = UserState()
+2025-01-22 03:39:15,474 - root - ERROR - ***************************************************
+2025-01-22 03:39:15,474 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-22 03:39:15,475 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-22 03:39:15,475 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-22 03:39:15,475 - root - ERROR - ***************************************************
+2025-01-22 03:41:13,940 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:41:13,953 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:41:13,982 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:41:13,987 - root - ERROR - Error running WSGI application
+2025-01-22 03:41:13,990 - root - ERROR - AttributeError: 'DocsApp' object has no attribute 'user_state'
+2025-01-22 03:41:13,990 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-22 03:41:13,991 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-22 03:41:13,991 - root - ERROR - 
+2025-01-22 03:41:13,991 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-22 03:41:13,991 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-22 03:41:13,992 - root - ERROR - 
+2025-01-22 03:41:13,992 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 27, in __init__
+2025-01-22 03:41:13,992 - root - ERROR -     self.user_state = docs_app_instance.user_state  # Access user_state from docs_app
+2025-01-22 03:41:13,992 - root - ERROR - ***************************************************
+2025-01-22 03:41:13,992 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-22 03:41:13,992 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-22 03:41:13,993 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-22 03:41:13,993 - root - ERROR - ***************************************************
+2025-01-22 03:42:16,171 - root - ERROR - Error running WSGI application
+2025-01-22 03:42:16,173 - root - ERROR - AttributeError: 'DocsApp' object has no attribute 'user_state'
+2025-01-22 03:42:16,173 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-22 03:42:16,174 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-22 03:42:16,174 - root - ERROR - 
+2025-01-22 03:42:16,174 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-22 03:42:16,174 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions)
+2025-01-22 03:42:16,174 - root - ERROR - 
+2025-01-22 03:42:16,175 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 27, in __init__
+2025-01-22 03:42:16,175 - root - ERROR -     self.user_state = docs_app_instance.user_state  # Access user_state from docs_app
+2025-01-22 03:42:16,175 - root - ERROR - ***************************************************
+2025-01-22 03:42:16,175 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-22 03:42:16,175 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-22 03:42:16,175 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-22 03:42:16,176 - root - ERROR - ***************************************************
+2025-01-22 03:44:37,790 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:44:37,807 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:44:37,839 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:44:46,679 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:44:46,691 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:44:46,705 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:51:54,605 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:51:54,618 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:51:54,650 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:56:15,847 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:56:15,860 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:56:15,877 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:59:26,762 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 03:59:26,782 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 03:59:26,811 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:01:37,223 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 04:01:37,240 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:01:37,275 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:03:51,359 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 04:03:51,372 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:03:52,022 - root - ERROR - Error running WSGI application
+2025-01-22 04:03:52,026 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 141
+2025-01-22 04:03:52,026 - root - ERROR - 
+2025-01-22 04:03:52,027 - root - ERROR -     media_url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/business/{document.get('id')}"  # Changed URL format
+2025-01-22 04:03:52,027 - root - ERROR - 
+2025-01-22 04:03:52,027 - root - ERROR - IndentationError: unexpected indent
+2025-01-22 04:03:52,027 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-22 04:03:52,028 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-22 04:03:52,028 - root - ERROR - 
+2025-01-22 04:03:52,028 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 14, in <module>
+2025-01-22 04:03:52,028 - root - ERROR -     from routes.handlers.whatsapp_handler import WhatsAppHandler
+2025-01-22 04:03:52,029 - root - ERROR - ***************************************************
+2025-01-22 04:03:52,029 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-22 04:03:52,029 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-22 04:03:52,030 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-22 04:03:52,030 - root - ERROR - ***************************************************
+2025-01-22 04:04:46,462 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 04:04:46,474 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:04:46,503 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:06:05,281 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 04:06:05,301 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:06:05,338 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:09:38,259 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 04:09:38,274 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:09:38,311 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 04:09:51,014 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
