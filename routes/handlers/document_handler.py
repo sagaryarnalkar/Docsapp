@@ -1,10 +1,14 @@
 import os
 import logging
+import json
 from datetime import datetime
 from twilio.rest import Client
 from config import (
     TEMP_DIR, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
 )
+from utils.text_extractor import extract_text
+from config import client  # Your DeepSeek configured client
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +17,9 @@ class DocumentHandler:
         self.docs_app = docs_app
         self.user_documents = user_documents
         self.client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        self.ds_client = client
+
+
 
     def list_documents(self, user_phone):
         """Handle list command"""
@@ -52,16 +59,16 @@ class DocumentHandler:
         try:
             selection = int(selection)
             matches = self.user_documents[user_phone]
-            
+
             if 1 <= selection <= len(matches):
                 _, file_id, filename = matches[selection-1]
                 file_data, content_type = self.docs_app.get_document(file_id, user_phone)
-                
+
                 if file_data:
                     # Create temporary file
                     temp_path = os.path.join(TEMP_DIR, filename)
                     logger.debug(f"Creating temporary file: {temp_path}")
-                    
+
                     with open(temp_path, 'wb') as f:
                         file_data.seek(0)
                         f.write(file_data.read())
@@ -69,20 +76,20 @@ class DocumentHandler:
                     # Send file through WhatsApp
                     media_url = f'https://sagary.pythonanywhere.com/temp/{filename}'
                     logger.debug(f"Sending media: {media_url}")
-                    
+
                     message = self.client.messages.create(
                         body=f"Here's your document: {filename}",
                         from_=TWILIO_WHATSAPP_NUMBER,
                         to=user_phone,
                         media_url=[media_url]
                     )
-                    
+
                     del self.user_documents[user_phone]
                     return "✅ Here's your document!"
-                    
+
                 return "❌ Error retrieving the document. Please try again."
             return "❌ Invalid selection. Please try your search again."
-            
+
         except Exception as e:
             logger.error(f"Error in handle_document_selection: {str(e)}")
             return "❌ An error occurred. Please try again."
@@ -91,9 +98,9 @@ class DocumentHandler:
         """Handle find command"""
         try:
             logger.debug(f"Processing find command with query: '{query}'")
-            
+
             file_data, filename, content_type, multiple_matches = self.docs_app.retrieve_document(user_phone, query)
-            
+
             if multiple_matches:
                 descriptions, matches = multiple_matches
                 self.user_documents[user_phone] = matches
@@ -101,19 +108,19 @@ class DocumentHandler:
                 response_text += "\n".join(descriptions)
                 response_text += "\n\nPlease reply with the number of the document you want."
                 return response_text
-                
+
             elif file_data:
                 # Create temporary file
                 temp_path = os.path.join(TEMP_DIR, filename)
                 logger.debug(f"Creating temporary file: {temp_path}")
-                
+
                 with open(temp_path, 'wb') as f:
                     file_data.seek(0)
                     f.write(file_data.read())
-                
+
                 # Send file through WhatsApp
                 media_url = f'https://sagary.pythonanywhere.com/temp/{filename}'
-                
+
                 message = self.client.messages.create(
                     body=f"Here's your document: {filename}",
                     from_=TWILIO_WHATSAPP_NUMBER,
@@ -121,9 +128,9 @@ class DocumentHandler:
                     media_url=[media_url]
                 )
                 return "✅ Here's your document!"
-                
+
             return "❌ Sorry, I couldn't find any documents matching your description."
-            
+
         except Exception as e:
             logger.error(f"Error in find_document: {str(e)}")
             return "❌ An error occurred while searching. Please try again."

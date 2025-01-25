@@ -1,0 +1,44 @@
+Looking in links: /usr/share/pip-wheels
+Collecting openai
+  Using cached openai-1.60.1-py3-none-any.whl (456 kB)
+Collecting python-dotenv
+  Downloading python_dotenv-1.0.1-py3-none-any.whl (19 kB)
+Collecting distro<2,>=1.7.0
+  Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+Collecting tqdm>4
+  Downloading tqdm-4.67.1-py3-none-any.whl (78 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.5/78.5 kB 2.4 MB/s eta 0:00:00
+Collecting jiter<1,>=0.4.0
+  Using cached jiter-0.8.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (345 kB)
+Collecting typing-extensions<5,>=4.11
+  Using cached typing_extensions-4.12.2-py3-none-any.whl (37 kB)
+Collecting pydantic<3,>=1.9.0
+  Downloading pydantic-2.10.6-py3-none-any.whl (431 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 431.7/431.7 kB 11.8 MB/s eta 0:00:00
+Collecting sniffio
+  Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+Collecting httpx<1,>=0.23.0
+  Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Collecting anyio<5,>=3.5.0
+  Downloading anyio-4.8.0-py3-none-any.whl (96 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 96.0/96.0 kB 2.8 MB/s eta 0:00:00
+Collecting exceptiongroup>=1.0.2
+  Downloading exceptiongroup-1.2.2-py3-none-any.whl (16 kB)
+Collecting idna>=2.8
+  Downloading idna-3.10-py3-none-any.whl (70 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 70.4/70.4 kB 2.3 MB/s eta 0:00:00
+Collecting httpcore==1.*
+  Using cached httpcore-1.0.7-py3-none-any.whl (78 kB)
+Collecting certifi
+  Downloading certifi-2024.12.14-py3-none-any.whl (164 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 164.9/164.9 kB 4.0 MB/s eta 0:00:00
+Collecting h11<0.15,>=0.13
+  Downloading h11-0.14.0-py3-none-any.whl (58 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 58.3/58.3 kB 2.0 MB/s eta 0:00:00
+Collecting annotated-types>=0.6.0
+  Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+Collecting pydantic-core==2.27.2
+  Downloading pydantic_core-2.27.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 36.9 MB/s eta 0:00:00
+Installing collected packages: typing-extensions, tqdm, sniffio, python-dotenv, jiter, idna, h11, exceptiongroup, distro, certifi, annotated-types, pydantic-core, httpcore, anyio, pydantic, httpx, openai
+Successfully installed annotated-types-0.7.0 anyio-4.8.0 certifi-2024.12.14 distro-1.9.0 exceptiongroup-1.2.2 h11-0.14.0 httpcore-1.0.7 httpx-0.28.1 idna-3.10 jiter-0.8.2 openai-1.60.1 pydantic-2.10.6 pydantic-core-2.27.2 python-dotenv-1.0.1 sniffio-1.3.1 tqdm-4.67.1 typing-extensions-4.12.2
