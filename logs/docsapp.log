@@ -3188,3 +3188,24 @@ NameError: name 'docs_app' is not defined
 2025-01-22 04:09:38,274 - models.docs_app - DEBUG - Documents database initialized successfully
 2025-01-22 04:09:38,311 - models.docs_app - DEBUG - Documents database initialized successfully
 2025-01-22 04:09:51,014 - googleapiclient.discovery_cache - INFO - file_cache is only supported with oauth2client<4.0.0
+2025-01-22 17:58:50,077 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-22 17:58:50,109 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-22 17:58:50,133 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-25 04:13:53,921 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-25 04:13:53,947 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-25 04:13:53,984 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-25 04:13:53,989 - root - ERROR - Error running WSGI application
+2025-01-25 04:13:53,996 - root - ERROR - NameError: name 'AuthHandler' is not defined
+2025-01-25 04:13:53,996 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-25 04:13:53,996 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-25 04:13:53,996 - root - ERROR - 
+2025-01-25 04:13:53,997 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-25 04:13:53,997 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
+2025-01-25 04:13:53,997 - root - ERROR - 
+2025-01-25 04:13:53,997 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 25, in __init__
+2025-01-25 04:13:53,997 - root - ERROR -     self.auth_handler = AuthHandler(self.user_state)
+2025-01-25 04:13:53,998 - root - ERROR - ***************************************************
+2025-01-25 04:13:53,998 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-25 04:13:53,998 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-25 04:13:53,998 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-25 04:13:53,998 - root - ERROR - ***************************************************
