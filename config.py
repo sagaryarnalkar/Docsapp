@@ -1,4 +1,5 @@
 import os
+from openai import OpenAI
 
 # Path configurations
 BASE_DIR = '/home/sagary/docsapp'
@@ -23,6 +24,12 @@ WHATSAPP_BUSINESS_ACCOUNT_ID = '563839283474834'
 # Google Drive API setup
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 OAUTH_REDIRECT_URI = 'https://sagary.pythonanywhere.com/oauth2callback'
+
+#Deepseek key - sk-54cd5e49a0a24fa6a9ff77c8a4ceb6f8
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL")
+)
 
 print("=== WhatsApp Configuration ===")
 print(f"Version: {WHATSAPP_API_VERSION}")

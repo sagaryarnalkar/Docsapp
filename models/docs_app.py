@@ -164,6 +164,10 @@ class DocsApp:
 
             print(f"File created in Drive with name: {file.get('name')}")
 
+             # Add these 2 lines after file upload
+            processor = DocProcessor(os.getenv("DEEPSEEK_API_KEY"))
+            embedding = processor.process_document(file_path)
+
             # Store in database using connection pool
             with self.db_pool.get_cursor() as cursor:
                 # First check if Google ID exists
@@ -185,16 +189,17 @@ class DocsApp:
                 cursor.execute('''
                     INSERT INTO documents (
                         google_id, phone_numbers, drive_file_id,
-                        folder_id, description, filename
+                        folder_id, description, filename, embedding
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     google_id,
-                    json.dumps([user_phone]),
-                    file.get('id'),
-                    folder_id,
-                    description,
-                    original_filename
+                    json.dumps([user_phone]),  # Original phone_numbers
+                    file.get('id'),            # drive_file_id
+                    folder_id,                 # Google Drive folder ID
+                    description,               # User-provided description
+                    original_filename,         # Original filename
+                    embedding                  # NEW: DeepSeek embedding
                 ))
 
             print(f"Document stored successfully with filename: {original_filename}")

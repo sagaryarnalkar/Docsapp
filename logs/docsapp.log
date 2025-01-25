@@ -3209,3 +3209,36 @@ NameError: name 'docs_app' is not defined
 2025-01-25 04:13:53,998 - root - ERROR - we have a dedicated help page to help you debug: 
 2025-01-25 04:13:53,998 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
 2025-01-25 04:13:53,998 - root - ERROR - ***************************************************
+2025-01-25 09:33:20,408 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-25 09:33:20,432 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-25 09:33:20,451 - models.docs_app - DEBUG - Documents database initialized successfully
+2025-01-25 09:33:20,456 - root - ERROR - Error running WSGI application
+2025-01-25 09:33:20,463 - root - ERROR - NameError: name 'AuthHandler' is not defined
+2025-01-25 09:33:20,464 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-25 09:33:20,464 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-25 09:33:20,464 - root - ERROR - 
+2025-01-25 09:33:20,464 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-25 09:33:20,465 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
+2025-01-25 09:33:20,465 - root - ERROR - 
+2025-01-25 09:33:20,465 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 25, in __init__
+2025-01-25 09:33:20,466 - root - ERROR -     self.auth_handler = AuthHandler(self.user_state)
+2025-01-25 09:33:20,466 - root - ERROR - ***************************************************
+2025-01-25 09:33:20,466 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-25 09:33:20,467 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-25 09:33:20,467 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-25 09:33:20,467 - root - ERROR - ***************************************************
+2025-01-25 10:23:15,618 - root - ERROR - Error running WSGI application
+2025-01-25 10:23:15,621 - root - ERROR - NameError: name 'AuthHandler' is not defined
+2025-01-25 10:23:15,621 - root - ERROR -   File "/var/www/sagary_pythonanywhere_com_wsgi.py", line 13, in <module>
+2025-01-25 10:23:15,621 - root - ERROR -     from app import app as application  # This should match how you've structured your Flask app
+2025-01-25 10:23:15,621 - root - ERROR - 
+2025-01-25 10:23:15,622 - root - ERROR -   File "/home/sagary/docsapp/app.py", line 64, in <module>
+2025-01-25 10:23:15,622 - root - ERROR -     whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
+2025-01-25 10:23:15,622 - root - ERROR - 
+2025-01-25 10:23:15,622 - root - ERROR -   File "/home/sagary/docsapp/routes/handlers/whatsapp_handler.py", line 25, in __init__
+2025-01-25 10:23:15,623 - root - ERROR -     self.auth_handler = AuthHandler(self.user_state)
+2025-01-25 10:23:15,623 - root - ERROR - ***************************************************
+2025-01-25 10:23:15,623 - root - ERROR - If you're seeing an import error and don't know why,
+2025-01-25 10:23:15,624 - root - ERROR - we have a dedicated help page to help you debug: 
+2025-01-25 10:23:15,624 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
+2025-01-25 10:23:15,625 - root - ERROR - ***************************************************
