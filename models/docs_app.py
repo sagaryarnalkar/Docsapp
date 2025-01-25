@@ -32,11 +32,11 @@ class DocsApp:
                     filename TEXT NOT NULL,
                     upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )''')
-                
+
                 # Add indexes for better performance
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_phone ON documents(user_phone)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_upload_date ON documents(upload_date)')
-                
+
             logger.debug("Documents database initialized successfully")
         except Exception as e:
             logger.error(f"Error initializing database: {str(e)}")
@@ -117,6 +117,15 @@ class DocsApp:
                 print("Failed to get drive service")
                 return False
 
+            # Get Google account info
+            try:
+                user_info = drive_service.about().get(fields="user").execute()
+                google_id = user_info['user']['emailAddress']
+                print(f"Google Account ID: {google_id}")
+            except Exception as e:
+                print(f"Error getting Google account info: {str(e)}")
+                return False
+
             folder_id = self.get_or_create_app_folder(drive_service, user_phone)
             if not folder_id:
                 print("Failed to get or create app folder")
@@ -157,10 +166,36 @@ class DocsApp:
 
             # Store in database using connection pool
             with self.db_pool.get_cursor() as cursor:
+                # First check if Google ID exists
+                cursor.execute('SELECT id, phone_numbers FROM documents WHERE google_id = ? LIMIT 1', (google_id,))
+                existing_user = cursor.fetchone()
+
+                if existing_user:
+                    # Update phone numbers for existing user
+                    existing_phones = json.loads(existing_user[1]) if existing_user[1] else []
+                    if user_phone not in existing_phones:
+                        existing_phones.append(user_phone)
+                        cursor.execute(
+                            'UPDATE documents SET phone_numbers = ? WHERE google_id = ?',
+                            (json.dumps(existing_phones), google_id)
+                        )
+                        print(f"Updated phone numbers for Google ID: {existing_phones}")
+
+                # Insert new document
                 cursor.execute('''
-                    INSERT INTO documents (user_phone, drive_file_id, folder_id, description, filename)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (user_phone, file.get('id'), folder_id, description, original_filename))
+                    INSERT INTO documents (
+                        google_id, phone_numbers, drive_file_id,
+                        folder_id, description, filename
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    google_id,
+                    json.dumps([user_phone]),
+                    file.get('id'),
+                    folder_id,
+                    description,
+                    original_filename
+                ))
 
             print(f"Document stored successfully with filename: {original_filename}")
             return True
@@ -312,14 +347,58 @@ class DocsApp:
             logger.error(f"Error in delete_document: {str(e)}")
             return False
 
+    def update_user_phone(self, google_id, new_phone):
+        """Add new phone number to user's record"""
+        try:
+            print(f"\n=== UPDATING USER PHONE ===")
+            print(f"Google ID: {google_id}")
+            print(f"New Phone: {new_phone}")
+
+            with self.db_pool.get_cursor() as cursor:
+                # Get existing phone numbers
+                cursor.execute(
+                    'SELECT phone_numbers FROM documents WHERE google_id = ?',
+                    (google_id,)
+                )
+                result = cursor.fetchone()
+
+                if result:
+                    phones = json.loads(result[0]) if result[0] else []
+                    if new_phone not in phones:
+                        phones.append(new_phone)
+                        cursor.execute(
+                            'UPDATE documents SET phone_numbers = ? WHERE google_id = ?',
+                            (json.dumps(phones), google_id)
+                        )
+                        print(f"Updated phone numbers: {phones}")
+                        return True
+                    else:
+                        print(f"Phone number {new_phone} already exists for this account")
+                        return True
+                else:
+                    print(f"No documents found for Google ID: {google_id}")
+                    return False
+
+        except Exception as e:
+            print(f"Error updating user phone: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return False
+
     def retrieve_document(self, user_phone, query):
         """Search and retrieve document"""
         try:
-            with self.db_pool.get_cursor() as cursor:
-                cursor.execute(
-                    'SELECT id, drive_file_id, filename, description FROM documents WHERE user_phone = ?', 
-                    (user_phone,)
-                )
+            # First get Google ID from current phone
+                drive_service = self.get_drive_service(user_phone)
+                user_info = drive_service.about().get(fields="user").execute()
+                google_id = user_info['user']['emailAddress']
+
+                # Then search using Google ID
+                with self.db_pool.get_cursor() as cursor:
+                    cursor.execute(
+                        'SELECT id, drive_file_id, filename, description FROM documents WHERE google_id = ?',
+                        (google_id,)
+                    )
                 documents = cursor.fetchall()
 
                 if not documents:
