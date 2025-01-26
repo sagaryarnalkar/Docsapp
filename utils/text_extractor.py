@@ -1,17 +1,35 @@
-# utils/text_extractor.py
-import PyPDF2
-import docx
-import pytesseract
-from PIL import Image
+from docling.models.tesseract_ocr_model import TesseractOcrModel
+from docling.models.layout_model import LayoutModel
+from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+from docling.datamodel.pipeline_options import PdfPipelineOptions
 
-def extract_text(file_path):
-    if file_path.endswith('.pdf'):
-        with open(file_path, 'rb') as f:
-            return " ".join([page.extract_text() for page in PyPDF2.PdfReader(f).pages])
-    elif file_path.endswith(('.docx', '.doc')):
-        return " ".join([p.text for p in docx.Document(file_path).paragraphs])
-    elif file_path.endswith(('.png', '.jpg', '.jpeg')):
-        return pytesseract.image_to_string(Image.open(file_path))
-    else:
-        with open(file_path, 'r') as f:
-            return f.read()
+# Manually initialize models (modify paths if needed)
+ocr_model = TesseractOcrModel(model_path="/home/sagary/docsapp/models/tesseract/")
+layout_model = LayoutModel(model_path="/home/sagary/docsapp/models/layout/")
+
+# Configure pipeline options
+pipeline_options = PdfPipelineOptions(
+    generate_page_images=False,  # Prevent unnecessary image processing
+    extract_tables=True,  # Enable table extraction
+    ocr_enabled=True  # Enable OCR if needed
+)
+
+# Initialize pipeline with correct options
+pipeline = StandardPdfPipeline(pipeline_options)
+
+
+
+
+
+def extract_text_from_file(file_path):
+    """
+    Extracts structured text from a document using Docling.
+    Handles PDF, DOCX, and images with OCR.
+    """
+    try:
+        with open(file_path, "rb") as file:
+            extracted_text = pipeline.run(file)
+        return extracted_text.strip()
+    except Exception as e:
+        print(f"Error extracting text: {e}")
+        return None  # Fallback mechanism in case of failure

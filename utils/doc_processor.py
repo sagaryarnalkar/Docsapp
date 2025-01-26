@@ -1,28 +1,20 @@
-# utils/doc_processor.py
+import requests
 import json
-from openai import OpenAI
-from .text_extractor import extract_text
 
-class DocProcessor:
-    def __init__(self, api_key):
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.deepseek.com/v1"
-        )
+DEEPSEEK_R1_API = "https://api.deepseek.com/generate_embedding"
+DEEPSEEK_API_KEY = "sk-54cd5e49a0a24fa6a9ff77c8a4ceb6f8"
 
-    def process_document(self, file_path):
-        """Main processing method to be called from existing code"""
-        try:
-            text = extract_text(file_path)
-            return self._generate_embeddings(text[:3000])
-        except Exception as e:
-            print(f"Document processing failed: {str(e)}")
-            return None
+def generate_document_embedding(text):
+    """
+    Calls DeepSeek R1 API to generate a semantic embedding vector.
+    """
+    payload = {"text": text[:3000]}  # Truncate to avoid extra API cost
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
 
-    def _generate_embeddings(self, text):
-        """Generate embeddings using DeepSeek"""
-        response = self.client.embeddings.create(
-            input=text,
-            model="deepseek-text-embedding"
-        )
-        return json.dumps(response.data[0].embedding)
+    response = requests.post(DEEPSEEK_R1_API, json=payload, headers=headers)
+
+    if response.status_code == 200:
+        return json.dumps(response.json().get("embedding", []))
+    else:
+        print(f"❌ DeepSeek API Error: {response.text}")
+        return None
