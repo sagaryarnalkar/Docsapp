@@ -4,9 +4,9 @@ import io
 import logging
 import mimetypes
 from datetime import datetime
-from oauth2client.client import OAuth2Credentials
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from sklearn.metrics.pairwise import cosine_similarity
