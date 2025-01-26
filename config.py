@@ -1,32 +1,32 @@
 import os
 
-# Use Render's writable directory for temporary files
+# Directory Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.getenv('TEMP_DIR', '/tmp/docsapp')
 LOGS_DIR = os.getenv('LOGS_DIR', '/tmp/docsapp/logs')
 DATA_DIR = os.getenv('DATA_DIR', '/tmp/docsapp/data')
 DB_DIR = os.getenv('DB_DIR', '/tmp/docsapp/db')
 
+# WhatsApp Configuration
+WHATSAPP_API_VERSION = os.getenv('WHATSAPP_API_VERSION', 'v17.0')
+WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN')
+WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
+
+# Google OAuth Configuration
+SCOPES = [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.metadata.readonly'
+]
+
 # Create necessary directories
-os.makedirs(TEMP_DIR, exist_ok=True)
-os.makedirs(LOGS_DIR, exist_ok=True)
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(DB_DIR, exist_ok=True)
+for directory in [TEMP_DIR, LOGS_DIR, DATA_DIR, DB_DIR]:
+    os.makedirs(directory, exist_ok=True)
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = 'ACc02f635df0f15ee3e7f85279cf406b4c'
 TWILIO_AUTH_TOKEN = 'b176c8500f7189f0555c0359c9b11bfe'
 TWILIO_WHATSAPP_NUMBER = 'whatsapp:+14155238886'
-
-# WhatsApp API Configuration
-WHATSAPP_API_VERSION = 'v17.0'
-WHATSAPP_PHONE_NUMBER_ID = '571053722749385'
-WHATSAPP_ACCESS_TOKEN = 'EAAQDY035EjEBO9EgDWB4Um2ZBtMRxbb6mAtCnN3hBmuu6oUZA2ZCWRMqpi34kwhLRoWvS1x2ykKut8aYIWajoDlO3BvNUORu4QBEvMTDfZA5BIQjD19xZAgvS3psKU81nsJM8U0Na3BkMZAc8s4FDybqoZAPM00zFIZAkqeppm3GC2W6rHQwHWvp5y2QZCDK8Jc0EOk3PKXb3GNHAPtrfqBIUuMBx'
-WHATSAPP_BUSINESS_ACCOUNT_ID = '563839283474834'
-
-# Google Drive API setup
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
-OAUTH_REDIRECT_URI = 'https://sagary.pythonanywhere.com/oauth2callback'
 
 print("=== WhatsApp Configuration ===")
 print(f"Version: {WHATSAPP_API_VERSION}")
