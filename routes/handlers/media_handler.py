@@ -2,7 +2,7 @@ import os
 import requests
 import mimetypes
 from datetime import datetime
-from twilio.rest import Client
+#from twilio.rest import Client
 from config import TEMP_DIR, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
 
 class MediaHandler:

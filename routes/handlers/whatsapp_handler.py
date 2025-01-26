@@ -4,8 +4,8 @@ import json
 import logging
 import os
 from config import (
-    WHATSAPP_ACCESS_TOKEN, 
-    WHATSAPP_PHONE_NUMBER_ID, 
+    WHATSAPP_ACCESS_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_API_VERSION,
     TEMP_DIR
 )
@@ -28,11 +28,11 @@ class WhatsAppHandler:
         """Send a regular text message"""
         try:
             url = f'{self.base_url}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
-            
+
             print("\n=== Sending WhatsApp Message ===")
             print(f"URL: {url}")
             print(f"Headers: {self.headers}")
-            
+
             data = {
                 'messaging_product': 'whatsapp',
                 'to': to_phone,
@@ -40,13 +40,13 @@ class WhatsAppHandler:
                 'text': {'body': message}
             }
             print(f"Request Data: {json.dumps(data, indent=2)}")
-            
+
             response = requests.post(url, headers=self.headers, json=data)
             print(f"Response Status: {response.status_code}")
             print(f"Response Body: {response.text}")
-            
+
             return response.status_code == 200
-                
+
         except Exception as e:
             print(f"Error sending text message: {str(e)}")
             import traceback
@@ -105,38 +105,38 @@ class WhatsAppHandler:
         try:
             debug_info.append("=== Document Processing Started ===")
             debug_info.append(f"Document details: {json.dumps(document, indent=2)}")
-            
+
             # Handle replies to documents (for adding descriptions)
             if message and 'context' in message:
                 context = message.get('context', {})
                 quoted_msg_id = context.get('id')
                 debug_info.append(f"Found reply context. Quoted message ID: {quoted_msg_id}")
-                
+
                 if quoted_msg_id:
                     description = message.get('text', {}).get('body', '')
                     debug_info.append(f"Adding description from reply: {description}")
                     result = self.docs_app.update_document_description(from_number, quoted_msg_id, description)
                     if result:
                         self.send_text_message(
-                            from_number, 
+                            from_number,
                             f"✅ Added description to document: {description}\n\n" +
                             "You can keep adding more descriptions to make the document easier to find!"
                         )
                     else:
                         self.send_text_message(
-                            from_number, 
+                            from_number,
                             f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info)
                         )
                     return "Description updated", 200
-            
+
             # First check if user is authorized
             is_authorized = self.user_state.is_authorized(from_number)
             debug_info.append(f"User authorization status: {is_authorized}")
-            
+
             if not is_authorized:
                 auth_response = self.auth_handler.handle_authorization(from_number)
                 debug_info.append(f"Auth Response: {auth_response}")
-                
+
                 import re
                 url_match = re.search(r'(https://accounts\.google\.com/[^\s]+)', auth_response)
                 if url_match:
@@ -164,7 +164,7 @@ class WhatsAppHandler:
             if message and message.get('caption'):
                 description = message.get('caption')
                 debug_info.append(f"Using caption as initial description: {description}")
-            
+
             # Get media URL first
             media_request_url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{doc_id}"
             headers = {
@@ -185,23 +185,23 @@ class WhatsAppHandler:
                     media_data = media_response.json()
                     download_url = media_data.get('url')
                     debug_info.append(f"Got download URL: {download_url}")
-                    
+
                     if download_url:
                         # Now download the actual file
                         file_response = requests.get(download_url, headers=headers)
                         debug_info.append(f"File Download Status: {file_response.status_code}")
-                        
+
                         if file_response.status_code == 200:
                             temp_path = os.path.join(TEMP_DIR, filename)
                             with open(temp_path, 'wb') as f:
                                 f.write(file_response.content)
-                            
+
                             debug_info.append(f"File saved to: {temp_path}")
-                            
+
                             # Store in Drive with description
                             store_result = self.docs_app.store_document(from_number, temp_path, description, filename)
                             debug_info.append(f"Store document result: {store_result}")
-                            
+
                             if store_result:
                                 debug_info.append("Document stored successfully")
                                 response_message = (
@@ -217,7 +217,7 @@ class WhatsAppHandler:
                                     from_number,
                                     f"❌ Error storing document. Debug Info:\n" + "\n".join(debug_info)
                                 )
-                            
+
                             if os.path.exists(temp_path):
                                 os.remove(temp_path)
                                 debug_info.append("Temp file cleaned up")
@@ -276,7 +276,7 @@ class WhatsAppHandler:
 - 'find <text>' to search documents
 - 'help' to see this message"""
                 self.send_text_message(from_number, help_message)
-                
+
             elif command == 'list':
                 # Use your existing docs_app to list documents
                 document_list, _ = self.docs_app.list_documents(from_number)
@@ -285,7 +285,10 @@ class WhatsAppHandler:
                 else:
                     message = "You don't have any stored documents."
                 self.send_text_message(from_number, message)
-                
+            elif command.startswith('/ask '):
+                query = command[5:].strip()
+                results = self.retrieve_document(user_phone, query)
+                return self.send_results_to_user(results)
             elif command.startswith('find '):
                 query = command[5:].strip()
                 # Use your existing retrieve_document method
@@ -295,7 +298,7 @@ class WhatsAppHandler:
                     self.send_text_message(from_number, "Found matching documents!")
                 else:
                     self.send_text_message(from_number, "No documents found matching your query.")
-            
+
             else:
                 self.send_text_message(
                     from_number,

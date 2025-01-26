@@ -3242,3 +3242,104 @@ NameError: name 'docs_app' is not defined
 2025-01-25 10:23:15,624 - root - ERROR - we have a dedicated help page to help you debug: 
 2025-01-25 10:23:15,624 - root - ERROR - https://help.pythonanywhere.com/pages/DebuggingImportError/
 2025-01-25 10:23:15,625 - root - ERROR - ***************************************************
+2025-01-25 17:02:11,039 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-25 17:09:53,344 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-25 17:25:04,359 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-25 17:31:53,818 - utils.logger - DEBUG - Logger initialized successfully
+2025-01-25 17:44:46,122 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,162 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/ds4sd/docling-models/revision/v2.1.0 HTTP/1.1" 200 1264
+2025-01-25 17:44:46,184 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,186 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,188 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,189 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,192 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,198 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,199 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,204 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:44:46,219 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/README.md HTTP/1.1" 200 0
+2025-01-25 17:44:46,221 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/.gitattributes HTTP/1.1" 200 0
+2025-01-25 17:44:46,224 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/layout/config.json HTTP/1.1" 200 0
+2025-01-25 17:44:46,225 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/config.json HTTP/1.1" 200 0
+2025-01-25 17:44:46,226 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/layout/model.safetensors HTTP/1.1" 302 0
+2025-01-25 17:44:46,227 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/.gitignore HTTP/1.1" 200 0
+2025-01-25 17:44:46,232 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/accurate/tableformer_accurate.safetensors HTTP/1.1" 302 0
+2025-01-25 17:44:46,234 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/layout/preprocessor_config.json HTTP/1.1" 200 0
+2025-01-25 17:44:46,238 - filelock - DEBUG - Attempting to acquire lock 128665094740224 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/7008c0269fece2af4ca4d79d116cf5a783178e58.lock
+2025-01-25 17:44:46,238 - filelock - DEBUG - Attempting to acquire lock 128665094742432 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/9430eb3c89847aa8f80af5c96df3c348fca6da63.lock
+2025-01-25 17:44:46,238 - filelock - DEBUG - Attempting to acquire lock 128665093405808 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/4dc84c9101238bb955158144660155da99438490.lock
+2025-01-25 17:44:46,238 - filelock - DEBUG - Attempting to acquire lock 128665093402592 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d24c213cfa3d55cc4a301f415b54a19e7ce104cc.lock
+2025-01-25 17:44:46,239 - filelock - DEBUG - Attempting to acquire lock 128665093403888 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/575b058b45230d48a06df9b1944f4bd40949db1d.lock
+2025-01-25 17:44:46,239 - filelock - DEBUG - Attempting to acquire lock 128665093403216 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:44:46,239 - filelock - DEBUG - Attempting to acquire lock 128665093405616 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/fcdff16b42e5ebc51d28f59184490c6eff91a88b.lock
+2025-01-25 17:44:46,245 - filelock - DEBUG - Attempting to acquire lock 128665093405040 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665094740224 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/7008c0269fece2af4ca4d79d116cf5a783178e58.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665093405616 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/fcdff16b42e5ebc51d28f59184490c6eff91a88b.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665093405808 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/4dc84c9101238bb955158144660155da99438490.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665093402592 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d24c213cfa3d55cc4a301f415b54a19e7ce104cc.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665093403216 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665093403888 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/575b058b45230d48a06df9b1944f4bd40949db1d.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665094742432 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/9430eb3c89847aa8f80af5c96df3c348fca6da63.lock
+2025-01-25 17:44:46,323 - filelock - DEBUG - Lock 128665093405040 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:44:46,348 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): cdn-lfs-us-1.hf.co:443
+2025-01-25 17:44:46,350 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/README.md HTTP/1.1" 200 3486
+2025-01-25 17:44:46,354 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): cdn-lfs-us-1.hf.co:443
+2025-01-25 17:44:46,355 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/layout/preprocessor_config.json HTTP/1.1" 200 444
+2025-01-25 17:44:46,356 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/config.json HTTP/1.1" 200 41
+2025-01-25 17:44:46,357 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/.gitattributes HTTP/1.1" 200 1905
+2025-01-25 17:44:46,358 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/.gitignore HTTP/1.1" 200 5180
+2025-01-25 17:44:46,357 - filelock - DEBUG - Attempting to release lock 128665093405040 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:44:46,361 - filelock - DEBUG - Lock 128665093405040 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:44:46,362 - filelock - DEBUG - Attempting to release lock 128665093403216 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:44:46,366 - filelock - DEBUG - Lock 128665093403216 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:44:46,383 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/accurate/tm_config.json HTTP/1.1" 200 0
+2025-01-25 17:44:46,391 - filelock - DEBUG - Attempting to release lock 128665093403888 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/575b058b45230d48a06df9b1944f4bd40949db1d.lock
+2025-01-25 17:44:46,391 - filelock - DEBUG - Lock 128665093403888 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/575b058b45230d48a06df9b1944f4bd40949db1d.lock
+2025-01-25 17:44:46,395 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/layout/config.json HTTP/1.1" 200 2864
+2025-01-25 17:44:46,398 - filelock - DEBUG - Attempting to acquire lock 128665093404032 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/5036aa114b9393f607440cb0f6cc54229b5b30e1.lock
+2025-01-25 17:44:46,399 - filelock - DEBUG - Attempting to release lock 128665093405616 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/fcdff16b42e5ebc51d28f59184490c6eff91a88b.lock
+2025-01-25 17:44:46,400 - filelock - DEBUG - Lock 128665093405616 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/fcdff16b42e5ebc51d28f59184490c6eff91a88b.lock
+2025-01-25 17:44:46,402 - filelock - DEBUG - Attempting to release lock 128665093405808 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/4dc84c9101238bb955158144660155da99438490.lock
+2025-01-25 17:44:46,402 - filelock - DEBUG - Lock 128665093405808 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/4dc84c9101238bb955158144660155da99438490.lock
+2025-01-25 17:44:46,406 - filelock - DEBUG - Lock 128665093404032 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/5036aa114b9393f607440cb0f6cc54229b5b30e1.lock
+2025-01-25 17:44:46,408 - filelock - DEBUG - Attempting to release lock 128665094742432 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/9430eb3c89847aa8f80af5c96df3c348fca6da63.lock
+2025-01-25 17:44:46,408 - filelock - DEBUG - Lock 128665094742432 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/9430eb3c89847aa8f80af5c96df3c348fca6da63.lock
+2025-01-25 17:44:46,421 - filelock - DEBUG - Attempting to release lock 128665094740224 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/7008c0269fece2af4ca4d79d116cf5a783178e58.lock
+2025-01-25 17:44:46,421 - filelock - DEBUG - Attempting to release lock 128665093402592 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d24c213cfa3d55cc4a301f415b54a19e7ce104cc.lock
+2025-01-25 17:44:46,421 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/fast/tableformer_fast.safetensors HTTP/1.1" 302 0
+2025-01-25 17:44:46,421 - filelock - DEBUG - Lock 128665094740224 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/7008c0269fece2af4ca4d79d116cf5a783178e58.lock
+2025-01-25 17:44:46,423 - filelock - DEBUG - Lock 128665093402592 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d24c213cfa3d55cc4a301f415b54a19e7ce104cc.lock
+2025-01-25 17:44:46,425 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/accurate/tm_config.json HTTP/1.1" 200 7060
+2025-01-25 17:44:46,428 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/fast/tm_config.json HTTP/1.1" 200 0
+2025-01-25 17:44:46,429 - filelock - DEBUG - Attempting to acquire lock 128665094743248 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:44:46,430 - filelock - DEBUG - Attempting to acquire lock 128665094739072 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d02c5889d288b8baefd42e9e4da094f0cea07bbe.lock
+2025-01-25 17:44:46,438 - filelock - DEBUG - Lock 128665094743248 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:44:46,442 - filelock - DEBUG - Lock 128665094739072 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d02c5889d288b8baefd42e9e4da094f0cea07bbe.lock
+2025-01-25 17:44:46,444 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (2): cdn-lfs-us-1.hf.co:443
+2025-01-25 17:44:46,445 - filelock - DEBUG - Attempting to release lock 128665094743248 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:44:46,445 - filelock - DEBUG - Lock 128665094743248 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:44:46,451 - filelock - DEBUG - Attempting to release lock 128665093404032 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/5036aa114b9393f607440cb0f6cc54229b5b30e1.lock
+2025-01-25 17:44:46,452 - filelock - DEBUG - Lock 128665093404032 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/5036aa114b9393f607440cb0f6cc54229b5b30e1.lock
+2025-01-25 17:44:46,467 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/fast/tm_config.json HTTP/1.1" 200 7060
+2025-01-25 17:44:46,482 - filelock - DEBUG - Attempting to release lock 128665094739072 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d02c5889d288b8baefd42e9e4da094f0cea07bbe.lock
+2025-01-25 17:44:46,482 - filelock - DEBUG - Lock 128665094739072 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/d02c5889d288b8baefd42e9e4da094f0cea07bbe.lock
+2025-01-25 17:45:51,200 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/ds4sd/docling-models/revision/v2.1.0 HTTP/1.1" 200 1264
+2025-01-25 17:45:51,213 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-01-25 17:45:51,235 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/fast/tableformer_fast.safetensors HTTP/1.1" 302 0
+2025-01-25 17:45:51,237 - filelock - DEBUG - Attempting to acquire lock 128665093397120 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:45:51,239 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/tableformer/accurate/tableformer_accurate.safetensors HTTP/1.1" 302 0
+2025-01-25 17:45:51,241 - filelock - DEBUG - Attempting to acquire lock 128665093477408 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:45:51,242 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /ds4sd/docling-models/resolve/36bebf56681740529abd09f5473a93a69373fbf0/model_artifacts/layout/model.safetensors HTTP/1.1" 302 0
+2025-01-25 17:45:51,243 - filelock - DEBUG - Lock 128665093397120 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:45:51,245 - filelock - DEBUG - Attempting to acquire lock 128665093482736 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:45:51,247 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (2): cdn-lfs-us-1.hf.co:443
+2025-01-25 17:45:51,248 - filelock - DEBUG - Lock 128665093477408 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:45:51,248 - filelock - DEBUG - Attempting to release lock 128665093397120 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:45:51,249 - filelock - DEBUG - Lock 128665093397120 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/3119563aab5a7c96fda4d621119b63fd8806272b86c30936d15507616422f718.lock
+2025-01-25 17:45:51,251 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): cdn-lfs-us-1.hf.co:443
+2025-01-25 17:45:51,253 - filelock - DEBUG - Attempting to release lock 128665093477408 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:45:51,253 - filelock - DEBUG - Lock 128665093477408 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/66d8912f290375d3466f91be2048030a16317e84c8f1f69d3dbd7adc6d6cd2a9.lock
+2025-01-25 17:45:51,254 - filelock - DEBUG - Lock 128665093482736 acquired on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:45:51,257 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): cdn-lfs-us-1.hf.co:443
+2025-01-25 17:45:51,258 - filelock - DEBUG - Attempting to release lock 128665093482736 on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:45:51,258 - filelock - DEBUG - Lock 128665093482736 released on /home/sagary/.cache/huggingface/hub/.locks/models--ds4sd--docling-models/31e60b4709571b613bc8736a9c982fb550d8d7a1809160a68a8282af60c8910b.lock
+2025-01-25 17:56:59,927 - utils.logger - DEBUG - Logger initialized successfully

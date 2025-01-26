@@ -10,6 +10,8 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from config import DB_DIR, SCOPES
 from models.user_state import UserState
 from models.database import DatabasePool
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 logger = logging.getLogger(__name__)
 user_state = UserState()
@@ -41,6 +43,16 @@ class DocsApp:
         except Exception as e:
             logger.error(f"Error initializing database: {str(e)}")
             raise
+
+    def cosine_similarity_score(query_vector, stored_vector):
+        """
+        Computes cosine similarity between query and stored document embedding.
+        """
+        if not stored_vector:
+            return 0  # No embedding, skip
+        query_vector = np.array(json.loads(query_vector)).reshape(1, -1)
+        stored_vector = np.array(json.loads(stored_vector)).reshape(1, -1)
+        return cosine_similarity(query_vector, stored_vector)[0][0]
 
     def calculate_similarity(self, text1, text2):
         """Calculate similarity between two texts"""
@@ -165,6 +177,7 @@ class DocsApp:
             print(f"File created in Drive with name: {file.get('name')}")
 
              # Add these 2 lines after file upload
+
             processor = DocProcessor(os.getenv("DEEPSEEK_API_KEY"))
             embedding = processor.process_document(file_path)
 
@@ -185,7 +198,18 @@ class DocsApp:
                         )
                         print(f"Updated phone numbers for Google ID: {existing_phones}")
 
+                text_content = extract_text_from_file(file_path)
+                embedding_vector = generate_document_embedding(text_content) if text_content else None
+
+                cursor.execute("""
+                    INSERT INTO documents (google_id, phone_numbers, drive_file_id,
+                    folder_id, description, filename, embedding)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (google_id, json.dumps([user_phone]), file_id, folder_id,
+                      description, original_filename, embedding_vector))
+
                 # Insert new document
+                """
                 cursor.execute('''
                     INSERT INTO documents (
                         google_id, phone_numbers, drive_file_id,
@@ -201,6 +225,7 @@ class DocsApp:
                     original_filename,         # Original filename
                     embedding                  # NEW: DeepSeek embedding
                 ))
+                """
 
             print(f"Document stored successfully with filename: {original_filename}")
             return True
@@ -391,6 +416,43 @@ class DocsApp:
             return False
 
     def retrieve_document(self, user_phone, query):
+        """
+        Hybrid search: combines text match + embedding similarity.
+        """
+        query_embedding = generate_document_embedding(query)  # Convert query into vector
+        query_words = query.lower().split()
+
+        documents = cursor.execute("""
+            SELECT id, filename, description, embedding, drive_file_id
+            FROM documents
+        """).fetchall()
+
+        results = []
+        for doc in documents:
+            doc_id, filename, description, embedding, file_id = doc
+            score = 0
+
+            # Text-based search
+            if any(word in filename.lower() for word in query_words):
+                score += 0.5
+            if any(word in description.lower() for word in query_words):
+                score += 0.3
+
+            # Embedding similarity (if available)
+            if embedding and query_embedding:
+                similarity = cosine_similarity_score(query_embedding, embedding)
+                score += similarity  # Directly add cosine similarity score
+
+            results.append((file_id, filename, description, score))
+
+        results = sorted(results, key=lambda x: x[3], reverse=True)[:5]  # Top 5 results
+
+        if results:
+            return results
+        return "No relevant documents found."
+
+"""
+    def retrieve_document(self, user_phone, query):
         """Search and retrieve document"""
         try:
             # First get Google ID from current phone
@@ -462,3 +524,4 @@ class DocsApp:
         except Exception as e:
             logger.error(f"Error retrieving document: {str(e)}")
             return None, None, None, None
+"""

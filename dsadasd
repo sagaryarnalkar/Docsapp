@@ -1,0 +1,51 @@
+Help on class StandardPdfPipeline in module docling.pipeline.standard_pdf_pipeline:
+
+class SSttaannddaarrddPPddffPPiippeelliinnee(docling.pipeline.base_pipeline.PaginatedPipeline)
+ |  StandardPdfPipeline(pipeline_options: docling.datamodel.pipeline_options.PdfPipelineOptions)
+ |  
+ |  Method resolution order:
+ |      StandardPdfPipeline
+ |      docling.pipeline.base_pipeline.PaginatedPipeline
+ |      docling.pipeline.base_pipeline.BasePipeline
+ |      abc.ABC
+ |      builtins.object
+ |  
+ |  Methods defined here:
+ |  
+ |  ____iinniitt____(self, pipeline_options: docling.datamodel.pipeline_options.PdfPipelineOptions)
+ |      Initialize self.  See help(type(self)) for accurate signature.
+ |  
+ |  ggeett__ooccrr__mmooddeell(self) -> Optional[docling.models.base_ocr_model.BaseOcrModel]
+ |  
+ |  iinniittiiaalliizzee__ppaaggee(self, conv_res: docling.datamodel.document.ConversionResult, page: docling.datamodel.base_models.Page) -> docling.datamodel.base_models.Page
+ |  
+ |  ----------------------------------------------------------------------
+ |  Class methods defined here:
+ |  
+ |  ggeett__ddeeffaauulltt__ooppttiioonnss() -> docling.datamodel.pipeline_options.PdfPipelineOptions from abc.ABCMeta
+ |  
+ |  iiss__bbaacckkeenndd__ssuuppppoorrtteedd(backend: docling.backend.abstract_backend.AbstractDocumentBackend) from abc.ABCMeta
+ |  
+ |  ----------------------------------------------------------------------
+ |  Static methods defined here:
+ |  
+ |  ddoowwnnllooaadd__mmooddeellss__hhff(local_dir: Optional[pathlib.Path] = None, force: bool = False) -> pathlib.Path
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  ____aabbssttrraaccttmmeetthhooddss____ = frozenset()
+ |  
+ |  ----------------------------------------------------------------------
+ |  Methods inherited from docling.pipeline.base_pipeline.BasePipeline:
+ |  
+ |  eexxeeccuuttee(self, in_doc: docling.datamodel.document.InputDocument, raises_on_error: bool) -> docling.datamodel.document.ConversionResult
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors inherited from docling.pipeline.base_pipeline.BasePipeline:
+ |  
+ |  ____ddiicctt____
+ |      dictionary for instance variables (if defined)
+ |  
+ |  ____wweeaakkrreeff____
+ |      list of weak references to the object (if defined)
