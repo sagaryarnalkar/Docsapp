@@ -3,3 +3,11 @@ config.py
 users.db
 documents.db
 debug.log
+__pycache__/
+*.pyc
+.env
+venv/
+.DS_Store
+logs/
+temp/
+data/
