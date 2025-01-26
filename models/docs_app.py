@@ -9,11 +9,11 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 from config import DB_DIR, SCOPES
 from models.user_state import UserState
 from models.database import DatabasePool
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 
 logger = logging.getLogger(__name__)
 user_state = UserState()
