@@ -4,7 +4,9 @@ import io
 import logging
 import mimetypes
 from datetime import datetime
-from google.auth.transport.requests import Request
+from oauth2client.client import OAuth2Credentials
+from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from config import DB_DIR, SCOPES
@@ -176,11 +178,6 @@ class DocsApp:
 
             print(f"File created in Drive with name: {file.get('name')}")
 
-             # Add these 2 lines after file upload
-
-            processor = DocProcessor(os.getenv("DEEPSEEK_API_KEY"))
-            embedding = processor.process_document(file_path)
-
             # Store in database using connection pool
             with self.db_pool.get_cursor() as cursor:
                 # First check if Google ID exists
@@ -198,34 +195,21 @@ class DocsApp:
                         )
                         print(f"Updated phone numbers for Google ID: {existing_phones}")
 
-                text_content = extract_text_from_file(file_path)
-                embedding_vector = generate_document_embedding(text_content) if text_content else None
-
-                cursor.execute("""
-                    INSERT INTO documents (google_id, phone_numbers, drive_file_id,
-                    folder_id, description, filename, embedding)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (google_id, json.dumps([user_phone]), file_id, folder_id,
-                      description, original_filename, embedding_vector))
-
                 # Insert new document
-                """
                 cursor.execute('''
                     INSERT INTO documents (
                         google_id, phone_numbers, drive_file_id,
-                        folder_id, description, filename, embedding
+                        folder_id, description, filename
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ''', (
                     google_id,
                     json.dumps([user_phone]),  # Original phone_numbers
                     file.get('id'),            # drive_file_id
                     folder_id,                 # Google Drive folder ID
                     description,               # User-provided description
-                    original_filename,         # Original filename
-                    embedding                  # NEW: DeepSeek embedding
+                    original_filename          # Original filename
                 ))
-                """
 
             print(f"Document stored successfully with filename: {original_filename}")
             return True
@@ -419,109 +403,46 @@ class DocsApp:
         """
         Hybrid search: combines text match + embedding similarity.
         """
-        query_embedding = generate_document_embedding(query)  # Convert query into vector
-        query_words = query.lower().split()
+        try:
+            query_words = query.lower().split()
+            with self.db_pool.get_cursor() as cursor:
+                cursor.execute("""
+                    SELECT id, filename, description, drive_file_id
+                    FROM documents
+                    WHERE user_phone = ?
+                """, (user_phone,))
+                
+                documents = cursor.fetchall()
+                results = []
+                
+                for doc in documents:
+                    doc_id, filename, description, file_id = doc
+                    score = 0
+                    
+                    # Text-based search
+                    if any(word in filename.lower() for word in query_words):
+                        score += 0.5
+                    if description and any(word in description.lower() for word in query_words):
+                        score += 0.3
+                        
+                    if score > 0:
+                        results.append((file_id, filename, description, score))
+                
+                results = sorted(results, key=lambda x: x[3], reverse=True)[:5]  # Top 5 results
+                
+                if results:
+                    return results
+                return "No relevant documents found."
+                
+        except Exception as e:
+            logging.error(f"Error retrieving document: {e}")
+            return None
 
-        documents = cursor.execute("""
-            SELECT id, filename, description, embedding, drive_file_id
-            FROM documents
-        """).fetchall()
-
-        results = []
-        for doc in documents:
-            doc_id, filename, description, embedding, file_id = doc
-            score = 0
-
-            # Text-based search
-            if any(word in filename.lower() for word in query_words):
-                score += 0.5
-            if any(word in description.lower() for word in query_words):
-                score += 0.3
-
-            # Embedding similarity (if available)
-            if embedding and query_embedding:
-                similarity = cosine_similarity_score(query_embedding, embedding)
-                score += similarity  # Directly add cosine similarity score
-
-            results.append((file_id, filename, description, score))
-
-        results = sorted(results, key=lambda x: x[3], reverse=True)[:5]  # Top 5 results
-
-        if results:
-            return results
-        return "No relevant documents found."
-
-"""
-    def retrieve_document(self, user_phone, query):
+    def search_document(self, query):
         """Search and retrieve document"""
         try:
-            # First get Google ID from current phone
-                drive_service = self.get_drive_service(user_phone)
-                user_info = drive_service.about().get(fields="user").execute()
-                google_id = user_info['user']['emailAddress']
-
-                # Then search using Google ID
-                with self.db_pool.get_cursor() as cursor:
-                    cursor.execute(
-                        'SELECT id, drive_file_id, filename, description FROM documents WHERE google_id = ?',
-                        (google_id,)
-                    )
-                documents = cursor.fetchall()
-
-                if not documents:
-                    return None, None, None, None
-
-                # Calculate similarity scores
-                similarities = []
-                for doc in documents:
-                    doc_id, file_id, filename, description = doc
-                    # Calculate score for filename and description
-                    base_score = self.calculate_similarity(query, f"{filename} {description}")
-
-                    # Check for partial matches
-                    query_words = query.lower().split()
-                    content_words = (f"{filename} {description}").lower().split()
-                    for q_word in query_words:
-                        for c_word in content_words:
-                            if q_word in c_word or c_word in q_word:
-                                base_score += 0.2
-
-                    if base_score > 0.7:  # Strong match
-                        score_category = "Strong"
-                        final_score = base_score
-                    elif base_score > 0.4:  # Medium match
-                        score_category = "Medium"
-                        final_score = base_score
-                    else:
-                        continue  # Skip weak matches
-
-                    similarities.append((final_score, doc_id, file_id, filename, description, score_category))
-
-                # Sort by similarity score
-                similarities.sort(reverse=True)
-
-                if similarities:
-                    if len(similarities) == 1:
-                        # Single match
-                        _, doc_id, file_id, filename, _, category = similarities[0]
-                        logger.debug(f"Found single {category} match: {filename}")
-                        file_data, content_type = self.get_document(file_id, user_phone)
-                        return file_data, filename, content_type, None
-                    else:
-                        # Multiple matches
-                        descriptions = [
-                            f"{i+1}. {desc} ({category} match)"
-                            for i, (_, _, _, _, desc, category) in enumerate(similarities[:5])
-                        ]
-                        matches = [(doc_id, file_id, filename) for _, doc_id, file_id, filename, _, _ in similarities[:5]]
-                        logger.debug("\nMultiple matches found:")
-                        for i, (doc_id, file_id, filename) in enumerate(matches):
-                            logger.debug(f"{i+1}. ID: {doc_id}, File ID: {file_id}, Filename: {filename}")
-                        return None, None, None, (descriptions, matches)
-
-                return None, None, None, None
-
+            # Your search logic here
+            pass
         except Exception as e:
-            logger.error(f"Error retrieving document: {str(e)}")
-            return None, None, None, None
-"""
+            logging.error(f"Error searching document: {e}")
+            return None
