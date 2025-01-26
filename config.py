@@ -1,14 +1,16 @@
 import os
 from openai import OpenAI
 
-# Path configurations
-BASE_DIR = '/home/sagary/docsapp'
-TEMP_DIR = os.path.join(BASE_DIR, 'temp')
-DB_DIR = os.path.join(BASE_DIR, 'data')
+# Use Render's writable directory for temporary files
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMP_DIR = os.getenv('TEMP_DIR', '/tmp/docsapp')
+LOGS_DIR = os.getenv('LOGS_DIR', '/tmp/docsapp/logs')
+DATA_DIR = os.getenv('DATA_DIR', '/tmp/docsapp/data')
 
 # Create necessary directories
 os.makedirs(TEMP_DIR, exist_ok=True)
-os.makedirs(DB_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = 'ACc02f635df0f15ee3e7f85279cf406b4c'
