@@ -1,16 +1,17 @@
 import os
-from openai import OpenAI
 
 # Use Render's writable directory for temporary files
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.getenv('TEMP_DIR', '/tmp/docsapp')
 LOGS_DIR = os.getenv('LOGS_DIR', '/tmp/docsapp/logs')
 DATA_DIR = os.getenv('DATA_DIR', '/tmp/docsapp/data')
+DB_DIR = os.getenv('DB_DIR', '/tmp/docsapp/db')
 
 # Create necessary directories
 os.makedirs(TEMP_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(DB_DIR, exist_ok=True)
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = 'ACc02f635df0f15ee3e7f85279cf406b4c'
@@ -26,12 +27,6 @@ WHATSAPP_BUSINESS_ACCOUNT_ID = '563839283474834'
 # Google Drive API setup
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 OAUTH_REDIRECT_URI = 'https://sagary.pythonanywhere.com/oauth2callback'
-
-#Deepseek key - sk-54cd5e49a0a24fa6a9ff77c8a4ceb6f8
-client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
-    base_url=os.getenv("OPENAI_BASE_URL")
-)
 
 print("=== WhatsApp Configuration ===")
 print(f"Version: {WHATSAPP_API_VERSION}")
