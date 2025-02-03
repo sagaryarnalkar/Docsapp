@@ -14,7 +14,6 @@ import numpy as np
 from config import DB_DIR, SCOPES
 from models.user_state import UserState
 from models.database import DatabasePool
-from utils.text_extractor import extract_text  # Add this import
 from .database import Session, Document
 
 logger = logging.getLogger(__name__)

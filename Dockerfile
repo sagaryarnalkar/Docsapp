@@ -28,4 +28,4 @@ HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1
 ENV PYTHONUNBUFFERED=1
 
 # Start command
-CMD ["python", "app.py"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"] 

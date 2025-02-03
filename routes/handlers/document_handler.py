@@ -6,7 +6,6 @@ from datetime import datetime
 from config import (
     TEMP_DIR, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
 )
-from utils.text_extractor import extract_text
 from models.docs_app import DocsApp
 
 logger = logging.getLogger(__name__)
