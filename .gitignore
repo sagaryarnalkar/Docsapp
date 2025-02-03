@@ -7,7 +7,12 @@ __pycache__/
 *.pyc
 .env
 venv/
+venv-*/
 .DS_Store
 logs/
 temp/
 data/
+*.pkl
+test_*.py
+test_files/
+test_output.png

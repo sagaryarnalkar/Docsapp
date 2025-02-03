@@ -99,3 +99,11 @@ class AuthHandler:
         except Exception as e:
             logger.error(f"Error in OAuth callback: {str(e)}")
             return self._get_error_html(str(e))
+
+    def handle_auth(self, phone):
+        """Handle authentication"""
+        try:
+            return self.user_state.is_authorized(phone)
+        except Exception as e:
+            logger.error(f"Auth error: {str(e)}")
+            return False

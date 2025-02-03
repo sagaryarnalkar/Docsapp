@@ -1,35 +1,38 @@
-from docling.models.tesseract_ocr_model import TesseractOcrModel
-from docling.models.layout_model import LayoutModel
-from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+import pytesseract
+from PIL import Image
+import pdfplumber
+import logging
 
-# Manually initialize models (modify paths if needed)
-ocr_model = TesseractOcrModel(model_path="/home/sagary/docsapp/models/tesseract/")
-layout_model = LayoutModel(model_path="/home/sagary/docsapp/models/layout/")
+logger = logging.getLogger(__name__)
 
-# Configure pipeline options
-pipeline_options = PdfPipelineOptions(
-    generate_page_images=False,  # Prevent unnecessary image processing
-    extract_tables=True,  # Enable table extraction
-    ocr_enabled=True  # Enable OCR if needed
-)
-
-# Initialize pipeline with correct options
-pipeline = StandardPdfPipeline(pipeline_options)
-
-
-
-
-
-def extract_text_from_file(file_path):
-    """
-    Extracts structured text from a document using Docling.
-    Handles PDF, DOCX, and images with OCR.
-    """
+def extract_text_from_image(image_path):
+    """Extract text from image using pytesseract"""
     try:
-        with open(file_path, "rb") as file:
-            extracted_text = pipeline.run(file)
-        return extracted_text.strip()
+        image = Image.open(image_path)
+        text = pytesseract.image_to_string(image)
+        return text.strip()
     except Exception as e:
-        print(f"Error extracting text: {e}")
-        return None  # Fallback mechanism in case of failure
+        logger.error(f"Error extracting text from image: {str(e)}")
+        return ""
+
+def extract_text_from_pdf(pdf_path):
+    """Extract text from PDF using pdfplumber"""
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            text = ""
+            for page in pdf.pages:
+                text += page.extract_text() or ""
+        return text.strip()
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {str(e)}")
+        return ""
+
+def extract_text(file_path, file_type):
+    """Extract text based on file type"""
+    if file_type.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
+        return extract_text_from_image(file_path)
+    elif file_type.lower() == '.pdf':
+        return extract_text_from_pdf(file_path)
+    else:
+        logger.error(f"Unsupported file type: {file_type}")
+        return ""

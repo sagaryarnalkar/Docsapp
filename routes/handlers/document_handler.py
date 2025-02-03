@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import json
 from datetime import datetime
 #from twilio.rest import Client
@@ -7,8 +7,7 @@ from config import (
     TEMP_DIR, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
 )
 from utils.text_extractor import extract_text
-from config import client  # Your DeepSeek configured client
-
+from models.docs_app import DocsApp
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +15,7 @@ class DocumentHandler:
     def __init__(self, docs_app, user_documents):
         self.docs_app = docs_app
         self.user_documents = user_documents
-        self.client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        self.ds_client = client
-
-
+        # Removed Twilio client initialization
 
     def list_documents(self, user_phone):
         """Handle list command"""
@@ -134,3 +130,12 @@ class DocumentHandler:
         except Exception as e:
             logger.error(f"Error in find_document: {str(e)}")
             return "❌ An error occurred while searching. Please try again."
+
+    def handle_document(self, phone, document_id):
+        """Handle document processing"""
+        try:
+            # Document handling logic
+            return True
+        except Exception as e:
+            logger.error(f"Document error: {str(e)}")
+            return False

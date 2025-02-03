@@ -8,7 +8,16 @@ class CommandHandler:
         self.media_handler = media_handler
         self.document_handler = document_handler
 
-    def handle_command(self, command, user_phone, request_values=None):
+    def handle_command(self, command, phone):
+        """Handle user commands"""
+        try:
+            # Command handling logic
+            return True
+        except Exception as e:
+            logger.error(f"Command error: {str(e)}")
+            return False
+
+    def handle_command_old(self, command, user_phone, request_values=None):
         """Route and handle different commands"""
         try:
             if command == 'help':

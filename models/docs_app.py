@@ -14,6 +14,8 @@ import numpy as np
 from config import DB_DIR, SCOPES
 from models.user_state import UserState
 from models.database import DatabasePool
+from utils.text_extractor import extract_text  # Add this import
+from .database import Session, Document
 
 logger = logging.getLogger(__name__)
 user_state = UserState()
@@ -22,6 +24,8 @@ class DocsApp:
     def __init__(self):
         self.db_pool = DatabasePool('documents.db')
         self.init_database()
+        self.folder_name = 'DocsApp Files'
+        self.drive_service = None
 
     def init_database(self):
         """Initialize SQLite database to store document metadata"""
@@ -68,162 +72,103 @@ class DocsApp:
 
         return intersection / union if union > 0 else 0
 
-    def get_drive_service(self, phone):
-        """Get Google Drive service for user"""
+    def _get_drive_service(self, user_phone):
+        """Get or create Google Drive service for the user"""
         try:
-            creds = user_state.get_credentials(phone)
-            if not creds:
-                logger.error(f"No credentials found for user {phone}")
+            # Get credentials from user state (implement this based on your auth system)
+            credentials = self._get_user_credentials(user_phone)
+            if not credentials:
                 return None
-
-            if creds.expired and creds.refresh_token:
-                logger.debug("Refreshing expired credentials")
-                creds.refresh(Request())
-                user_state.store_tokens(phone, json.loads(creds.to_json()))
-
-            return build('drive', 'v3', credentials=creds)
+            
+            return build('drive', 'v3', credentials=credentials)
         except Exception as e:
-            logger.error(f"Error getting drive service: {str(e)}")
+            logger.error(f"Error getting Drive service: {str(e)}")
             return None
 
-    def get_or_create_app_folder(self, drive_service, user_phone):
-        """Get or create the DocsApp Files folder"""
+    def _get_or_create_folder(self, service, folder_name):
+        """Get or create DocsApp folder in Drive"""
         try:
             # Check if folder exists
-            results = drive_service.files().list(
-                q="name='DocsApp Files' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+            results = service.files().list(
+                q=f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
                 spaces='drive',
                 fields='files(id, name)'
             ).execute()
-
+            
             items = results.get('files', [])
-
+            
             if items:
-                logger.debug("Found existing DocsApp folder")
                 return items[0]['id']
-            else:
-                # Create folder
-                logger.debug("Creating new DocsApp folder")
-                file_metadata = {
-                    'name': 'DocsApp Files',
-                    'mimeType': 'application/vnd.google-apps.folder'
-                }
-                file = drive_service.files().create(
-                    body=file_metadata,
-                    fields='id'
-                ).execute()
-                return file.get('id')
+            
+            # Create folder if it doesn't exist
+            folder_metadata = {
+                'name': folder_name,
+                'mimeType': 'application/vnd.google-apps.folder'
+            }
+            
+            folder = service.files().create(
+                body=folder_metadata,
+                fields='id'
+            ).execute()
+            
+            return folder.get('id')
+            
         except Exception as e:
-            logger.error(f"Error with app folder: {str(e)}")
+            logger.error(f"Error with Drive folder: {str(e)}")
             return None
 
-    def store_document(self, user_phone, file_path, description, original_filename=None):
-        """Store document in Drive with original filename"""
+    def store_document(self, user_phone, file_path, description, filename):
+        """Store document in Drive and metadata in SQLite"""
         try:
-            print("\n=== STORING DOCUMENT ===")
-            print(f"User Phone: {user_phone}")
-            print(f"File Path: {file_path}")
-            print(f"Description: {description}")
-            print(f"Original Filename: {original_filename}")
-
-            drive_service = self.get_drive_service(user_phone)
-            if not drive_service:
-                print("Failed to get drive service")
+            # Get Drive service
+            service = self._get_drive_service(user_phone)
+            if not service:
                 return False
 
-            # Get Google account info
-            try:
-                user_info = drive_service.about().get(fields="user").execute()
-                google_id = user_info['user']['emailAddress']
-                print(f"Google Account ID: {google_id}")
-            except Exception as e:
-                print(f"Error getting Google account info: {str(e)}")
-                return False
-
-            folder_id = self.get_or_create_app_folder(drive_service, user_phone)
+            # Get or create DocsApp folder
+            folder_id = self._get_or_create_folder(service, self.folder_name)
             if not folder_id:
-                print("Failed to get or create app folder")
                 return False
 
-            # Handle filename
-            if original_filename:
-                print(f"Using original filename: {original_filename}")
-                name, ext = os.path.splitext(original_filename)
-                if not ext:
-                    mime_type, _ = mimetypes.guess_type(file_path)
-                    ext = mimetypes.guess_extension(mime_type) if mime_type else '.txt'
-                    original_filename = f"{name}{ext}"
-                    print(f"Added extension to filename: {original_filename}")
-            else:
-                mime_type, _ = mimetypes.guess_type(file_path)
-                ext = mimetypes.guess_extension(mime_type) if mime_type else '.txt'
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                original_filename = f"Document_{timestamp}{ext}"
-                print(f"Generated new filename: {original_filename}")
-
-            print(f"Final filename for storage: {original_filename}")
-
+            # Upload file to Drive
             file_metadata = {
-                'name': original_filename,
+                'name': filename,
                 'parents': [folder_id]
             }
-            print(f"Drive file metadata: {file_metadata}")
-
-            media = MediaFileUpload(file_path, resumable=True)
-            file = drive_service.files().create(
+            
+            media = MediaFileUpload(
+                file_path,
+                resumable=True
+            )
+            
+            file = service.files().create(
                 body=file_metadata,
                 media_body=media,
-                fields='id,name'
+                fields='id, mimeType'
             ).execute()
 
-            print(f"File created in Drive with name: {file.get('name')}")
+            # Store metadata in SQLite
+            with Session() as session:
+                doc = Document(
+                    user_phone=user_phone,
+                    file_id=file['id'],
+                    filename=filename,
+                    description=description,
+                    mime_type=file.get('mimeType')
+                )
+                session.add(doc)
+                session.commit()
 
-            # Store in database using connection pool
-            with self.db_pool.get_cursor() as cursor:
-                # First check if Google ID exists
-                cursor.execute('SELECT id, phone_numbers FROM documents WHERE google_id = ? LIMIT 1', (google_id,))
-                existing_user = cursor.fetchone()
-
-                if existing_user:
-                    # Update phone numbers for existing user
-                    existing_phones = json.loads(existing_user[1]) if existing_user[1] else []
-                    if user_phone not in existing_phones:
-                        existing_phones.append(user_phone)
-                        cursor.execute(
-                            'UPDATE documents SET phone_numbers = ? WHERE google_id = ?',
-                            (json.dumps(existing_phones), google_id)
-                        )
-                        print(f"Updated phone numbers for Google ID: {existing_phones}")
-
-                # Insert new document
-                cursor.execute('''
-                    INSERT INTO documents (
-                        google_id, phone_numbers, drive_file_id,
-                        folder_id, description, filename
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (
-                    google_id,
-                    json.dumps([user_phone]),  # Original phone_numbers
-                    file.get('id'),            # drive_file_id
-                    folder_id,                 # Google Drive folder ID
-                    description,               # User-provided description
-                    original_filename          # Original filename
-                ))
-
-            print(f"Document stored successfully with filename: {original_filename}")
             return True
 
         except Exception as e:
-            print(f"Error storing document: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
+            logger.error(f"Error storing document: {str(e)}")
             return False
 
     def get_document(self, file_id, user_phone):
         """Get document from Drive"""
         try:
-            drive_service = self.get_drive_service(user_phone)
+            drive_service = self._get_drive_service(user_phone)
             if not drive_service:
                 return None, None
 
@@ -242,94 +187,45 @@ class DocsApp:
             logger.error(f"Error getting document: {str(e)}")
             return None, None
 
-    def update_document_description(self, user_phone, doc_id, additional_description):
-        """Update document description by appending new text"""
+    def update_document_description(self, user_phone, file_id, description):
+        """Update document description"""
         try:
-            print(f"\n=== Updating Document Description ===")
-            print(f"Document ID: {doc_id}")
-            print(f"Additional Description: {additional_description}")
-
-            with self.db_pool.get_cursor() as cursor:
-                # Get current description
-                cursor.execute('''
-                    SELECT description, filename
-                    FROM documents
-                    WHERE id = ? AND user_phone = ?
-                ''', (doc_id, user_phone))
-
-                result = cursor.fetchone()
-                if not result:
-                    print("Document not found")
-                    return False
-
-                current_description, filename = result
-                print(f"Current description: {current_description}")
-                print(f"Filename: {filename}")
-
-                # If there's no current description, use the additional one directly
-                if not current_description or current_description.isspace():
-                    new_description = additional_description
-                else:
-                    new_description = f"{current_description} | {additional_description}"
-
-                print(f"New description will be: {new_description}")
-
-                # Update description
-                cursor.execute('''
-                    UPDATE documents
-                    SET description = ?
-                    WHERE id = ? AND user_phone = ?
-                ''', (new_description, doc_id, user_phone))
-
-            print("Description updated successfully")
-            return True
+            with Session() as session:
+                doc = session.query(Document).filter(
+                    Document.user_phone == user_phone,
+                    Document.file_id == file_id
+                ).first()
+                
+                if doc:
+                    doc.description = description
+                    session.commit()
+                    return True
+                return False
 
         except Exception as e:
-            print(f"Error updating document description: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
+            logger.error(f"Error updating description: {str(e)}")
             return False
 
     def list_documents(self, user_phone):
         """List all documents for a user"""
         try:
-            logger.debug(f"\n=== Listing Documents ===")
-            logger.debug(f"User Phone: {user_phone}")
-
-            with self.db_pool.get_cursor() as cursor:
-                # First, log all documents
-                cursor.execute('''
-                    SELECT id, drive_file_id, filename, description, upload_date
-                    FROM documents
-                    WHERE user_phone = ?
-                    ORDER BY upload_date DESC
-                ''', (user_phone,))
-
-                all_docs = cursor.fetchall()
-                logger.debug("\nAll documents in database:")
-                for doc in all_docs:
-                    logger.debug(f"ID: {doc[0]}, Drive ID: {doc[1]}, Filename: {doc[2]}, Description: {doc[3]}, Upload Date: {doc[4]}")
-
-                cursor.execute('''
-                    SELECT id, drive_file_id, filename, description
-                    FROM documents
-                    WHERE user_phone = ?
-                    ORDER BY upload_date DESC
-                ''', (user_phone,))
-                documents = cursor.fetchall()
-
-                if documents:
-                    document_list = [
-                        f"{i+1}. {filename} - {description}"
-                        for i, (doc_id, drive_id, filename, description) in enumerate(documents)
-                    ]
-                    documents_formatted = [(doc_id, drive_id, filename) for doc_id, drive_id, filename, _ in documents]
-                    return document_list, documents_formatted
-                return None, None
+            with Session() as session:
+                docs = session.query(Document).filter(
+                    Document.user_phone == user_phone
+                ).order_by(Document.upload_date.desc()).all()
+                
+                doc_list = []
+                file_ids = []
+                
+                for i, doc in enumerate(docs, 1):
+                    doc_list.append(f"{i}. {doc.filename} - {doc.description}")
+                    file_ids.append((i, doc.file_id, doc.filename))
+                
+                return doc_list, file_ids
 
         except Exception as e:
             logger.error(f"Error listing documents: {str(e)}")
-            return None, None
+            return [], []
 
     def delete_document(self, user_phone, doc_id):
         """Delete document from Drive and database"""
@@ -345,7 +241,7 @@ class DocsApp:
                 if result:
                     drive_file_id, filename = result
                     try:
-                        drive_service = self.get_drive_service(user_phone)
+                        drive_service = self._get_drive_service(user_phone)
                         if drive_service:
                             drive_service.files().delete(fileId=drive_file_id).execute()
                             logger.debug(f"Deleted file from Drive: {filename}")
@@ -400,42 +296,34 @@ class DocsApp:
             return False
 
     def retrieve_document(self, user_phone, query):
-        """
-        Hybrid search: combines text match + embedding similarity.
-        """
+        """Search for documents by filename or description"""
         try:
-            query_words = query.lower().split()
-            with self.db_pool.get_cursor() as cursor:
-                cursor.execute("""
-                    SELECT id, filename, description, drive_file_id
-                    FROM documents
-                    WHERE user_phone = ?
-                """, (user_phone,))
+            with Session() as session:
+                # Search in SQLite for matching documents
+                results = session.query(Document).filter(
+                    Document.user_phone == user_phone,
+                    (Document.filename.ilike(f'%{query}%') | 
+                     Document.description.ilike(f'%{query}%'))
+                ).all()
                 
-                documents = cursor.fetchall()
-                results = []
-                
-                for doc in documents:
-                    doc_id, filename, description, file_id = doc
-                    score = 0
-                    
-                    # Text-based search
-                    if any(word in filename.lower() for word in query_words):
-                        score += 0.5
-                    if description and any(word in description.lower() for word in query_words):
-                        score += 0.3
-                        
-                    if score > 0:
-                        results.append((file_id, filename, description, score))
-                
-                results = sorted(results, key=lambda x: x[3], reverse=True)[:5]  # Top 5 results
-                
-                if results:
-                    return results
-                return "No relevant documents found."
-                
+                if not results:
+                    return None
+
+                # Return the first matching document's Drive file
+                service = self._get_drive_service(user_phone)
+                if not service:
+                    return None
+
+                # Get the file from Drive
+                file = service.files().get(
+                    fileId=results[0].file_id,
+                    fields='id, name, mimeType, webViewLink'
+                ).execute()
+
+                return file
+
         except Exception as e:
-            logging.error(f"Error retrieving document: {e}")
+            logger.error(f"Error retrieving document: {str(e)}")
             return None
 
     def search_document(self, query):
@@ -446,3 +334,46 @@ class DocsApp:
         except Exception as e:
             logging.error(f"Error searching document: {e}")
             return None
+
+    def process_document(self, file_path, file_type):
+        """
+        1. Extract text from document
+        2. Generate search tokens using DeepSeek R1
+        3. Create HTML summary
+        4. Store everything in user's Drive
+        """
+        try:
+            # Extract text using our text_extractor
+            text = extract_text(file_path, file_type)
+            print(f"\nExtracted text: {text[:200]}...")  # Debug print
+            
+            # Generate search tokens (placeholder for now)
+            tokens = ["test_token"]  # We'll implement this properly later
+            
+            # Create HTML summary (placeholder for now)
+            html_summary = f"<html><body>{text}</body></html>"
+            
+            return {
+                'tokens': tokens,
+                'html_summary': html_summary
+            }
+        except Exception as e:
+            logger.error(f"Error processing document: {str(e)}")
+            return None
+
+    def generate_search_tokens(self, text):
+        """Use DeepSeek R1 to generate search tokens"""
+        # Add DeepSeek R1 API integration
+        pass
+
+    def create_html_summary(self, text):
+        """Create structured HTML summary"""
+        # Add structure detection
+        # Add table detection
+        # Add layout analysis
+        pass
+
+    def _get_user_credentials(self, user_phone):
+        """Get user's Google credentials - implement based on your auth system"""
+        # This should be implemented based on how you're storing user credentials
+        pass

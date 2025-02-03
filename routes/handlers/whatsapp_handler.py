@@ -3,6 +3,7 @@ import requests
 import json
 import logging
 import os
+from .auth_handler import AuthHandler
 from config import (
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
@@ -13,44 +14,39 @@ from config import (
 logger = logging.getLogger(__name__)
 
 class WhatsAppHandler:
-    def __init__(self, docs_app_instance, pending_descriptions, user_state):
-        self.docs_app = docs_app_instance
+    def __init__(self, docs_app, pending_descriptions, user_state):
+        self.docs_app = docs_app
         self.pending_descriptions = pending_descriptions
+        self.user_state = user_state
         self.base_url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}'
         self.headers = {
             'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
             'Content-Type': 'application/json'
         }
-        self.user_state = user_state
         self.auth_handler = AuthHandler(self.user_state)
 
-    def send_text_message(self, to_phone, message):
-        """Send a regular text message"""
+    def send_message(self, to_number, message):
+        """Send WhatsApp message using Meta API"""
         try:
-            url = f'{self.base_url}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
-
-            print("\n=== Sending WhatsApp Message ===")
-            print(f"URL: {url}")
-            print(f"Headers: {self.headers}")
-
+            url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
+            
+            headers = {
+                'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
+                'Content-Type': 'application/json'
+            }
+            
             data = {
                 'messaging_product': 'whatsapp',
-                'to': to_phone,
+                'to': to_number,
                 'type': 'text',
                 'text': {'body': message}
             }
-            print(f"Request Data: {json.dumps(data, indent=2)}")
-
-            response = requests.post(url, headers=self.headers, json=data)
-            print(f"Response Status: {response.status_code}")
-            print(f"Response Body: {response.text}")
-
+            
+            response = requests.post(url, headers=headers, json=data)
             return response.status_code == 200
-
+            
         except Exception as e:
-            print(f"Error sending text message: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
+            logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False
 
     def handle_incoming_message(self, data):
@@ -87,17 +83,12 @@ class WhatsAppHandler:
                 return self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
             else:
                 print(f"Unsupported message type: {message_type}")
-                self.send_text_message(
-                    from_number,
-                    "Sorry, I can only process text messages and documents at the moment."
-                )
+                self.send_message(from_number, "Sorry, I can only process text messages and documents at the moment.")
                 return "Unsupported message type", 200
 
         except Exception as e:
-            print(f"Error processing message: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
-            return "Error processing message", 500
+            logger.error(f"Error handling WhatsApp message: {str(e)}")
+            return "Error", 500
 
     def handle_document(self, from_number, document, message=None):
         """Handle incoming document"""
@@ -117,16 +108,10 @@ class WhatsAppHandler:
                     debug_info.append(f"Adding description from reply: {description}")
                     result = self.docs_app.update_document_description(from_number, quoted_msg_id, description)
                     if result:
-                        self.send_text_message(
-                            from_number,
-                            f"✅ Added description to document: {description}\n\n" +
-                            "You can keep adding more descriptions to make the document easier to find!"
-                        )
+                        self.send_message(from_number, f"✅ Added description to document: {description}\n\n" +
+                            "You can keep adding more descriptions to make the document easier to find!")
                     else:
-                        self.send_text_message(
-                            from_number,
-                            f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info)
-                        )
+                        self.send_message(from_number, f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info))
                     return "Description updated", 200
 
             # First check if user is authorized
@@ -142,13 +127,10 @@ class WhatsAppHandler:
                 if url_match:
                     auth_url = url_match.group(1)
                     full_message = f"Please authorize Google Drive access:\n\n{auth_url}\n\nDebug Info:\n" + "\n".join(debug_info)
-                    self.send_text_message(from_number, full_message)
+                    self.send_message(from_number, full_message)
                 else:
                     debug_info.append("Could not extract auth URL")
-                    self.send_text_message(
-                        from_number,
-                        "Error getting auth URL. Debug Info:\n" + "\n".join(debug_info)
-                    )
+                    self.send_message(from_number, "Error getting auth URL. Debug Info:\n" + "\n".join(debug_info))
                 return "Authorization needed", 200
 
             # Get document details
@@ -210,41 +192,26 @@ class WhatsAppHandler:
                                     "You can reply to this message with additional descriptions "
                                     "to make the document easier to find later!"
                                 )
-                                self.send_text_message(from_number, response_message)
+                                self.send_message(from_number, response_message)
                             else:
                                 debug_info.append("Failed to store document")
-                                self.send_text_message(
-                                    from_number,
-                                    f"❌ Error storing document. Debug Info:\n" + "\n".join(debug_info)
-                                )
+                                self.send_message(from_number, f"❌ Error storing document. Debug Info:\n" + "\n".join(debug_info))
 
                             if os.path.exists(temp_path):
                                 os.remove(temp_path)
                                 debug_info.append("Temp file cleaned up")
                         else:
                             debug_info.append(f"File download failed: {file_response.text}")
-                            self.send_text_message(
-                                from_number,
-                                f"❌ File download failed. Debug Info:\n" + "\n".join(debug_info)
-                            )
+                            self.send_message(from_number, f"❌ File download failed. Debug Info:\n" + "\n".join(debug_info))
                     else:
                         debug_info.append("No download URL found in response")
-                        self.send_text_message(
-                            from_number,
-                            f"❌ No download URL found. Debug Info:\n" + "\n".join(debug_info)
-                        )
+                        self.send_message(from_number, f"❌ No download URL found. Debug Info:\n" + "\n".join(debug_info))
                 except json.JSONDecodeError as e:
                     debug_info.append(f"Error parsing media response: {str(e)}")
-                    self.send_text_message(
-                        from_number,
-                        f"❌ Error parsing media response. Debug Info:\n" + "\n".join(debug_info)
-                    )
+                    self.send_message(from_number, f"❌ Error parsing media response. Debug Info:\n" + "\n".join(debug_info))
             else:
                 debug_info.append(f"Media URL request failed: {media_response.text}")
-                self.send_text_message(
-                    from_number,
-                    f"❌ Media URL request failed. Debug Info:\n" + "\n".join(debug_info)
-                )
+                self.send_message(from_number, f"❌ Media URL request failed. Debug Info:\n" + "\n".join(debug_info))
 
             return "Document processed", 200
 
@@ -252,10 +219,7 @@ class WhatsAppHandler:
             debug_info.append(f"Error: {str(e)}")
             import traceback
             debug_info.append(f"Traceback: {traceback.format_exc()}")
-            self.send_text_message(
-                from_number,
-                f"❌ Error processing document. Debug Info:\n" + "\n".join(debug_info)
-            )
+            self.send_message(from_number, f"❌ Error processing document. Debug Info:\n" + "\n".join(debug_info))
             return "Error processing document", 500
 
     def handle_text_command(self, from_number, text):
@@ -274,39 +238,37 @@ class WhatsAppHandler:
 - Add descriptions by replying to a document
 - 'list' to see your documents
 - 'find <text>' to search documents
+- '/ask <question>' to ask questions about your documents
 - 'help' to see this message"""
-                self.send_text_message(from_number, help_message)
+                self.send_message(from_number, help_message)
 
             elif command == 'list':
-                # Use your existing docs_app to list documents
+                # Use docs_app to list documents
                 document_list, _ = self.docs_app.list_documents(from_number)
                 if document_list:
                     message = "Your documents:\n\n" + "\n".join(document_list)
                 else:
                     message = "You don't have any stored documents."
-                self.send_text_message(from_number, message)
-            elif command.startswith('/ask '):
-                query = command[5:].strip()
-                results = self.retrieve_document(user_phone, query)
-                return self.send_results_to_user(results)
+                self.send_message(from_number, message)
+
             elif command.startswith('find '):
                 query = command[5:].strip()
-                # Use your existing retrieve_document method
+                # Use docs_app to retrieve document
                 result = self.docs_app.retrieve_document(from_number, query)
-                # Handle the result and send appropriate message
                 if result:
-                    self.send_text_message(from_number, "Found matching documents!")
+                    self.send_message(from_number, "Found matching documents!")
                 else:
-                    self.send_text_message(from_number, "No documents found matching your query.")
+                    self.send_message(from_number, "No documents found matching your query.")
+
+            elif command.startswith('/ask '):
+                question = command[5:].strip()
+                self.send_message(from_number, "🔄 Processing your question... This might take a moment.")
+                # This will be implemented later with RAG service
+                self.send_message(from_number, "⚠️ Document Q&A feature coming soon!")
 
             else:
-                self.send_text_message(
-                    from_number,
-                    "I didn't understand that command. Type 'help' to see available commands."
-                )
-
-            return "Command processed", 200
+                self.send_message(from_number, "I don't understand that command. Type 'help' to see available commands.")
 
         except Exception as e:
-            print(f"Error handling command: {str(e)}")
-            return "Error processing command", 500
+            logger.error(f"Error handling command: {str(e)}")
+            self.send_message(from_number, "❌ Error processing command. Please try again.")

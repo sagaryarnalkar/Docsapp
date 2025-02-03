@@ -12,6 +12,7 @@ from models.user_state import UserState
 from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
 from routes.handlers.whatsapp_handler import WhatsAppHandler
+from dotenv import load_dotenv
 
 # At the top with your other imports
 from config import (
