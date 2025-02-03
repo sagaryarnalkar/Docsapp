@@ -9,7 +9,6 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from config import DB_DIR, SCOPES
 from models.user_state import UserState
@@ -49,16 +48,6 @@ class DocsApp:
             logger.error(f"Error initializing database: {str(e)}")
             raise
 
-    def cosine_similarity_score(query_vector, stored_vector):
-        """
-        Computes cosine similarity between query and stored document embedding.
-        """
-        if not stored_vector:
-            return 0  # No embedding, skip
-        query_vector = np.array(json.loads(query_vector)).reshape(1, -1)
-        stored_vector = np.array(json.loads(stored_vector)).reshape(1, -1)
-        return cosine_similarity(query_vector, stored_vector)[0][0]
-
     def calculate_similarity(self, text1, text2):
         """Calculate similarity between two texts"""
         # Convert to sets of words
@@ -70,6 +59,13 @@ class DocsApp:
         union = len(words1.union(words2))
 
         return intersection / union if union > 0 else 0
+
+    def cosine_similarity_score(self, query_text, stored_text):
+        """
+        Computes similarity between query and stored document text using Jaccard similarity.
+        Replaced cosine similarity to remove sklearn dependency.
+        """
+        return self.calculate_similarity(query_text, stored_text)
 
     def _get_drive_service(self, user_phone):
         """Get or create Google Drive service for the user"""
