@@ -342,15 +342,11 @@ class DocsApp:
         4. Store everything in user's Drive
         """
         try:
-            # Extract text using our text_extractor
-            text = extract_text(file_path, file_type)
-            print(f"\nExtracted text: {text[:200]}...")  # Debug print
-            
-            # Generate search tokens (placeholder for now)
-            tokens = ["test_token"]  # We'll implement this properly later
+            # Simple document processing
+            tokens = ["document"]  # Basic token for now
             
             # Create HTML summary (placeholder for now)
-            html_summary = f"<html><body>{text}</body></html>"
+            html_summary = f"<html><body>{file_path}</body></html>"
             
             return {
                 'tokens': tokens,
