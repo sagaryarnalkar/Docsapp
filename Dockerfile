@@ -1,19 +1,20 @@
-# Use Python 3.9 slim as base image
-FROM python:3.9-slim
+# Use Python 3.9.18 slim as base image for consistency
+FROM python:3.9.18-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy application files
-COPY . .
+# Copy only requirements first to leverage Docker cache
+COPY requirements.txt .
 
-# Install system dependencies
+# Install system dependencies and Python packages
 RUN apt-get update && apt-get install -y \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy the rest of the application
+COPY . .
 
 # Create necessary directories
 RUN mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db
