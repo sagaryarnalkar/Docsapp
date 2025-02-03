@@ -2,7 +2,6 @@ import logging
 import os
 import json
 from datetime import datetime
-#from twilio.rest import Client
 from config import (
     TEMP_DIR, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
 )
@@ -14,7 +13,6 @@ class DocumentHandler:
     def __init__(self, docs_app, user_documents):
         self.docs_app = docs_app
         self.user_documents = user_documents
-        # Removed Twilio client initialization
 
     def list_documents(self, user_phone):
         """Handle list command"""
@@ -137,4 +135,4 @@ class DocumentHandler:
             return True
         except Exception as e:
             logger.error(f"Document error: {str(e)}")
-            return False
+            return False 
