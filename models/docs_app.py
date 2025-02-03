@@ -9,7 +9,6 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-import numpy as np
 from config import DB_DIR, SCOPES
 from models.user_state import UserState
 from models.database import DatabasePool
