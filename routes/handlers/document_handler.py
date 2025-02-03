@@ -2,9 +2,7 @@ import logging
 import os
 import json
 from datetime import datetime
-from config import (
-    TEMP_DIR, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
-)
+from config import TEMP_DIR
 from models.docs_app import DocsApp
 
 logger = logging.getLogger(__name__)
@@ -66,67 +64,55 @@ class DocumentHandler:
                         file_data.seek(0)
                         f.write(file_data.read())
 
-                    # Send file through WhatsApp
-                    media_url = f'https://sagary.pythonanywhere.com/temp/{filename}'
-                    logger.debug(f"Sending media: {media_url}")
+                    # Return file path and name for the web interface to handle
+                    return {
+                        'status': 'success',
+                        'file_path': temp_path,
+                        'filename': filename,
+                        'content_type': content_type
+                    }
 
-                    message = self.client.messages.create(
-                        body=f"Here's your document: {filename}",
-                        from_=TWILIO_WHATSAPP_NUMBER,
-                        to=user_phone,
-                        media_url=[media_url]
-                    )
-
-                    del self.user_documents[user_phone]
-                    return "✅ Here's your document!"
-
-                return "❌ Error retrieving the document. Please try again."
-            return "❌ Invalid selection. Please try your search again."
+                return {
+                    'status': 'error',
+                    'message': "Error retrieving the document. Please try again."
+                }
+            return {
+                'status': 'error',
+                'message': "Invalid selection. Please try your search again."
+            }
 
         except Exception as e:
             logger.error(f"Error in handle_document_selection: {str(e)}")
-            return "❌ An error occurred. Please try again."
+            return {
+                'status': 'error',
+                'message': "An error occurred. Please try again."
+            }
 
     def find_document(self, user_phone, query):
         """Handle find command"""
         try:
             logger.debug(f"Processing find command with query: '{query}'")
 
-            file_data, filename, content_type, multiple_matches = self.docs_app.retrieve_document(user_phone, query)
+            result = self.docs_app.retrieve_document(user_phone, query)
 
-            if multiple_matches:
-                descriptions, matches = multiple_matches
-                self.user_documents[user_phone] = matches
-                response_text = "I found multiple matching documents:\n\n"
-                response_text += "\n".join(descriptions)
-                response_text += "\n\nPlease reply with the number of the document you want."
-                return response_text
+            if not result:
+                return {
+                    'status': 'error',
+                    'message': "Sorry, I couldn't find any documents matching your description."
+                }
 
-            elif file_data:
-                # Create temporary file
-                temp_path = os.path.join(TEMP_DIR, filename)
-                logger.debug(f"Creating temporary file: {temp_path}")
-
-                with open(temp_path, 'wb') as f:
-                    file_data.seek(0)
-                    f.write(file_data.read())
-
-                # Send file through WhatsApp
-                media_url = f'https://sagary.pythonanywhere.com/temp/{filename}'
-
-                message = self.client.messages.create(
-                    body=f"Here's your document: {filename}",
-                    from_=TWILIO_WHATSAPP_NUMBER,
-                    to=user_phone,
-                    media_url=[media_url]
-                )
-                return "✅ Here's your document!"
-
-            return "❌ Sorry, I couldn't find any documents matching your description."
+            # Return the document information for the web interface to handle
+            return {
+                'status': 'success',
+                'file': result
+            }
 
         except Exception as e:
             logger.error(f"Error in find_document: {str(e)}")
-            return "❌ An error occurred while searching. Please try again."
+            return {
+                'status': 'error',
+                'message': "An error occurred while searching. Please try again."
+            }
 
     def handle_document(self, phone, document_id):
         """Handle document processing"""
