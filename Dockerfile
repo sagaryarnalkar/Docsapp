@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y \
 # Copy the rest of the application
 COPY . .
 
+# Create config.py from example if it doesn't exist
+RUN cp -n config.example.py config.py || true
+
 # Create necessary directories
 RUN mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db
 
