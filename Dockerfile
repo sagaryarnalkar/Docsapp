@@ -35,4 +35,4 @@ EXPOSE 8080
 HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1
 
 # Start command
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--worker-class", "aiohttp.worker.GunicornWebWorker", "--log-level", "debug", "app:app"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--log-level", "debug", "app:app"] 
