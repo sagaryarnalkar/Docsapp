@@ -23,16 +23,10 @@ RUN mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets
 # Copy the rest of the application
 COPY . .
 
-# Create config.py from example
-RUN cp -v config.example.py config.py && \
-    ls -la config.py && \
-    echo "Config file created successfully"
-
 # Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV GOOGLE_CLOUD_LOCATION=us-central1
 ENV GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
-ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 8080
