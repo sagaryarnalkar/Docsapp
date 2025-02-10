@@ -3,9 +3,15 @@ services:
     name: docs-app
     env: python
     buildCommand: |
-      cp config.example.py config.py
+      echo "Starting build process..."
+      echo "Creating config.py from example..."
+      cp -v config.example.py config.py
+      echo "Installing requirements..."
       pip install -r requirements.txt
-    startCommand: gunicorn --worker-class aiohttp.worker.GunicornWebWorker app:app
+      echo "Verifying config.py exists..."
+      ls -la config.py
+      echo "Build process complete."
+    startCommand: gunicorn --worker-class aiohttp.worker.GunicornWebWorker app:app --log-level debug
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -27,6 +33,8 @@ services:
         value: /etc/secrets/google-credentials.json
       - key: DEBUG
         value: "true"
+      - key: PYTHONPATH
+        value: /app
     secrets:
       - key: GOOGLE_CREDENTIALS
         name: google-credentials 

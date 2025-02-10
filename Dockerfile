@@ -23,10 +23,16 @@ RUN mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets
 # Copy the rest of the application
 COPY . .
 
+# Create config.py from example
+RUN cp -v config.example.py config.py && \
+    ls -la config.py && \
+    echo "Config file created successfully"
+
 # Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV GOOGLE_CLOUD_LOCATION=us-central1
 ENV GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 8080
@@ -35,4 +41,4 @@ EXPOSE 8080
 HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1
 
 # Start command
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--worker-class", "aiohttp.worker.GunicornWebWorker", "app:app"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--worker-class", "aiohttp.worker.GunicornWebWorker", "--log-level", "debug", "app:app"] 
