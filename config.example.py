@@ -17,7 +17,7 @@ WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN')
 WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
 
 # OAuth Configuration
-OAUTH_REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 'https://your-app.onrender.com/oauth2callback')
+OAUTH_REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 'https://docsapp-20br.onrender.com/oauth2callback')
 
 # Google OAuth Configuration
 SCOPES = [

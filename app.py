@@ -1,4 +1,4 @@
-from flask import Flask, send_from_directory, request
+from flask import Flask, send_from_directory, request, jsonify
 import logging
 import os
 import sys
@@ -91,27 +91,53 @@ def home():
     </html>
     """
 
-@app.route("/webhook", methods=['POST'])
-def webhook():
-    print("\n=== Webhook Endpoint Hit ===")
+@app.route("/webhook", methods=['GET'])
+def verify_webhook():
+    """Verify webhook for WhatsApp API"""
     try:
-        print("Request Form Data:")
-        for key, value in request.form.items():
-            print(f"{key}: {value}")
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
 
-        response = handle_webhook()
-        print(f"Webhook Response: {response}")
-        return response
+        if mode and token and mode == 'subscribe':
+            return challenge
+        return 'Invalid verification token', 403
+
     except Exception as e:
-        print(f"Error in webhook route: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
-        return "Error", 500
+        logger.error(f"Error in verify_webhook: {str(e)}")
+        return str(e), 500
+
+@app.route("/webhook", methods=['POST'])
+async def webhook():
+    """Handle incoming WhatsApp messages"""
+    try:
+        data = request.get_json()
+        logger.info(f"Received webhook data: {data}")
+        
+        response = await whatsapp_handler.handle_incoming_message(data)
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in webhook: {str(e)}")
+        return str(e), 500
 
 @app.route("/oauth2callback")
 def oauth2callback():
-    print("OAuth callback route accessed")
-    return handle_oauth_callback()
+    """Handle OAuth callback from Google"""
+    try:
+        # Get authorization code from query parameters
+        code = request.args.get('code')
+        state = request.args.get('state')
+        
+        if code:
+            # Store the authorization code
+            user_state.store_auth_code(code, state)
+            return "Authorization successful! You can close this window and return to WhatsApp."
+        return "Authorization failed!"
+
+    except Exception as e:
+        logger.error(f"Error in oauth2callback: {str(e)}")
+        return str(e), 500
 
 @app.route('/temp/<path:filename>')
 def serve_file(filename):
@@ -203,6 +229,11 @@ def test_log():
     print("=== Testing Logging ===")
     print("If you see this in the logs, logging is working")
     return "Test logged. Check error logs."
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
