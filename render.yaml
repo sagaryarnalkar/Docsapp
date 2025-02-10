@@ -3,7 +3,7 @@ services:
     name: docs-app
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn --worker-class aiohttp.worker.GunicornWebWorker app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -16,4 +16,10 @@ services:
       - key: WHATSAPP_BUSINESS_ACCOUNT_ID
         sync: false
       - key: OAUTH_REDIRECT_URI
-        value: https://docsapp-111b.onrender.com/oauth2callback 
+        value: https://docsapp-20br.onrender.com/oauth2callback
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false 
