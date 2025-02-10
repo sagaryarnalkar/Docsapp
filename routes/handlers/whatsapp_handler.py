@@ -10,6 +10,7 @@ from config import (
     WHATSAPP_API_VERSION,
     TEMP_DIR
 )
+from .rag_handler import RAGHandler
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class WhatsAppHandler:
             'Content-Type': 'application/json'
         }
         self.auth_handler = AuthHandler(self.user_state)
+        self.rag_handler = RAGHandler(self.docs_app)
 
     def send_message(self, to_number, message):
         """Send WhatsApp message using Meta API"""
@@ -49,7 +51,7 @@ class WhatsAppHandler:
             logger.error(f"Error sending WhatsApp message: {str(e)}")
             return False
 
-    def handle_incoming_message(self, data):
+    async def handle_incoming_message(self, data):
         """Handle incoming WhatsApp message"""
         try:
             print("\n=== Processing WhatsApp Message ===")
@@ -78,9 +80,9 @@ class WhatsAppHandler:
             print(f"From: {from_number}")
 
             if message_type == 'document':
-                return self.handle_document(from_number, message.get('document', {}), message)
+                return await self.handle_document(from_number, message.get('document', {}), message)
             elif message_type == 'text':
-                return self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
+                return await self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
             else:
                 print(f"Unsupported message type: {message_type}")
                 self.send_message(from_number, "Sorry, I can only process text messages and documents at the moment.")
@@ -90,7 +92,7 @@ class WhatsAppHandler:
             logger.error(f"Error handling WhatsApp message: {str(e)}")
             return "Error", 500
 
-    def handle_document(self, from_number, document, message=None):
+    async def handle_document(self, from_number, document, message=None):
         """Handle incoming document"""
         debug_info = []
         try:
@@ -181,7 +183,7 @@ class WhatsAppHandler:
                             debug_info.append(f"File saved to: {temp_path}")
 
                             # Store in Drive with description
-                            store_result = self.docs_app.store_document(from_number, temp_path, description, filename)
+                            store_result = await self.docs_app.store_document(from_number, temp_path, description, filename)
                             debug_info.append(f"Store document result: {store_result}")
 
                             if store_result:
@@ -192,6 +194,16 @@ class WhatsAppHandler:
                                     "You can reply to this message with additional descriptions "
                                     "to make the document easier to find later!"
                                 )
+                                
+                                # Try RAG processing in the background, but don't let it affect the main flow
+                                try:
+                                    rag_result = await self.rag_handler.process_document_async(store_result.get('file_id'), mime_type)
+                                    if rag_result:
+                                        response_message += "\n\nℹ️ Document is being processed for Q&A functionality."
+                                except Exception as e:
+                                    logger.error(f"RAG processing failed but document was stored: {str(e)}")
+                                    # Don't let RAG failure affect the user experience
+                                
                                 self.send_message(from_number, response_message)
                             else:
                                 debug_info.append("Failed to store document")
@@ -222,7 +234,7 @@ class WhatsAppHandler:
             self.send_message(from_number, f"❌ Error processing document. Debug Info:\n" + "\n".join(debug_info))
             return "Error processing document", 500
 
-    def handle_text_command(self, from_number, text):
+    async def handle_text_command(self, from_number, text):
         """Handle text commands"""
         try:
             # Log the command
@@ -238,7 +250,7 @@ class WhatsAppHandler:
 - Add descriptions by replying to a document
 - 'list' to see your documents
 - 'find <text>' to search documents
-- '/ask <question>' to ask questions about your documents
+- '/ask <question>' to ask questions about your documents (Beta)
 - 'help' to see this message"""
                 self.send_message(from_number, help_message)
 
@@ -263,8 +275,11 @@ class WhatsAppHandler:
             elif command.startswith('/ask '):
                 question = command[5:].strip()
                 self.send_message(from_number, "🔄 Processing your question... This might take a moment.")
-                # This will be implemented later with RAG service
-                self.send_message(from_number, "⚠️ Document Q&A feature coming soon!")
+                
+                # Use the RAG handler which safely handles failures
+                success, message = await self.rag_handler.handle_question(from_number, question)
+                self.send_message(from_number, message)
+                return "Question processed", 200 if success else 500
 
             else:
                 self.send_message(from_number, "I don't understand that command. Type 'help' to see available commands.")
@@ -272,3 +287,4 @@ class WhatsAppHandler:
         except Exception as e:
             logger.error(f"Error handling command: {str(e)}")
             self.send_message(from_number, "❌ Error processing command. Please try again.")
+            return "Error", 500

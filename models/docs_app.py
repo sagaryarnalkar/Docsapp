@@ -13,6 +13,7 @@ from config import DB_DIR, SCOPES
 from models.user_state import UserState
 from models.database import DatabasePool
 from .database import Session, Document
+from .rag_processor import RAGProcessor
 
 logger = logging.getLogger(__name__)
 user_state = UserState()
@@ -23,6 +24,7 @@ class DocsApp:
         self.init_database()
         self.folder_name = 'DocsApp Files'
         self.drive_service = None
+        self.rag_processor = RAGProcessor()
 
     def init_database(self):
         """Initialize SQLite database to store document metadata"""
@@ -35,7 +37,9 @@ class DocsApp:
                     folder_id TEXT,
                     description TEXT NOT NULL,
                     filename TEXT NOT NULL,
-                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    data_store_id TEXT,
+                    document_id TEXT
                 )''')
 
                 # Add indexes for better performance
@@ -111,7 +115,7 @@ class DocsApp:
             logger.error(f"Error with Drive folder: {str(e)}")
             return None
 
-    def store_document(self, user_phone, file_path, description, filename):
+    async def store_document(self, user_phone, file_path, description, filename):
         """Store document in Drive and metadata in SQLite"""
         try:
             # Get Drive service
@@ -141,6 +145,12 @@ class DocsApp:
                 fields='id, mimeType'
             ).execute()
 
+            # Process document with Vertex AI in the background
+            rag_result = await self.rag_processor.process_document_async(
+                file['id'],
+                file.get('mimeType')
+            )
+
             # Store metadata in SQLite
             with Session() as session:
                 doc = Document(
@@ -148,7 +158,9 @@ class DocsApp:
                     file_id=file['id'],
                     filename=filename,
                     description=description,
-                    mime_type=file.get('mimeType')
+                    mime_type=file.get('mimeType'),
+                    data_store_id=rag_result.get('data_store_id'),
+                    document_id=rag_result.get('document_id')
                 )
                 session.add(doc)
                 session.commit()
@@ -158,6 +170,81 @@ class DocsApp:
         except Exception as e:
             logger.error(f"Error storing document: {str(e)}")
             return False
+
+    async def ask_question(self, user_phone, question):
+        """Ask a question about the user's documents"""
+        try:
+            # Get all data store IDs for the user's documents
+            with Session() as session:
+                docs = session.query(Document).filter(
+                    Document.user_phone == user_phone,
+                    Document.data_store_id.isnot(None)
+                ).all()
+                
+                if not docs:
+                    return {
+                        "status": "error",
+                        "message": "No processed documents found to answer questions from."
+                    }
+                
+                # Query across all user's documents
+                all_answers = []
+                for doc in docs:
+                    result = await self.rag_processor.query_documents(
+                        question,
+                        doc.data_store_id
+                    )
+                    if result["status"] == "success":
+                        all_answers.append({
+                            "answer": result["answer"],
+                            "document": doc.filename,
+                            "sources": result["sources"]
+                        })
+
+                if not all_answers:
+                    return {
+                        "status": "error",
+                        "message": "No relevant information found in your documents."
+                    }
+
+                return {
+                    "status": "success",
+                    "answers": all_answers
+                }
+
+        except Exception as e:
+            logger.error(f"Error processing question: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Error processing your question: {str(e)}"
+            }
+
+    def get_document_summary(self, user_phone, file_id):
+        """Get a summary of a specific document"""
+        try:
+            with Session() as session:
+                doc = session.query(Document).filter(
+                    Document.user_phone == user_phone,
+                    Document.file_id == file_id
+                ).first()
+                
+                if not doc or not doc.data_store_id:
+                    return {
+                        "status": "error",
+                        "message": "Document not found or not processed yet."
+                    }
+                
+                return self.rag_processor.get_document_summary(
+                    doc.data_store_id,
+                    doc.document_id
+                )
+
+        except Exception as e:
+            logger.error(f"Error getting document summary: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Error getting document summary: {str(e)}"
+            }
 
     def get_document(self, file_id, user_phone):
         """Get document from Drive"""

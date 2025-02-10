@@ -7,12 +7,16 @@ services:
     volumes:
       - .:/app
       - /tmp/docsapp:/tmp/docsapp
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/google-credentials.json:ro
     environment:
       - WHATSAPP_API_VERSION=${WHATSAPP_API_VERSION}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
       - WHATSAPP_BUSINESS_ACCOUNT_ID=${WHATSAPP_BUSINESS_ACCOUNT_ID}
       - OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI}
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
       - TEMP_DIR=/tmp/docsapp
       - LOGS_DIR=/tmp/docsapp/logs
       - DATA_DIR=/tmp/docsapp/data
