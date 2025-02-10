@@ -22,4 +22,9 @@ services:
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
-        sync: false 
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/google-credentials.json
+    secrets:
+      - key: GOOGLE_CREDENTIALS
+        name: google-credentials 
