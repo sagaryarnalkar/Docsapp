@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 
+# Load environment variables from .env file if it exists
 load_dotenv()
 
 # Directory Configuration
@@ -16,6 +17,11 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
 WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN')
 WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
 
+# Google Cloud Configuration
+GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT')
+GOOGLE_CLOUD_LOCATION = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
+GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', '/etc/secrets/google-credentials.json')
+
 # OAuth Configuration
 OAUTH_REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 'https://docsapp-20br.onrender.com/oauth2callback')
 
@@ -27,4 +33,13 @@ SCOPES = [
 
 # Create necessary directories
 for directory in [TEMP_DIR, LOGS_DIR, DATA_DIR, DB_DIR]:
-    os.makedirs(directory, exist_ok=True) 
+    os.makedirs(directory, exist_ok=True)
+
+# Debug logging of configuration
+if os.getenv('DEBUG'):
+    print("\n=== Configuration Debug ===")
+    print(f"GOOGLE_CLOUD_PROJECT: {GOOGLE_CLOUD_PROJECT}")
+    print(f"GOOGLE_CLOUD_LOCATION: {GOOGLE_CLOUD_LOCATION}")
+    print(f"GOOGLE_APPLICATION_CREDENTIALS: {GOOGLE_APPLICATION_CREDENTIALS}")
+    print(f"OAUTH_REDIRECT_URI: {OAUTH_REDIRECT_URI}")
+    print("=========================\n") 
