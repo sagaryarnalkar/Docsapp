@@ -12,15 +12,17 @@ class RAGProcessor:
     def __init__(self):
         self.is_available = False
         try:
-            if not GOOGLE_CLOUD_PROJECT or not GOOGLE_CLOUD_LOCATION:
-                logger.warning("Google Cloud configuration missing. RAG features will be disabled.")
+            # Check if all required Google Cloud configs are available
+            if not os.getenv('GOOGLE_CLOUD_PROJECT') or not os.getenv('GOOGLE_CLOUD_LOCATION') or not os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+                logger.warning("Google Cloud configuration incomplete. RAG features will be disabled.")
                 return
 
-            self.project_id = GOOGLE_CLOUD_PROJECT
-            self.location = GOOGLE_CLOUD_LOCATION
+            self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
+            self.location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
             vertexai.init(project=self.project_id, location=self.location)
             self.model = GenerativeModel("gemini-pro")
             self.is_available = True
+            logger.info("RAG processor initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize RAG processor: {str(e)}")
             self.is_available = False

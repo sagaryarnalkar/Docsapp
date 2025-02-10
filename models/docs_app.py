@@ -24,7 +24,13 @@ class DocsApp:
         self.init_database()
         self.folder_name = 'DocsApp Files'
         self.drive_service = None
-        self.rag_processor = RAGProcessor()
+        try:
+            self.rag_processor = RAGProcessor()
+            if not self.rag_processor.is_available:
+                logger.warning("RAG processor not available. Document Q&A features will be disabled.")
+        except Exception as e:
+            logger.error(f"Failed to initialize RAG processor: {str(e)}")
+            self.rag_processor = None
 
     def init_database(self):
         """Initialize SQLite database to store document metadata"""
