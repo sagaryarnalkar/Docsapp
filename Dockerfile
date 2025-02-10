@@ -35,4 +35,4 @@ EXPOSE 8080
 HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1
 
 # Start command
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--log-level", "debug", "app:app"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "--graceful-timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "50", "--log-level", "debug", "app:app"] 
