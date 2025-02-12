@@ -14,6 +14,8 @@ from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
 from routes.handlers.whatsapp_handler import WhatsAppHandler
 from dotenv import load_dotenv
+import hmac
+import hashlib
 
 # At the top with your other imports
 from config import (
@@ -111,7 +113,8 @@ async def whatsapp_route():
             print(f"Token: {token}")
             print(f"Challenge: {challenge}")
 
-            VERIFY_TOKEN = "sagar"
+            # Get verify token from environment variable
+            VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'sagar')  # Default to 'sagar' for backward compatibility
 
             if mode and token:
                 if mode == "subscribe" and token == VERIFY_TOKEN:
@@ -119,20 +122,29 @@ async def whatsapp_route():
                     return challenge
                 else:
                     print("Verification failed - token mismatch")
+                    print(f"Expected token: {VERIFY_TOKEN}")
+                    print(f"Received token: {token}")
                     return "Forbidden", 403
         else:
             print("=== Incoming Message ===")
+            
             # Get the raw request data
             raw_data = request.get_data()
-            print(f"Raw Data: {raw_data.decode('utf-8')}")
+            print(f"Raw request data: {raw_data}")
             
-            # Parse JSON data
+            # Try to decode as UTF-8
+            try:
+                decoded_data = raw_data.decode('utf-8')
+                print(f"Decoded data: {decoded_data}")
+            except Exception as e:
+                print(f"Error decoding data: {str(e)}")
+            
+            # Try to parse as JSON
             try:
                 data = request.get_json()
-                print(f"Request Data: {json.dumps(data, indent=2)}")
+                print(f"Parsed JSON data: {json.dumps(data, indent=2)}")
             except Exception as e:
                 print(f"Error parsing JSON: {str(e)}")
-                print(f"Raw data that failed to parse: {raw_data.decode('utf-8')}")
                 return "Invalid JSON", 400
 
             try:

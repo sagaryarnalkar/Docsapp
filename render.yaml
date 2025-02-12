@@ -4,6 +4,16 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:8080 --workers 2 --timeout 120 --graceful-timeout 60 --max-requests 1000 --max-requests-jitter 50 --log-level debug app:app
+    healthCheckPath: /health
+    healthCheckTimeout: 100
+    prebootCommand: |
+      mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db
+      python -c "
+      import os
+      os.makedirs('/tmp/docsapp/logs', exist_ok=True)
+      os.makedirs('/tmp/docsapp/data', exist_ok=True)
+      os.makedirs('/tmp/docsapp/db', exist_ok=True)
+      "
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -14,6 +24,8 @@ services:
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: WHATSAPP_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
         sync: false
       - key: OAUTH_REDIRECT_URI
         value: https://docsapp-20br.onrender.com/oauth2callback
