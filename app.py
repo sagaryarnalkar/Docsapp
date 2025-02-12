@@ -208,12 +208,19 @@ def serve_file(filename):
 def test_whatsapp():
     output = []
     try:
+        # Debug environment variables
+        output.append("=== Environment Variables Debug ===")
+        output.append(f"WHATSAPP_API_VERSION: {os.getenv('WHATSAPP_API_VERSION')}")
+        output.append(f"WHATSAPP_PHONE_NUMBER_ID: {os.getenv('WHATSAPP_PHONE_NUMBER_ID')}")
+        output.append(f"WHATSAPP_BUSINESS_ACCOUNT_ID: {os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')}")
+        output.append(f"Access Token Length: {len(os.getenv('WHATSAPP_ACCESS_TOKEN', ''))} characters")
+        
         test_phone = '919823623966'  # Your number
         url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
         
-        output.append(f"Using WhatsApp API Version: {WHATSAPP_API_VERSION}")
-        output.append(f"Using Phone Number ID: {WHATSAPP_PHONE_NUMBER_ID}")
-        output.append(f"Using Business Account ID: {WHATSAPP_BUSINESS_ACCOUNT_ID}")
+        output.append("\n=== Request Configuration ===")
+        output.append(f"Target Phone: {test_phone}")
+        output.append(f"API URL: {url}")
 
         headers = {
             'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
@@ -227,24 +234,36 @@ def test_whatsapp():
             'text': {'body': "🔄 Test message from DocsApp! If you receive this, the WhatsApp integration is working."}
         }
 
-        output.append(f"\nRequest Details:")
-        output.append(f"URL: {url}")
-        output.append(f"Headers: {headers}")
+        output.append("\n=== Request Details ===")
+        output.append(f"Headers (without auth): {json.dumps({k:v for k,v in headers.items() if k != 'Authorization'}, indent=2)}")
         output.append(f"Request Data: {json.dumps(data, indent=2)}")
+
+        # Print debug info before making request
+        print("\n=== Making WhatsApp API Request ===")
+        print(f"URL: {url}")
+        print(f"Headers: {headers}")
+        print(f"Data: {json.dumps(data, indent=2)}")
 
         response = requests.post(url, headers=headers, json=data)
 
-        output.append(f"\nResponse Details:")
+        output.append("\n=== Response Details ===")
         output.append(f"Response Status: {response.status_code}")
         output.append(f"Response Headers: {dict(response.headers)}")
         output.append(f"Response Body: {response.text}")
+
+        # Print debug info after response
+        print("\n=== WhatsApp API Response ===")
+        print(f"Status: {response.status_code}")
+        print(f"Body: {response.text}")
 
         html_output = "<br>".join(output).replace("\n", "<br>")
         return f"<pre>{html_output}</pre>"
 
     except Exception as e:
         import traceback
-        return f"<pre>Error: {str(e)}\n\n{traceback.format_exc()}\n\nDebug Info:\n{chr(10).join(output)}</pre>"
+        error_info = f"Error: {str(e)}\n\nTraceback:\n{traceback.format_exc()}\n\nDebug Info:\n" + "\n".join(output)
+        print(f"\n=== Test WhatsApp Error ===\n{error_info}")
+        return f"<pre>{error_info}</pre>"
 
 @app.route("/test_log")
 def test_log():
