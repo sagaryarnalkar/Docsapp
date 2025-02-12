@@ -124,7 +124,7 @@ async def whatsapp_route():
             print("=== Incoming Message ===")
             # Get the raw request data
             raw_data = request.get_data()
-            print(f"Raw Data: {raw_data}")
+            print(f"Raw Data: {raw_data.decode('utf-8')}")
             
             # Parse JSON data
             try:
@@ -132,6 +132,7 @@ async def whatsapp_route():
                 print(f"Request Data: {json.dumps(data, indent=2)}")
             except Exception as e:
                 print(f"Error parsing JSON: {str(e)}")
+                print(f"Raw data that failed to parse: {raw_data.decode('utf-8')}")
                 return "Invalid JSON", 400
 
             try:
@@ -140,22 +141,31 @@ async def whatsapp_route():
                     return "No data received", 400
 
                 if data.get('object') == 'whatsapp_business_account':
-                    result = await whatsapp_handler.handle_incoming_message(data)
-                    print(f"Handler Result: {result}")
-                    return result if result else ("OK", 200)
+                    print("Processing WhatsApp business account message...")
+                    try:
+                        result = await whatsapp_handler.handle_incoming_message(data)
+                        print(f"Handler Result: {result}")
+                        if isinstance(result, tuple):
+                            return result
+                        return result if result else ("OK", 200)
+                    except Exception as e:
+                        print(f"Error in message handler: {str(e)}")
+                        import traceback
+                        print(f"Handler Traceback: {traceback.format_exc()}")
+                        return "Handler Error", 500
                 else:
                     print(f"Invalid object type: {data.get('object')}")
                     return "Invalid request", 404
             except Exception as e:
                 print(f"Error processing message: {str(e)}")
                 import traceback
-                print(traceback.format_exc())
+                print(f"Processing Traceback: {traceback.format_exc()}")
                 return "Error", 500
 
     except Exception as e:
         print(f"Webhook Error: {str(e)}")
         import traceback
-        print(traceback.format_exc())
+        print(f"Webhook Traceback: {traceback.format_exc()}")
         return "Server Error", 500
 
 @app.route("/oauth2callback")
