@@ -208,8 +208,12 @@ def serve_file(filename):
 def test_whatsapp():
     output = []
     try:
-        test_phone = '919823623966'
+        test_phone = '919823623966'  # Your number
         url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
+        
+        output.append(f"Using WhatsApp API Version: {WHATSAPP_API_VERSION}")
+        output.append(f"Using Phone Number ID: {WHATSAPP_PHONE_NUMBER_ID}")
+        output.append(f"Using Business Account ID: {WHATSAPP_BUSINESS_ACCOUNT_ID}")
 
         headers = {
             'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
@@ -220,16 +224,19 @@ def test_whatsapp():
             'messaging_product': 'whatsapp',
             'to': test_phone,
             'type': 'text',
-            'text': {'body': "This is a test message from DocsApp!"}
+            'text': {'body': "🔄 Test message from DocsApp! If you receive this, the WhatsApp integration is working."}
         }
 
+        output.append(f"\nRequest Details:")
         output.append(f"URL: {url}")
         output.append(f"Headers: {headers}")
         output.append(f"Request Data: {json.dumps(data, indent=2)}")
 
         response = requests.post(url, headers=headers, json=data)
 
+        output.append(f"\nResponse Details:")
         output.append(f"Response Status: {response.status_code}")
+        output.append(f"Response Headers: {dict(response.headers)}")
         output.append(f"Response Body: {response.text}")
 
         html_output = "<br>".join(output).replace("\n", "<br>")
