@@ -27,7 +27,7 @@ class WhatsAppHandler:
         self.auth_handler = AuthHandler(self.user_state)
         self.rag_handler = RAGHandler(self.docs_app)
 
-    def send_message(self, to_number, message):
+    async def send_message(self, to_number, message):
         """Send WhatsApp message using Meta API"""
         try:
             url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
@@ -44,11 +44,20 @@ class WhatsAppHandler:
                 'text': {'body': message}
             }
             
+            print(f"\nSending message to {to_number}:")
+            print(f"URL: {url}")
+            print(f"Data: {json.dumps(data, indent=2)}")
+            
             response = requests.post(url, headers=headers, json=data)
+            print(f"Response Status: {response.status_code}")
+            print(f"Response Body: {response.text}")
+            
             return response.status_code == 200
             
         except Exception as e:
-            logger.error(f"Error sending WhatsApp message: {str(e)}")
+            print(f"Error sending WhatsApp message: {str(e)}")
+            import traceback
+            print(f"Send Message Traceback: {traceback.format_exc()}")
             return False
 
     async def handle_incoming_message(self, data):
@@ -238,7 +247,9 @@ class WhatsAppHandler:
         """Handle text commands"""
         try:
             # Log the command
-            print(f"Processing command: {text} from {from_number}")
+            print(f"\n=== Processing Text Command ===")
+            print(f"Command: {text}")
+            print(f"From: {from_number}")
 
             # Normalize the command
             command = text.lower().strip()
@@ -252,39 +263,49 @@ class WhatsAppHandler:
 - 'find <text>' to search documents
 - '/ask <question>' to ask questions about your documents (Beta)
 - 'help' to see this message"""
-                self.send_message(from_number, help_message)
+                await self.send_message(from_number, help_message)
+                return "Help message sent", 200
 
             elif command == 'list':
+                print("Processing list command...")
                 # Use docs_app to list documents
                 document_list, _ = self.docs_app.list_documents(from_number)
                 if document_list:
                     message = "Your documents:\n\n" + "\n".join(document_list)
                 else:
                     message = "You don't have any stored documents."
-                self.send_message(from_number, message)
+                await self.send_message(from_number, message)
+                return "List command processed", 200
 
             elif command.startswith('find '):
+                print("Processing find command...")
                 query = command[5:].strip()
                 # Use docs_app to retrieve document
                 result = self.docs_app.retrieve_document(from_number, query)
                 if result:
-                    self.send_message(from_number, "Found matching documents!")
+                    await self.send_message(from_number, "Found matching documents!")
                 else:
-                    self.send_message(from_number, "No documents found matching your query.")
+                    await self.send_message(from_number, "No documents found matching your query.")
+                return "Find command processed", 200
 
             elif command.startswith('/ask '):
+                print("Processing ask command...")
                 question = command[5:].strip()
-                self.send_message(from_number, "🔄 Processing your question... This might take a moment.")
+                await self.send_message(from_number, "🔄 Processing your question... This might take a moment.")
                 
                 # Use the RAG handler which safely handles failures
                 success, message = await self.rag_handler.handle_question(from_number, question)
-                self.send_message(from_number, message)
+                await self.send_message(from_number, message)
                 return "Question processed", 200 if success else 500
 
             else:
-                self.send_message(from_number, "I don't understand that command. Type 'help' to see available commands.")
+                print(f"Unknown command: {command}")
+                await self.send_message(from_number, "I don't understand that command. Type 'help' to see available commands.")
+                return "Unknown command", 200
 
         except Exception as e:
-            logger.error(f"Error handling command: {str(e)}")
-            self.send_message(from_number, "❌ Error processing command. Please try again.")
+            print(f"Error handling command: {str(e)}")
+            import traceback
+            print(f"Command Handler Traceback: {traceback.format_exc()}")
+            await self.send_message(from_number, "❌ Error processing command. Please try again.")
             return "Error", 500
