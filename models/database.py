@@ -70,9 +70,11 @@ class Document(Base):
     description = Column(String)
     upload_date = Column(DateTime, default=datetime.utcnow)
     mime_type = Column(String)
+    data_store_id = Column(String)
+    document_id = Column(String)
 
 # Create database engine
-db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'docsapp.db')
+db_path = os.path.join(DB_DIR, 'documents.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 engine = create_engine(f'sqlite:///{db_path}')
 

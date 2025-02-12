@@ -21,7 +21,6 @@ user_state = UserState()
 class DocsApp:
     def __init__(self):
         self.db_pool = DatabasePool('documents.db')
-        self.init_database()
         self.folder_name = 'DocsApp Files'
         self.drive_service = None
         try:
@@ -31,31 +30,6 @@ class DocsApp:
         except Exception as e:
             logger.error(f"Failed to initialize RAG processor: {str(e)}")
             self.rag_processor = None
-
-    def init_database(self):
-        """Initialize SQLite database to store document metadata"""
-        try:
-            with self.db_pool.get_cursor() as cursor:
-                cursor.execute('''CREATE TABLE IF NOT EXISTS documents (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_phone TEXT NOT NULL,
-                    drive_file_id TEXT NOT NULL,
-                    folder_id TEXT,
-                    description TEXT NOT NULL,
-                    filename TEXT NOT NULL,
-                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    data_store_id TEXT,
-                    document_id TEXT
-                )''')
-
-                # Add indexes for better performance
-                cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_phone ON documents(user_phone)')
-                cursor.execute('CREATE INDEX IF NOT EXISTS idx_upload_date ON documents(upload_date)')
-
-            logger.debug("Documents database initialized successfully")
-        except Exception as e:
-            logger.error(f"Error initializing database: {str(e)}")
-            raise
 
     def calculate_similarity(self, text1, text2):
         """Calculate similarity between two texts"""
