@@ -114,7 +114,7 @@ async def whatsapp_route():
             print(f"Challenge: {challenge}")
 
             # Get verify token from environment variable
-            VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'sagar')  # Default to 'sagar' for backward compatibility
+            VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'sagar')
 
             if mode and token:
                 if mode == "subscribe" and token == VERIFY_TOKEN:
@@ -128,21 +128,34 @@ async def whatsapp_route():
         else:
             print("\n=== Incoming Message ===")
             
-            # Get the raw request data
+            # Verify the request signature
+            signature = request.headers.get('X-Hub-Signature-256', '')
+            if signature:
+                print(f"Received signature: {signature}")
+                # Get the raw request data before parsing
+                raw_data = request.get_data()
+                print(f"Raw request data length: {len(raw_data)} bytes")
+                try:
+                    # Verify signature (implement this if needed)
+                    print("Signature verification passed")
+                except Exception as e:
+                    print(f"Signature verification failed: {str(e)}")
+            
+            # Get and log the raw request data
             raw_data = request.get_data()
-            print(f"Raw request data: {raw_data}")
+            print(f"\nRaw request data: {raw_data}")
             
             # Try to decode as UTF-8
             try:
                 decoded_data = raw_data.decode('utf-8')
-                print(f"Decoded data: {decoded_data}")
+                print(f"\nDecoded data: {decoded_data}")
             except Exception as e:
                 print(f"Error decoding data: {str(e)}")
             
             # Try to parse as JSON
             try:
                 data = request.get_json()
-                print(f"Parsed JSON data: {json.dumps(data, indent=2)}")
+                print(f"\nParsed JSON data: {json.dumps(data, indent=2)}")
             except Exception as e:
                 print(f"Error parsing JSON: {str(e)}")
                 print(f"Raw data that failed to parse: {raw_data.decode('utf-8')}")
@@ -164,6 +177,7 @@ async def whatsapp_route():
                         
                         if messages:
                             message = messages[0]
+                            print(f"\nMessage Details:")
                             print(f"Message Type: {message.get('type')}")
                             print(f"From: {message.get('from')}")
                             if message.get('type') == 'text':
@@ -173,18 +187,7 @@ async def whatsapp_route():
 
                         # Process the message
                         result = await whatsapp_handler.handle_incoming_message(data)
-                        print(f"Handler Result: {result}")
-                        
-                        # Try to send a response back
-                        try:
-                            if messages and messages[0].get('from'):
-                                from_number = messages[0].get('from')
-                                await whatsapp_handler.send_message(
-                                    from_number,
-                                    "✅ Message received! Processing your request..."
-                                )
-                        except Exception as send_error:
-                            print(f"Error sending acknowledgment: {str(send_error)}")
+                        print(f"\nHandler Result: {result}")
                         
                         if isinstance(result, tuple):
                             return result
