@@ -91,35 +91,49 @@ def home():
     </html>
     """
 
-@app.route("/webhook", methods=['GET'])
-def verify_webhook():
-    """Verify webhook for WhatsApp API"""
-    try:
-        mode = request.args.get('hub.mode')
-        token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
+@app.route("/whatsapp-webhook", methods=['GET', 'POST'])
+async def whatsapp_route():
+    print("\n=== WhatsApp Webhook Called ===")
+    print(f"Method: {request.method}")
+    print(f"Headers: {dict(request.headers)}")
 
-        if mode and token and mode == 'subscribe':
-            return challenge
-        return 'Invalid verification token', 403
+    if request.method == "GET":
+        print("=== Verification Request ===")
+        print(f"Args: {dict(request.args)}")
 
-    except Exception as e:
-        logger.error(f"Error in verify_webhook: {str(e)}")
-        return str(e), 500
+        mode = request.args.get("hub.mode")
+        token = request.args.get("hub.verify_token")
+        challenge = request.args.get("hub.challenge")
 
-@app.route("/webhook", methods=['POST'])
-async def webhook():
-    """Handle incoming WhatsApp messages"""
-    try:
+        print(f"Mode: {mode}")
+        print(f"Token: {token}")
+        print(f"Challenge: {challenge}")
+
+        VERIFY_TOKEN = "sagar"
+
+        if mode and token:
+            if mode == "subscribe" and token == VERIFY_TOKEN:
+                print("Verification successful!")
+                return challenge
+            else:
+                print("Verification failed - token mismatch")
+                return "Forbidden", 403
+    else:
+        print("=== Incoming Message ===")
         data = request.get_json()
-        logger.info(f"Received webhook data: {data}")
-        
-        response = await whatsapp_handler.handle_incoming_message(data)
-        return response
+        print(f"Request Data: {json.dumps(data, indent=2)}")
 
-    except Exception as e:
-        logger.error(f"Error in webhook: {str(e)}")
-        return str(e), 500
+        try:
+            if data.get('object') == 'whatsapp_business_account':
+                result = await whatsapp_handler.handle_incoming_message(data)
+                print(f"Handler Result: {result}")
+                return result
+            return "Invalid request", 404
+        except Exception as e:
+            print(f"Error processing message: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return "Error", 500
 
 @app.route("/oauth2callback")
 def oauth2callback():
@@ -179,50 +193,6 @@ def test_whatsapp():
     except Exception as e:
         import traceback
         return f"<pre>Error: {str(e)}\n\n{traceback.format_exc()}\n\nDebug Info:\n{chr(10).join(output)}</pre>"
-
-@app.route("/whatsapp-webhook", methods=['GET', 'POST'])
-def whatsapp_route():
-    print("\n=== WhatsApp Webhook Called ===")
-    print(f"Method: {request.method}")
-    print(f"Headers: {dict(request.headers)}")
-
-    if request.method == "GET":
-        print("=== Verification Request ===")
-        print(f"Args: {dict(request.args)}")
-
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
-
-        print(f"Mode: {mode}")
-        print(f"Token: {token}")
-        print(f"Challenge: {challenge}")
-
-        VERIFY_TOKEN = "sagar"
-
-        if mode and token:
-            if mode == "subscribe" and token == VERIFY_TOKEN:
-                print("Verification successful!")
-                return challenge
-            else:
-                print("Verification failed - token mismatch")
-                return "Forbidden", 403
-    else:
-        print("=== Incoming Message ===")
-        data = request.get_json()
-        print(f"Request Data: {json.dumps(data, indent=2)}")
-
-        try:
-            if data.get('object') == 'whatsapp_business_account':
-                result = whatsapp_handler.handle_incoming_message(data)
-                print(f"Handler Result: {result}")
-                return result
-            return "Invalid request", 404
-        except Exception as e:
-            print(f"Error processing message: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
-            return "Error", 500
 
 @app.route("/test_log")
 def test_log():
