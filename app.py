@@ -7,7 +7,8 @@ import json
 import requests
 from datetime import timedelta
 from config import TEMP_DIR, BASE_DIR
-from routes.webhook import handle_webhook, handle_oauth_callback
+# Remove webhook imports since we handle it in this file now
+# from routes.webhook import handle_webhook, handle_oauth_callback
 from models.user_state import UserState
 from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
@@ -93,47 +94,69 @@ def home():
 
 @app.route("/whatsapp-webhook", methods=['GET', 'POST'])
 async def whatsapp_route():
-    print("\n=== WhatsApp Webhook Called ===")
-    print(f"Method: {request.method}")
-    print(f"Headers: {dict(request.headers)}")
+    try:
+        print("\n=== WhatsApp Webhook Called ===")
+        print(f"Method: {request.method}")
+        print(f"Headers: {dict(request.headers)}")
 
-    if request.method == "GET":
-        print("=== Verification Request ===")
-        print(f"Args: {dict(request.args)}")
+        if request.method == "GET":
+            print("=== Verification Request ===")
+            print(f"Args: {dict(request.args)}")
 
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
+            mode = request.args.get("hub.mode")
+            token = request.args.get("hub.verify_token")
+            challenge = request.args.get("hub.challenge")
 
-        print(f"Mode: {mode}")
-        print(f"Token: {token}")
-        print(f"Challenge: {challenge}")
+            print(f"Mode: {mode}")
+            print(f"Token: {token}")
+            print(f"Challenge: {challenge}")
 
-        VERIFY_TOKEN = "sagar"
+            VERIFY_TOKEN = "sagar"
 
-        if mode and token:
-            if mode == "subscribe" and token == VERIFY_TOKEN:
-                print("Verification successful!")
-                return challenge
-            else:
-                print("Verification failed - token mismatch")
-                return "Forbidden", 403
-    else:
-        print("=== Incoming Message ===")
-        data = request.get_json()
-        print(f"Request Data: {json.dumps(data, indent=2)}")
+            if mode and token:
+                if mode == "subscribe" and token == VERIFY_TOKEN:
+                    print("Verification successful!")
+                    return challenge
+                else:
+                    print("Verification failed - token mismatch")
+                    return "Forbidden", 403
+        else:
+            print("=== Incoming Message ===")
+            # Get the raw request data
+            raw_data = request.get_data()
+            print(f"Raw Data: {raw_data}")
+            
+            # Parse JSON data
+            try:
+                data = request.get_json()
+                print(f"Request Data: {json.dumps(data, indent=2)}")
+            except Exception as e:
+                print(f"Error parsing JSON: {str(e)}")
+                return "Invalid JSON", 400
 
-        try:
-            if data.get('object') == 'whatsapp_business_account':
-                result = await whatsapp_handler.handle_incoming_message(data)
-                print(f"Handler Result: {result}")
-                return result
-            return "Invalid request", 404
-        except Exception as e:
-            print(f"Error processing message: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
-            return "Error", 500
+            try:
+                if not data:
+                    print("No data received")
+                    return "No data received", 400
+
+                if data.get('object') == 'whatsapp_business_account':
+                    result = await whatsapp_handler.handle_incoming_message(data)
+                    print(f"Handler Result: {result}")
+                    return result if result else ("OK", 200)
+                else:
+                    print(f"Invalid object type: {data.get('object')}")
+                    return "Invalid request", 404
+            except Exception as e:
+                print(f"Error processing message: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
+                return "Error", 500
+
+    except Exception as e:
+        print(f"Webhook Error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return "Server Error", 500
 
 @app.route("/oauth2callback")
 def oauth2callback():
@@ -204,6 +227,57 @@ def test_log():
 def health_check():
     """Health check endpoint"""
     return jsonify({"status": "healthy"}), 200
+
+@app.route("/test-webhook", methods=['GET'])
+async def test_webhook():
+    """Test route to simulate a WhatsApp message"""
+    try:
+        # Simulate a WhatsApp text message
+        test_data = {
+            "object": "whatsapp_business_account",
+            "entry": [{
+                "id": "123456789",
+                "changes": [{
+                    "value": {
+                        "messaging_product": "whatsapp",
+                        "metadata": {
+                            "display_phone_number": "14155238886",
+                            "phone_number_id": WHATSAPP_PHONE_NUMBER_ID
+                        },
+                        "messages": [{
+                            "from": "919850132361",
+                            "id": "wamid.test123",
+                            "timestamp": "1234567890",
+                            "type": "text",
+                            "text": {
+                                "body": "help"
+                            }
+                        }]
+                    },
+                    "field": "messages"
+                }]
+            }]
+        }
+
+        print("\n=== Testing Webhook Handler ===")
+        print(f"Test Data: {json.dumps(test_data, indent=2)}")
+
+        result = await whatsapp_handler.handle_incoming_message(test_data)
+        return jsonify({
+            "status": "success",
+            "result": result,
+            "message": "Test completed"
+        })
+
+    except Exception as e:
+        print(f"Test Error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
