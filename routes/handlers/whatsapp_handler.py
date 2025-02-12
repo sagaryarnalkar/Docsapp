@@ -64,7 +64,7 @@ class WhatsAppHandler:
         """Handle incoming WhatsApp message"""
         try:
             print("\n=== Processing WhatsApp Message ===")
-            print(f"Raw Data: {json.dumps(data)}")
+            print(f"Raw Data: {json.dumps(data, indent=2)}")
 
             entry = data.get('entry', [{}])[0]
             changes = entry.get('changes', [{}])[0]
@@ -89,16 +89,24 @@ class WhatsAppHandler:
             print(f"From: {from_number}")
 
             if message_type == 'document':
-                return await self.handle_document(from_number, message.get('document', {}), message)
+                print("Processing document message...")
+                result = await self.handle_document(from_number, message.get('document', {}), message)
+                print(f"Document processing result: {result}")
+                return result
             elif message_type == 'text':
-                return await self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
+                print(f"Processing text message: {message.get('text', {}).get('body', '')}")
+                result = await self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
+                print(f"Text processing result: {result}")
+                return result
             else:
                 print(f"Unsupported message type: {message_type}")
-                self.send_message(from_number, "Sorry, I can only process text messages and documents at the moment.")
+                await self.send_message(from_number, "Sorry, I can only process text messages and documents at the moment.")
                 return "Unsupported message type", 200
 
         except Exception as e:
             logger.error(f"Error handling WhatsApp message: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return "Error", 500
 
     async def handle_document(self, from_number, document, message=None):

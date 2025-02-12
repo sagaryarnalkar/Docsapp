@@ -126,7 +126,7 @@ async def whatsapp_route():
                     print(f"Received token: {token}")
                     return "Forbidden", 403
         else:
-            print("=== Incoming Message ===")
+            print("\n=== Incoming Message ===")
             
             # Get the raw request data
             raw_data = request.get_data()
@@ -145,6 +145,7 @@ async def whatsapp_route():
                 print(f"Parsed JSON data: {json.dumps(data, indent=2)}")
             except Exception as e:
                 print(f"Error parsing JSON: {str(e)}")
+                print(f"Raw data that failed to parse: {raw_data.decode('utf-8')}")
                 return "Invalid JSON", 400
 
             try:
@@ -153,10 +154,38 @@ async def whatsapp_route():
                     return "No data received", 400
 
                 if data.get('object') == 'whatsapp_business_account':
-                    print("Processing WhatsApp business account message...")
+                    print("\n=== Processing WhatsApp Message ===")
                     try:
+                        # Extract message details for logging
+                        entry = data.get('entry', [{}])[0]
+                        changes = entry.get('changes', [{}])[0]
+                        value = changes.get('value', {})
+                        messages = value.get('messages', [])
+                        
+                        if messages:
+                            message = messages[0]
+                            print(f"Message Type: {message.get('type')}")
+                            print(f"From: {message.get('from')}")
+                            if message.get('type') == 'text':
+                                print(f"Text: {message.get('text', {}).get('body')}")
+                            elif message.get('type') == 'document':
+                                print(f"Document: {message.get('document')}")
+
+                        # Process the message
                         result = await whatsapp_handler.handle_incoming_message(data)
                         print(f"Handler Result: {result}")
+                        
+                        # Try to send a response back
+                        try:
+                            if messages and messages[0].get('from'):
+                                from_number = messages[0].get('from')
+                                await whatsapp_handler.send_message(
+                                    from_number,
+                                    "✅ Message received! Processing your request..."
+                                )
+                        except Exception as send_error:
+                            print(f"Error sending acknowledgment: {str(send_error)}")
+                        
                         if isinstance(result, tuple):
                             return result
                         return result if result else ("OK", 200)
