@@ -11,6 +11,7 @@ from config import (
     TEMP_DIR
 )
 from .rag_handler import RAGHandler
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +49,14 @@ class WhatsAppHandler:
             print(f"URL: {url}")
             print(f"Data: {json.dumps(data, indent=2)}")
             
-            response = requests.post(url, headers=headers, json=data)
-            print(f"Response Status: {response.status_code}")
-            print(f"Response Body: {response.text}")
-            
-            return response.status_code == 200
+            # Use aiohttp for async HTTP requests
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data) as response:
+                    response_text = await response.text()
+                    print(f"Response Status: {response.status}")
+                    print(f"Response Body: {response_text}")
+                    
+                    return response.status == 200
             
         except Exception as e:
             print(f"Error sending WhatsApp message: {str(e)}")
@@ -186,71 +190,73 @@ class WhatsAppHandler:
             debug_info.append(f"Media Request URL: {media_request_url}")
             debug_info.append(f"Using headers: {json.dumps(headers)}")
 
-            # First get the media URL
-            media_response = requests.get(media_request_url, headers=headers)
-            debug_info.append(f"Media URL Request Status: {media_response.status_code}")
-            debug_info.append(f"Media URL Response: {media_response.text}")
+            # First get the media URL using aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(media_request_url, headers=headers) as media_response:
+                    media_response_text = await media_response.text()
+                    debug_info.append(f"Media URL Request Status: {media_response.status}")
+                    debug_info.append(f"Media URL Response: {media_response_text}")
 
-            if media_response.status_code == 200:
-                try:
-                    media_data = media_response.json()
-                    download_url = media_data.get('url')
-                    debug_info.append(f"Got download URL: {download_url}")
+                    if media_response.status == 200:
+                        try:
+                            media_data = json.loads(media_response_text)
+                            download_url = media_data.get('url')
+                            debug_info.append(f"Got download URL: {download_url}")
 
-                    if download_url:
-                        # Now download the actual file
-                        file_response = requests.get(download_url, headers=headers)
-                        debug_info.append(f"File Download Status: {file_response.status_code}")
+                            if download_url:
+                                # Now download the actual file using aiohttp
+                                async with session.get(download_url, headers=headers) as file_response:
+                                    debug_info.append(f"File Download Status: {file_response.status}")
 
-                        if file_response.status_code == 200:
-                            temp_path = os.path.join(TEMP_DIR, filename)
-                            with open(temp_path, 'wb') as f:
-                                f.write(file_response.content)
+                                    if file_response.status == 200:
+                                        file_content = await file_response.read()
+                                        temp_path = os.path.join(TEMP_DIR, filename)
+                                        with open(temp_path, 'wb') as f:
+                                            f.write(file_content)
 
-                            debug_info.append(f"File saved to: {temp_path}")
+                                        debug_info.append(f"File saved to: {temp_path}")
 
-                            # Store in Drive with description
-                            store_result = await self.docs_app.store_document(from_number, temp_path, description, filename)
-                            debug_info.append(f"Store document result: {store_result}")
+                                        # Store in Drive with description
+                                        store_result = await self.docs_app.store_document(from_number, temp_path, description, filename)
+                                        debug_info.append(f"Store document result: {store_result}")
 
-                            if store_result:
-                                debug_info.append("Document stored successfully")
-                                response_message = (
-                                    f"✅ Document '{filename}' stored successfully!\n\n"
-                                    f"Initial description: {description}\n\n"
-                                    "You can reply to this message with additional descriptions "
-                                    "to make the document easier to find later!"
-                                )
-                                
-                                # Try RAG processing in the background, but don't let it affect the main flow
-                                try:
-                                    rag_result = await self.rag_handler.process_document_async(store_result.get('file_id'), mime_type)
-                                    if rag_result:
-                                        response_message += "\n\nℹ️ Document is being processed for Q&A functionality."
-                                except Exception as e:
-                                    logger.error(f"RAG processing failed but document was stored: {str(e)}")
-                                    # Don't let RAG failure affect the user experience
-                                
-                                await self.send_message(from_number, response_message)
+                                        if store_result:
+                                            debug_info.append("Document stored successfully")
+                                            response_message = (
+                                                f"✅ Document '{filename}' stored successfully!\n\n"
+                                                f"Initial description: {description}\n\n"
+                                                "You can reply to this message with additional descriptions "
+                                                "to make the document easier to find later!"
+                                            )
+                                            
+                                            # Try RAG processing in the background
+                                            try:
+                                                rag_result = await self.rag_handler.process_document_async(store_result.get('file_id'), mime_type)
+                                                if rag_result:
+                                                    response_message += "\n\nℹ️ Document is being processed for Q&A functionality."
+                                            except Exception as e:
+                                                logger.error(f"RAG processing failed but document was stored: {str(e)}")
+                                            
+                                            await self.send_message(from_number, response_message)
+                                        else:
+                                            debug_info.append("Failed to store document")
+                                            await self.send_message(from_number, "❌ Error storing document. Please try again later.")
+
+                                        if os.path.exists(temp_path):
+                                            os.remove(temp_path)
+                                            debug_info.append("Temp file cleaned up")
+                                    else:
+                                        debug_info.append(f"File download failed: {await file_response.text()}")
+                                        await self.send_message(from_number, "❌ Failed to download the document. Please try sending it again.")
                             else:
-                                debug_info.append("Failed to store document")
-                                await self.send_message(from_number, "❌ Error storing document. Please try again later.")
-
-                            if os.path.exists(temp_path):
-                                os.remove(temp_path)
-                                debug_info.append("Temp file cleaned up")
-                        else:
-                            debug_info.append(f"File download failed: {file_response.text}")
-                            await self.send_message(from_number, "❌ Failed to download the document. Please try sending it again.")
+                                debug_info.append("No download URL found in response")
+                                await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
+                        except json.JSONDecodeError as e:
+                            debug_info.append(f"Error parsing media response: {str(e)}")
+                            await self.send_message(from_number, "❌ Error processing the document. Please try again later.")
                     else:
-                        debug_info.append("No download URL found in response")
+                        debug_info.append(f"Media URL request failed: {media_response_text}")
                         await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
-                except json.JSONDecodeError as e:
-                    debug_info.append(f"Error parsing media response: {str(e)}")
-                    await self.send_message(from_number, "❌ Error processing the document. Please try again later.")
-            else:
-                debug_info.append(f"Media URL request failed: {media_response.text}")
-                await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
 
             return "Document processed", 200
 
