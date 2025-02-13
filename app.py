@@ -163,54 +163,73 @@ def home():
     """
 
 async def test_whatsapp_handler(data):
-    """Simple test handler that doubles the input text"""
+    """Handle incoming WhatsApp messages with improved responses"""
     try:
-        print("\n=== Starting test_whatsapp_handler ===")
-        print(f"Incoming data: {json.dumps(data, indent=2)}")
+        request_id = getattr(request, 'request_id', 'NO_ID')
+        print(f"\n[{request_id}] === Starting WhatsApp Handler ===")
+        print(f"[{request_id}] Incoming data: {json.dumps(data, indent=2)}")
         
         # Extract the message
-        print("\nStep 1: Getting entry")
+        print(f"\n[{request_id}] Step 1: Getting entry")
         entry = data.get('entry', [{}])[0]
-        print(f"Entry: {json.dumps(entry, indent=2)}")
+        print(f"[{request_id}] Entry: {json.dumps(entry, indent=2)}")
         
-        print("\nStep 2: Getting changes")
+        print(f"\n[{request_id}] Step 2: Getting changes")
         changes = entry.get('changes', [{}])[0]
-        print(f"Changes: {json.dumps(changes, indent=2)}")
+        print(f"[{request_id}] Changes: {json.dumps(changes, indent=2)}")
         
-        print("\nStep 3: Getting value")
+        print(f"\n[{request_id}] Step 3: Getting value")
         value = changes.get('value', {})
-        print(f"Value: {json.dumps(value, indent=2)}")
+        print(f"[{request_id}] Value: {json.dumps(value, indent=2)}")
         
-        print("\nStep 4: Getting messages")
+        # Check if this is a status update
+        if 'statuses' in value:
+            print(f"[{request_id}] Status update received - ignoring")
+            return True
+        
+        print(f"\n[{request_id}] Step 4: Getting messages")
         messages = value.get('messages', [])
-        print(f"Messages: {json.dumps(messages, indent=2)}")
+        print(f"[{request_id}] Messages: {json.dumps(messages, indent=2)}")
         
         if not messages:
-            print("No messages found - returning False")
+            print(f"[{request_id}] No messages found - returning False")
             return False
             
-        print("\nStep 5: Getting first message")
+        print(f"\n[{request_id}] Step 5: Getting first message")
         message = messages[0]
-        print(f"Message: {json.dumps(message, indent=2)}")
+        print(f"[{request_id}] Message: {json.dumps(message, indent=2)}")
         
-        if message.get('type') != 'text':
-            print(f"Not a text message: {message.get('type')} - returning False")
-            return False
-            
-        # Get the text and sender
-        print("\nStep 6: Getting text and sender")
-        text = message.get('text', {}).get('body', '')
+        # Get the message type and sender
+        message_type = message.get('type')
         from_number = message.get('from')
-        print(f"Text: {text}")
-        print(f"From: {from_number}")
         
-        # Double the text
-        print("\nStep 7: Creating response")
-        response_text = text + text
-        print(f"Response text: {response_text}")
+        print(f"\n[{request_id}] Step 6: Processing message")
+        print(f"[{request_id}] Type: {message_type}")
+        print(f"[{request_id}] From: {from_number}")
+        
+        # Handle different message types
+        if message_type == 'text':
+            text = message.get('text', {}).get('body', '').lower().strip()
+            
+            # Handle different commands
+            if text == 'help':
+                response_text = """🤖 *Available Commands*:
+- Send any document to store it
+- Add descriptions by replying to a document
+- Type 'list' to see your documents
+- Type 'find <text>' to search documents
+- Type '/ask <question>' to ask about your documents
+- Type 'help' to see this message"""
+            elif text == 'hi' or text == 'hello':
+                response_text = f"👋 Hello! I'm your document management assistant. Type 'help' to see what I can do!"
+            else:
+                # Echo the message for now
+                response_text = f"You said: {text}\n\nType 'help' to see available commands!"
+        else:
+            response_text = f"I received your {message_type} message. Currently, I can only process text messages. Type 'help' to see what I can do!"
         
         # Prepare WhatsApp API request
-        print("\nStep 8: Preparing API request")
+        print(f"\n[{request_id}] Step 7: Preparing API request")
         url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
         headers = {
             'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
@@ -224,24 +243,25 @@ async def test_whatsapp_handler(data):
             'text': {'body': response_text}
         }
         
-        print(f"URL: {url}")
-        print(f"Headers (excluding auth): {json.dumps({k:v for k,v in headers.items() if k != 'Authorization'}, indent=2)}")
-        print(f"Request data: {json.dumps(response_data, indent=2)}")
+        print(f"[{request_id}] URL: {url}")
+        print(f"[{request_id}] Headers (excluding auth): {json.dumps({k:v for k,v in headers.items() if k != 'Authorization'}, indent=2)}")
+        print(f"[{request_id}] Request data: {json.dumps(response_data, indent=2)}")
         
-        print("\nStep 9: Sending request")
+        print(f"\n[{request_id}] Step 8: Sending request")
         response = requests.post(url, headers=headers, json=response_data)
-        print(f"Response Status: {response.status_code}")
-        print(f"Response Body: {response.text}")
+        print(f"[{request_id}] Response Status: {response.status_code}")
+        print(f"[{request_id}] Response Body: {response.text}")
         
-        print("\nStep 10: Handler completed - returning True")
+        print(f"\n[{request_id}] Handler completed successfully")
         return True
         
     except Exception as e:
-        print(f"\n=== Error in test handler ===")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
+        request_id = getattr(request, 'request_id', 'NO_ID')
+        print(f"\n[{request_id}] === Error in WhatsApp handler ===")
+        print(f"[{request_id}] Error type: {type(e).__name__}")
+        print(f"[{request_id}] Error message: {str(e)}")
         import traceback
-        print(f"Traceback:\n{traceback.format_exc()}")
+        print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
         return False
 
 @app.route("/whatsapp-webhook", methods=['GET', 'POST'])
