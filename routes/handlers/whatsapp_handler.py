@@ -15,6 +15,10 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
+class WhatsAppHandlerError(Exception):
+    """Custom exception for WhatsApp handler errors that have already been communicated to the user."""
+    pass
+
 class WhatsAppHandler:
     def __init__(self, docs_app, pending_descriptions, user_state):
         self.docs_app = docs_app
@@ -100,26 +104,39 @@ class WhatsAppHandler:
             print(f"Type: {message_type}")
             print(f"From: {from_number}")
 
+            # Handle document messages with caption
             if message_type == 'document':
                 print("Processing document message...")
                 result = await self.handle_document(from_number, message.get('document', {}), message)
                 print(f"Document processing result: {result}")
                 return result
+            # Handle text messages and document replies
             elif message_type == 'text':
-                print(f"Processing text message: {message.get('text', {}).get('body', '')}")
-                result = await self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
-                print(f"Text processing result: {result}")
-                return result
+                # Check if this is a reply to a document (for adding descriptions)
+                if 'context' in message:
+                    print("Processing document reply...")
+                    result = await self.handle_document(from_number, None, message)
+                    print(f"Document reply result: {result}")
+                    return result
+                # Handle regular text commands
+                else:
+                    print(f"Processing text message: {message.get('text', {}).get('body', '')}")
+                    result = await self.handle_text_command(from_number, message.get('text', {}).get('body', ''))
+                    print(f"Text processing result: {result}")
+                    return result
             else:
                 print(f"Unsupported message type: {message_type}")
                 await self.send_message(from_number, "Sorry, I can only process text messages and documents at the moment.")
-                return "Unsupported message type", 200
+                raise WhatsAppHandlerError("Unsupported message type")
 
+        except WhatsAppHandlerError:
+            raise
         except Exception as e:
             logger.error(f"Error handling WhatsApp message: {str(e)}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
-            return "Error", 500
+            await self.send_message(from_number, "❌ Sorry, there was an error processing your request. Please try again later.")
+            raise WhatsAppHandlerError(str(e))
 
     async def handle_document(self, from_number, document, message=None):
         """Handle incoming document"""
@@ -272,11 +289,9 @@ class WhatsAppHandler:
             return "Document processed", 200
 
         except Exception as e:
-            debug_info.append(f"Error: {str(e)}")
-            import traceback
-            debug_info.append(f"Traceback: {traceback.format_exc()}")
-            await self.send_message(from_number, "❌ An error occurred while processing your document. Please try again later.")
-            return "Error processing document", 500
+            error_msg = f"❌ Error processing document: {str(e)}"
+            await self.send_message(from_number, error_msg)
+            raise WhatsAppHandlerError(str(e))
 
     async def handle_text_command(self, from_number, text):
         """Handle text commands"""
@@ -339,8 +354,6 @@ class WhatsAppHandler:
                 return "Unknown command", 200
 
         except Exception as e:
-            print(f"Error handling command: {str(e)}")
-            import traceback
-            print(f"Command Handler Traceback: {traceback.format_exc()}")
-            await self.send_message(from_number, "❌ Error processing command. Please try again.")
-            return "Error", 500
+            error_msg = "❌ Error processing command. Please try again."
+            await self.send_message(from_number, error_msg)
+            raise WhatsAppHandlerError(str(e))
