@@ -3,7 +3,7 @@ services:
     name: docs-app
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:8080 --workers 2 --worker-class aiohttp.worker.GunicornWebWorker --timeout 120 --graceful-timeout 60 --max-requests 1000 --max-requests-jitter 50 --log-level debug --keep-alive 65 --worker-connections 1000 app:app
+    startCommand: hypercorn --bind 0.0.0.0:8080 --workers 2 --keep-alive 120 --graceful-timeout 60 --access-log - --error-log - --log-level DEBUG app:app
     healthCheckPath: /health
     healthCheckTimeout: 100
     prebootCommand: |
