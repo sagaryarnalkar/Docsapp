@@ -127,17 +127,19 @@ class WhatsAppHandler:
                     debug_info.append(f"Adding description from reply: {description}")
                     result = self.docs_app.update_document_description(from_number, quoted_msg_id, description)
                     if result:
-                        self.send_message(from_number, f"✅ Added description to document: {description}\n\n" +
+                        await self.send_message(from_number, f"✅ Added description to document: {description}\n\n" +
                             "You can keep adding more descriptions to make the document easier to find!")
                     else:
-                        self.send_message(from_number, f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info))
+                        await self.send_message(from_number, f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info))
                     return "Description updated", 200
 
             # First check if user is authorized
+            print(f"=== Starting Authorization for {from_number} ===")
             is_authorized = self.user_state.is_authorized(from_number)
             debug_info.append(f"User authorization status: {is_authorized}")
 
             if not is_authorized:
+                print("User not authorized - getting auth URL")
                 auth_response = self.auth_handler.handle_authorization(from_number)
                 debug_info.append(f"Auth Response: {auth_response}")
 
@@ -145,11 +147,19 @@ class WhatsAppHandler:
                 url_match = re.search(r'(https://accounts\.google\.com/[^\s]+)', auth_response)
                 if url_match:
                     auth_url = url_match.group(1)
-                    full_message = f"Please authorize Google Drive access:\n\n{auth_url}\n\nDebug Info:\n" + "\n".join(debug_info)
-                    self.send_message(from_number, full_message)
+                    message = (
+                        "🔐 *Authorization Required*\n\n"
+                        "To store and manage your documents, I need access to your Google Drive.\n\n"
+                        "Please click the link below to authorize:\n\n"
+                        f"{auth_url}\n\n"
+                        "After authorizing, send your document again!"
+                    )
+                    await self.send_message(from_number, message)
+                    print(f"Sent authorization URL to {from_number}")
                 else:
-                    debug_info.append("Could not extract auth URL")
-                    self.send_message(from_number, "Error getting auth URL. Debug Info:\n" + "\n".join(debug_info))
+                    error_msg = "❌ Error getting authorization URL. Please try again later."
+                    await self.send_message(from_number, error_msg)
+                    print(f"Could not extract auth URL from response: {auth_response}")
                 return "Authorization needed", 200
 
             # Get document details
@@ -221,26 +231,26 @@ class WhatsAppHandler:
                                     logger.error(f"RAG processing failed but document was stored: {str(e)}")
                                     # Don't let RAG failure affect the user experience
                                 
-                                self.send_message(from_number, response_message)
+                                await self.send_message(from_number, response_message)
                             else:
                                 debug_info.append("Failed to store document")
-                                self.send_message(from_number, f"❌ Error storing document. Debug Info:\n" + "\n".join(debug_info))
+                                await self.send_message(from_number, "❌ Error storing document. Please try again later.")
 
                             if os.path.exists(temp_path):
                                 os.remove(temp_path)
                                 debug_info.append("Temp file cleaned up")
                         else:
                             debug_info.append(f"File download failed: {file_response.text}")
-                            self.send_message(from_number, f"❌ File download failed. Debug Info:\n" + "\n".join(debug_info))
+                            await self.send_message(from_number, "❌ Failed to download the document. Please try sending it again.")
                     else:
                         debug_info.append("No download URL found in response")
-                        self.send_message(from_number, f"❌ No download URL found. Debug Info:\n" + "\n".join(debug_info))
+                        await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
                 except json.JSONDecodeError as e:
                     debug_info.append(f"Error parsing media response: {str(e)}")
-                    self.send_message(from_number, f"❌ Error parsing media response. Debug Info:\n" + "\n".join(debug_info))
+                    await self.send_message(from_number, "❌ Error processing the document. Please try again later.")
             else:
                 debug_info.append(f"Media URL request failed: {media_response.text}")
-                self.send_message(from_number, f"❌ Media URL request failed. Debug Info:\n" + "\n".join(debug_info))
+                await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
 
             return "Document processed", 200
 
@@ -248,7 +258,7 @@ class WhatsAppHandler:
             debug_info.append(f"Error: {str(e)}")
             import traceback
             debug_info.append(f"Traceback: {traceback.format_exc()}")
-            self.send_message(from_number, f"❌ Error processing document. Debug Info:\n" + "\n".join(debug_info))
+            await self.send_message(from_number, "❌ An error occurred while processing your document. Please try again later.")
             return "Error processing document", 500
 
     async def handle_text_command(self, from_number, text):

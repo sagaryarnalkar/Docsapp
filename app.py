@@ -211,8 +211,19 @@ async def whatsapp_route():
                 result = await whatsapp_handler.handle_incoming_message(data)
                 print(f"[{request_id}] Handler result: {result}")
                 
+                # Handle different types of responses
                 if isinstance(result, tuple):
                     message, status_code = result
+                    
+                    # Special handling for authorization needed
+                    if message == "Authorization needed" and status_code == 200:
+                        return jsonify({
+                            "status": "success",
+                            "message": "Authorization request sent",
+                            "request_id": request_id
+                        }), 200
+                    
+                    # Handle other responses
                     return jsonify({
                         "status": "success" if status_code == 200 else "error",
                         "message": message,
@@ -230,6 +241,24 @@ async def whatsapp_route():
                 print(f"[{request_id}] Error message: {str(e)}")
                 import traceback
                 print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
+                
+                # Send error message to user
+                try:
+                    data = request.get_json()
+                    entry = data.get('entry', [{}])[0]
+                    changes = entry.get('changes', [{}])[0]
+                    value = changes.get('value', {})
+                    messages = value.get('messages', [])
+                    if messages:
+                        from_number = messages[0].get('from')
+                        if from_number:
+                            await whatsapp_handler.send_message(
+                                from_number,
+                                "❌ Sorry, there was an error processing your request. Please try again later."
+                            )
+                except Exception as send_error:
+                    print(f"Error sending error message: {str(send_error)}")
+                
                 return jsonify({
                     "status": "error", 
                     "message": str(e),
