@@ -19,24 +19,46 @@ class AuthHandler:
         try:
             print(f"\n=== Starting Authorization for {user_phone} ===")
             
-            # Load client configuration
-            credentials_path = os.path.join(BASE_DIR, 'credentials.json')
-            print(f"Loading credentials from: {credentials_path}")
-            print(f"Current directory: {os.getcwd()}")
-            print(f"BASE_DIR: {BASE_DIR}")
-            print(f"Directory contents: {os.listdir(BASE_DIR)}")
+            # Try multiple possible paths for credentials
+            possible_paths = [
+                os.path.join(BASE_DIR, 'credentials.json'),
+                '/app/credentials.json',
+                os.path.join(os.getcwd(), 'credentials.json')
+            ]
             
-            if not os.path.exists(credentials_path):
-                print(f"ERROR: credentials.json not found at {credentials_path}")
-                print(f"Checking absolute path exists: {os.path.exists('/app/credentials.json')}")
-                print(f"Contents of /app: {os.listdir('/app')}")
+            print("Checking possible credential paths:")
+            credentials_found = False
+            credentials_path = None
+            client_config = None
+            
+            for path in possible_paths:
+                print(f"Trying path: {path}")
+                if os.path.exists(path):
+                    print(f"Found credentials at: {path}")
+                    try:
+                        with open(path, 'r') as f:
+                            client_config = json.load(f)
+                            credentials_path = path
+                            credentials_found = True
+                            print(f"Successfully loaded credentials from: {path}")
+                            break
+                    except Exception as e:
+                        print(f"Error reading {path}: {str(e)}")
+                else:
+                    print(f"Path does not exist: {path}")
+            
+            if not credentials_found:
+                print("\nCredentials not found in any location")
+                print(f"Current directory: {os.getcwd()}")
+                print(f"BASE_DIR: {BASE_DIR}")
+                print(f"Directory contents of {BASE_DIR}: {os.listdir(BASE_DIR)}")
+                print(f"Directory contents of /app: {os.listdir('/app')}")
                 return "❌ Error: OAuth credentials file not found."
             
-            with open(credentials_path, 'r') as f:
-                client_config = json.load(f)
-                print("Successfully loaded client config")
-                print(f"Client config keys: {list(client_config.keys())}")
-                print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
+            print("\nCredentials loaded successfully")
+            print(f"Using credentials from: {credentials_path}")
+            print(f"Client config keys: {list(client_config.keys())}")
+            print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
             
             # Create flow using client config
             flow = Flow.from_client_config(
