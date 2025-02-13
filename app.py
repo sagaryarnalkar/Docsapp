@@ -98,17 +98,34 @@ whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  
 @app.before_request
 def before_request():
     """Log details of every incoming request"""
-    print("\n" + "="*50)
-    print(f"PROCESSING REQUEST - SERVER VERSION {VERSION}")
-    print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Method: {request.method}")
-    print(f"URL: {request.url}")
-    print(f"Headers: {dict(request.headers)}")
-    print("="*50 + "\n")
-    if request.form:
-        print(f"Form Data: {dict(request.form)}")
-    if request.args:
-        print(f"Query Args: {dict(request.args)}")
+    try:
+        print("\n" + "="*50)
+        print(f"PROCESSING REQUEST - SERVER VERSION {VERSION}")
+        print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Method: {request.method}")
+        print(f"URL: {request.url}")
+        print(f"Headers: {dict(request.headers)}")
+        print("="*50 + "\n")
+        
+        # Log request body for POST requests
+        if request.method == 'POST':
+            try:
+                raw_data = request.get_data()
+                print(f"Raw request data length: {len(raw_data)} bytes")
+                print(f"Raw request data: {raw_data.decode('utf-8')}")
+            except Exception as e:
+                print(f"Error reading request data: {str(e)}")
+        
+        if request.form:
+            print(f"Form Data: {dict(request.form)}")
+        if request.args:
+            print(f"Query Args: {dict(request.args)}")
+            
+        # Don't return anything to allow request to continue to route
+    except Exception as e:
+        print(f"Error in before_request: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
 
 @app.route("/")
 def home():
@@ -209,15 +226,10 @@ async def test_whatsapp_handler(data):
 
 @app.route("/whatsapp-webhook", methods=['GET', 'POST'])
 async def whatsapp_route():
+    """Handle WhatsApp webhook requests"""
     try:
-        print("\n" + "="*50)
-        print(f"WEBHOOK CALLED - SERVER VERSION {VERSION}")
-        print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*50 + "\n")
-        
-        print(f"Method: {request.method}")
-        print(f"URL: {request.url}")
-        print(f"Headers: {dict(request.headers)}")
+        print("\n=== WhatsApp Webhook Route Started ===")
+        print(f"Processing {request.method} request at {datetime.now()}")
 
         if request.method == "GET":
             print("\nProcessing GET request (verification)")
@@ -240,8 +252,8 @@ async def whatsapp_route():
             print("Verification failed - returning 403")
             return "Forbidden", 403
 
-        else:
-            print("\nProcessing POST request (incoming message)")
+        elif request.method == "POST":
+            print("\n=== Processing POST Request ===")
             try:
                 # Get raw data first
                 print("\nStep 1: Getting raw data")
@@ -262,10 +274,10 @@ async def whatsapp_route():
                 
                 if success:
                     print("Handler succeeded - returning 200")
-                    return "OK", 200
+                    return jsonify({"status": "success"}), 200
                 else:
                     print("Handler failed - returning 500")
-                    return "Handler failed", 500
+                    return jsonify({"status": "error", "message": "Handler failed"}), 500
                 
             except Exception as e:
                 print("\n=== Error processing message ===")
@@ -273,7 +285,7 @@ async def whatsapp_route():
                 print(f"Error message: {str(e)}")
                 import traceback
                 print(f"Traceback:\n{traceback.format_exc()}")
-                return "Error", 500
+                return jsonify({"status": "error", "message": str(e)}), 500
 
     except Exception as e:
         print("\n=== Webhook Error ===")
@@ -281,7 +293,7 @@ async def whatsapp_route():
         print(f"Error message: {str(e)}")
         import traceback
         print(f"Traceback:\n{traceback.format_exc()}")
-        return "Error", 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/oauth2callback")
 def oauth2callback():
