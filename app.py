@@ -14,8 +14,6 @@ from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
 from routes.handlers.whatsapp_handler import WhatsAppHandler
 from dotenv import load_dotenv
-import hmac
-import hashlib
 
 # At the top with your other imports
 from config import (
@@ -24,8 +22,7 @@ from config import (
     WHATSAPP_API_VERSION,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_ACCESS_TOKEN,
-    WHATSAPP_BUSINESS_ACCOUNT_ID,
-    WHATSAPP_APP_SECRET
+    WHATSAPP_BUSINESS_ACCOUNT_ID
 )
 
 # Ensure logs directory exists
@@ -67,41 +64,6 @@ media_handler = MediaHandler(docs_app, pending_descriptions)
 document_handler = DocumentHandler(docs_app, user_documents)
 command_handler = CommandHandler(media_handler, document_handler)
 whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
-
-def verify_webhook_signature(request_data, signature_header):
-    """Verify that the webhook request came from Facebook"""
-    try:
-        if not WHATSAPP_APP_SECRET:
-            print("Warning: WHATSAPP_APP_SECRET not configured")
-            return True  # Allow requests if secret not configured
-            
-        # Get signature from header
-        if not signature_header:
-            print("Error: No signature header found")
-            return False
-            
-        # Extract the actual signature
-        expected_signature = signature_header.split('=')[1]
-        
-        # Calculate signature
-        key = bytes(WHATSAPP_APP_SECRET, 'utf-8')
-        message = request_data
-        
-        # Calculate the HMAC SHA256
-        calculated_hash = hmac.new(
-            key,
-            message,
-            hashlib.sha256
-        ).hexdigest()
-        
-        print(f"Expected signature: {expected_signature}")
-        print(f"Calculated signature: {calculated_hash}")
-        
-        # Compare signatures
-        return hmac.compare_digest(calculated_hash, expected_signature)
-    except Exception as e:
-        print(f"Error verifying signature: {str(e)}")
-        return False
 
 @app.before_request
 def before_request():
