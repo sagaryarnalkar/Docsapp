@@ -163,6 +163,11 @@ async def whatsapp_route():
             token = request.args.get("hub.verify_token")
             challenge = request.args.get("hub.challenge")
             
+            print(f"Verification Request:")
+            print(f"Mode: {mode}")
+            print(f"Token: {token}")
+            print(f"Challenge: {challenge}")
+            
             VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'sagar')
             if mode == "subscribe" and token == VERIFY_TOKEN:
                 return challenge
@@ -171,13 +176,24 @@ async def whatsapp_route():
         else:
             # Handle incoming message
             try:
+                # Log raw request data
+                print("\n=== Request Details ===")
+                print(f"Content-Type: {request.content_type}")
+                print(f"Raw Data: {request.get_data().decode('utf-8')}")
+                
                 # Parse the request data
                 data = request.get_json()
+                print(f"\n=== Parsed JSON Data ===")
+                print(json.dumps(data, indent=2))
                 
                 # Call our simple test handler
                 success = await test_whatsapp_handler(data)
                 
-                return "OK", 200 if success else "Handler failed", 500
+                if success:
+                    return "OK", 200
+                else:
+                    print("Handler failed")
+                    return "Handler failed", 500
                 
             except Exception as e:
                 print(f"Error processing message: {str(e)}")
