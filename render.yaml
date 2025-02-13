@@ -13,23 +13,61 @@ services:
       mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets
       python -c "
       import os
+      import json
+      import sys
+      
+      # Create directories
       os.makedirs('/tmp/docsapp/logs', exist_ok=True)
       os.makedirs('/tmp/docsapp/data', exist_ok=True)
       os.makedirs('/tmp/docsapp/db', exist_ok=True)
       os.makedirs('/etc/secrets', exist_ok=True)
+      
+      # Get credentials from environment
+      oauth_creds = os.environ.get('OAUTH_CREDENTIALS')
+      google_creds = os.environ.get('GOOGLE_CREDENTIALS')
+      
+      print('OAuth credentials length:', len(oauth_creds) if oauth_creds else 'Not found')
+      
+      # Write OAuth credentials
+      if oauth_creds:
+          try:
+              # Validate JSON format
+              json.loads(oauth_creds)
+              with open('/app/credentials.json', 'w') as f:
+                  f.write(oauth_creds)
+              print('Successfully wrote credentials.json')
+              print('File contents:')
+              with open('/app/credentials.json', 'r') as f:
+                  print(f.read())
+          except Exception as e:
+              print('Error writing credentials.json:', str(e))
+              sys.exit(1)
+      else:
+          print('ERROR: OAUTH_CREDENTIALS not found in environment')
+          sys.exit(1)
+      
+      # Write Google credentials
+      if google_creds:
+          try:
+              with open('/etc/secrets/google-credentials.json', 'w') as f:
+                  f.write(google_creds)
+              print('Successfully wrote google-credentials.json')
+          except Exception as e:
+              print('Error writing google-credentials.json:', str(e))
+              sys.exit(1)
+      else:
+          print('ERROR: GOOGLE_CREDENTIALS not found in environment')
+          sys.exit(1)
       "
-      echo "Setting up credentials..."
-      echo "OAUTH_CREDENTIALS length: ${#OAUTH_CREDENTIALS}"
-      echo "Creating credentials.json..."
-      echo "$OAUTH_CREDENTIALS" > /app/credentials.json
-      echo "Verifying credentials.json..."
-      ls -l /app/credentials.json
-      cat /app/credentials.json
-      echo "Setting up Google credentials..."
-      echo "$GOOGLE_CREDENTIALS" > /etc/secrets/google-credentials.json
-      echo "Verifying file permissions..."
+      
+      echo "Setting file permissions..."
       chmod 644 /app/credentials.json
       chmod 644 /etc/secrets/google-credentials.json
+      
+      echo "Verifying files..."
+      ls -l /app/credentials.json
+      ls -l /etc/secrets/google-credentials.json
+      
       echo "=== Preboot Complete ==="
     envVars:
       - key: PYTHON_VERSION

@@ -31,21 +31,38 @@ class AuthHandler:
             credentials_path = None
             client_config = None
             
-            for path in possible_paths:
-                print(f"Trying path: {path}")
-                if os.path.exists(path):
-                    print(f"Found credentials at: {path}")
-                    try:
-                        with open(path, 'r') as f:
-                            client_config = json.load(f)
-                            credentials_path = path
-                            credentials_found = True
-                            print(f"Successfully loaded credentials from: {path}")
-                            break
-                    except Exception as e:
-                        print(f"Error reading {path}: {str(e)}")
-                else:
-                    print(f"Path does not exist: {path}")
+            # First check if the environment variable is set
+            oauth_creds = os.environ.get('OAUTH_CREDENTIALS')
+            if oauth_creds:
+                print("Found OAUTH_CREDENTIALS in environment, attempting to use it directly")
+                try:
+                    client_config = json.loads(oauth_creds)
+                    print("Successfully parsed credentials from environment")
+                    credentials_found = True
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing credentials from environment: {str(e)}")
+            
+            # If environment variable didn't work, try file paths
+            if not credentials_found:
+                for path in possible_paths:
+                    print(f"Trying path: {path}")
+                    if os.path.exists(path):
+                        print(f"Found credentials at: {path}")
+                        try:
+                            with open(path, 'r') as f:
+                                content = f.read()
+                                print(f"File contents length: {len(content)}")
+                                client_config = json.loads(content)
+                                credentials_path = path
+                                credentials_found = True
+                                print(f"Successfully loaded credentials from: {path}")
+                                break
+                        except json.JSONDecodeError as e:
+                            print(f"JSON parsing error for {path}: {str(e)}")
+                        except Exception as e:
+                            print(f"Error reading {path}: {str(e)}")
+                    else:
+                        print(f"Path does not exist: {path}")
             
             if not credentials_found:
                 print("\nCredentials not found in any location")
@@ -53,11 +70,24 @@ class AuthHandler:
                 print(f"BASE_DIR: {BASE_DIR}")
                 print(f"Directory contents of {BASE_DIR}: {os.listdir(BASE_DIR)}")
                 print(f"Directory contents of /app: {os.listdir('/app')}")
+                print("Environment variables:", list(os.environ.keys()))
                 return "❌ Error: OAuth credentials file not found."
             
+            if not client_config:
+                return "❌ Error: Invalid credentials format"
+            
+            if 'web' not in client_config:
+                print("Error: Missing 'web' key in credentials")
+                print(f"Available keys: {list(client_config.keys())}")
+                return "❌ Error: Invalid credentials format - missing 'web' configuration"
+            
             print("\nCredentials loaded successfully")
-            print(f"Using credentials from: {credentials_path}")
+            if credentials_path:
+                print(f"Using credentials from file: {credentials_path}")
+            else:
+                print("Using credentials from environment variable")
             print(f"Client config keys: {list(client_config.keys())}")
+            print(f"Web config keys: {list(client_config['web'].keys())}")
             print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
             
             # Create flow using client config
