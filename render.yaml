@@ -17,10 +17,23 @@ services:
       import sys
       
       # Create directories
-      os.makedirs('/tmp/docsapp/logs', exist_ok=True)
-      os.makedirs('/tmp/docsapp/data', exist_ok=True)
-      os.makedirs('/tmp/docsapp/db', exist_ok=True)
-      os.makedirs('/etc/secrets', exist_ok=True)
+      print('Creating and verifying directories...')
+      directories = [
+          '/tmp/docsapp/logs',
+          '/tmp/docsapp/data',
+          '/tmp/docsapp/db',
+          '/etc/secrets',
+          '/app'
+      ]
+      
+      for directory in directories:
+          try:
+              os.makedirs(directory, exist_ok=True)
+              os.chmod(directory, 0o755)  # rwxr-xr-x
+              print(f'Created/verified directory: {directory}')
+              print(f'Contents: {os.listdir(directory)}')
+          except Exception as e:
+              print(f'Error with directory {directory}: {str(e)}')
       
       # Get credentials from environment
       oauth_creds = os.environ.get('OAUTH_CREDENTIALS')
@@ -33,12 +46,15 @@ services:
           try:
               # Validate JSON format
               json.loads(oauth_creds)
-              with open('/app/credentials.json', 'w') as f:
+              credentials_path = '/app/credentials.json'
+              with open(credentials_path, 'w') as f:
                   f.write(oauth_creds)
+              os.chmod(credentials_path, 0o644)  # rw-r--r--
               print('Successfully wrote credentials.json')
               print('File contents:')
-              with open('/app/credentials.json', 'r') as f:
+              with open(credentials_path, 'r') as f:
                   print(f.read())
+              print(f'File permissions: {oct(os.stat(credentials_path).st_mode)[-3:]}')
           except Exception as e:
               print('Error writing credentials.json:', str(e))
               sys.exit(1)
@@ -49,9 +65,12 @@ services:
       # Write Google credentials
       if google_creds:
           try:
-              with open('/etc/secrets/google-credentials.json', 'w') as f:
+              google_creds_path = '/etc/secrets/google-credentials.json'
+              with open(google_creds_path, 'w') as f:
                   f.write(google_creds)
+              os.chmod(google_creds_path, 0o644)  # rw-r--r--
               print('Successfully wrote google-credentials.json')
+              print(f'File permissions: {oct(os.stat(google_creds_path).st_mode)[-3:]}')
           except Exception as e:
               print('Error writing google-credentials.json:', str(e))
               sys.exit(1)
@@ -59,14 +78,6 @@ services:
           print('ERROR: GOOGLE_CREDENTIALS not found in environment')
           sys.exit(1)
       "
-      
-      echo "Setting file permissions..."
-      chmod 644 /app/credentials.json
-      chmod 644 /etc/secrets/google-credentials.json
-      
-      echo "Verifying files..."
-      ls -l /app/credentials.json
-      ls -l /etc/secrets/google-credentials.json
       
       echo "=== Preboot Complete ==="
     envVars:

@@ -158,10 +158,78 @@ class AuthHandler:
         """Handle OAuth callback"""
         try:
             logger.debug(f"OAuth callback received. URL: {request_url}")
+            print("\n=== Processing OAuth Callback ===")
             
-            # Load client configuration
-            with open(os.path.join(BASE_DIR, 'credentials.json'), 'r') as f:
-                client_config = json.load(f)
+            # Try multiple possible paths for credentials
+            possible_paths = [
+                os.path.join(BASE_DIR, 'credentials.json'),
+                '/app/credentials.json',
+                os.path.join(os.getcwd(), 'credentials.json')
+            ]
+            
+            print("Checking possible credential paths:")
+            credentials_found = False
+            client_config = None
+            
+            # First check if the environment variable is set
+            oauth_creds = os.environ.get('OAUTH_CREDENTIALS')
+            if oauth_creds:
+                print("Found OAUTH_CREDENTIALS in environment, attempting to use it directly")
+                try:
+                    client_config = json.loads(oauth_creds)
+                    print("Successfully parsed credentials from environment")
+                    credentials_found = True
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing credentials from environment: {str(e)}")
+            
+            # If environment variable didn't work, try file paths
+            if not credentials_found:
+                for path in possible_paths:
+                    print(f"Trying path: {path}")
+                    if os.path.exists(path):
+                        print(f"Found credentials at: {path}")
+                        try:
+                            with open(path, 'r') as f:
+                                content = f.read()
+                                print(f"File contents length: {len(content)}")
+                                client_config = json.loads(content)
+                                print(f"Successfully loaded credentials from: {path}")
+                                credentials_found = True
+                                break
+                        except json.JSONDecodeError as e:
+                            print(f"JSON parsing error for {path}: {str(e)}")
+                        except Exception as e:
+                            print(f"Error reading {path}: {str(e)}")
+                    else:
+                        print(f"Path does not exist: {path}")
+            
+            if not credentials_found:
+                print("\nCredentials not found in any location")
+                print(f"Current directory: {os.getcwd()}")
+                print(f"BASE_DIR: {BASE_DIR}")
+                print(f"Directory contents of {BASE_DIR}: {os.listdir(BASE_DIR)}")
+                print(f"Directory contents of /app: {os.listdir('/app')}")
+                print("Environment variables:", list(os.environ.keys()))
+                error_msg = "OAuth credentials file not found"
+                logger.error(error_msg)
+                return self._get_error_html(error_msg)
+            
+            if not client_config:
+                error_msg = "Invalid credentials format"
+                logger.error(error_msg)
+                return self._get_error_html(error_msg)
+            
+            if 'web' not in client_config:
+                error_msg = "Invalid credentials format - missing 'web' configuration"
+                logger.error(error_msg)
+                print("Error: Missing 'web' key in credentials")
+                print(f"Available keys: {list(client_config.keys())}")
+                return self._get_error_html(error_msg)
+            
+            print("\nCredentials loaded successfully")
+            print(f"Client config keys: {list(client_config.keys())}")
+            print(f"Web config keys: {list(client_config['web'].keys())}")
+            print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
             
             # Create flow using client config
             flow = Flow.from_client_config(
@@ -169,31 +237,42 @@ class AuthHandler:
                 scopes=SCOPES,
                 redirect_uri=OAUTH_REDIRECT_URI
             )
+            print("Successfully created OAuth flow")
             
             # Fetch token using the callback URL
             flow.fetch_token(authorization_response=request_url)
+            print("Successfully fetched token")
             
             # Get credentials and store them
             creds = flow.credentials
             token_data = json.loads(creds.to_json())
+            print("Successfully generated token data")
             
             # Get user phone from temp file
             temp_user_file = os.path.join(TEMP_DIR, 'temp_user.txt')
+            print(f"Looking for temp user file at: {temp_user_file}")
             if os.path.exists(temp_user_file):
                 with open(temp_user_file, 'r') as f:
                     phone = f.read().strip()
+                print(f"Found phone number: {phone}")
                 self.user_state.store_tokens(phone, token_data)
                 os.remove(temp_user_file)
-                logger.debug(f"Successfully stored tokens for user {phone}")
+                print("Successfully stored tokens and cleaned up temp file")
                 return self._get_success_html()
             else:
+                error_msg = "User session expired. Please try again."
                 logger.error("No temp user file found")
-                return self._get_error_html("User session expired. Please try again.")
+                print(f"Temp file not found at {temp_user_file}")
+                print(f"TEMP_DIR contents: {os.listdir(TEMP_DIR)}")
+                return self._get_error_html(error_msg)
             
         except Exception as e:
             logger.error(f"Error in OAuth callback: {str(e)}")
             import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Traceback: {error_trace}")
+            print(f"OAuth Callback Error: {str(e)}")
+            print(f"Traceback: {error_trace}")
             return self._get_error_html(str(e))
 
     def handle_auth(self, phone):
