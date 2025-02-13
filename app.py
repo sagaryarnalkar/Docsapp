@@ -24,7 +24,8 @@ from config import (
     WHATSAPP_API_VERSION,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_ACCESS_TOKEN,
-    WHATSAPP_BUSINESS_ACCOUNT_ID
+    WHATSAPP_BUSINESS_ACCOUNT_ID,
+    WHATSAPP_APP_SECRET
 )
 
 # Ensure logs directory exists
@@ -66,6 +67,41 @@ media_handler = MediaHandler(docs_app, pending_descriptions)
 document_handler = DocumentHandler(docs_app, user_documents)
 command_handler = CommandHandler(media_handler, document_handler)
 whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
+
+def verify_webhook_signature(request_data, signature_header):
+    """Verify that the webhook request came from Facebook"""
+    try:
+        if not WHATSAPP_APP_SECRET:
+            print("Warning: WHATSAPP_APP_SECRET not configured")
+            return True  # Allow requests if secret not configured
+            
+        # Get signature from header
+        if not signature_header:
+            print("Error: No signature header found")
+            return False
+            
+        # Extract the actual signature
+        expected_signature = signature_header.split('=')[1]
+        
+        # Calculate signature
+        key = bytes(WHATSAPP_APP_SECRET, 'utf-8')
+        message = request_data
+        
+        # Calculate the HMAC SHA256
+        calculated_hash = hmac.new(
+            key,
+            message,
+            hashlib.sha256
+        ).hexdigest()
+        
+        print(f"Expected signature: {expected_signature}")
+        print(f"Calculated signature: {calculated_hash}")
+        
+        # Compare signatures
+        return hmac.compare_digest(calculated_hash, expected_signature)
+    except Exception as e:
+        print(f"Error verifying signature: {str(e)}")
+        return False
 
 @app.before_request
 def before_request():
@@ -126,91 +162,66 @@ async def whatsapp_route():
                     print(f"Received token: {token}")
                     return "Forbidden", 403
         else:
-            print("\n=== Incoming Message ===")
+            print("\n=== Processing Incoming Message ===")
             
-            # Verify the request signature
-            signature = request.headers.get('X-Hub-Signature-256', '')
-            if signature:
-                print(f"Received signature: {signature}")
-                # Get the raw request data before parsing
-                raw_data = request.get_data()
-                print(f"Raw request data length: {len(raw_data)} bytes")
-                try:
-                    # Verify signature (implement this if needed)
-                    print("Signature verification passed")
-                except Exception as e:
-                    print(f"Signature verification failed: {str(e)}")
-            
-            # Get and log the raw request data
+            # 1. Get and log raw data
             raw_data = request.get_data()
-            print(f"\nRaw request data: {raw_data}")
+            print(f"Raw data ({len(raw_data)} bytes): {raw_data}")
             
-            # Try to decode as UTF-8
             try:
+                # 2. Try to decode the data
                 decoded_data = raw_data.decode('utf-8')
-                print(f"\nDecoded data: {decoded_data}")
-            except Exception as e:
-                print(f"Error decoding data: {str(e)}")
-            
-            # Try to parse as JSON
-            try:
-                data = request.get_json()
-                print(f"\nParsed JSON data: {json.dumps(data, indent=2)}")
-            except Exception as e:
-                print(f"Error parsing JSON: {str(e)}")
-                print(f"Raw data that failed to parse: {raw_data.decode('utf-8')}")
+                print(f"Decoded data: {decoded_data}")
+                
+                # 3. Parse JSON
+                data = json.loads(decoded_data)
+                print(f"Parsed JSON: {json.dumps(data, indent=2)}")
+                
+                # 4. Extract message details
+                entry = data.get('entry', [{}])[0]
+                changes = entry.get('changes', [{}])[0]
+                value = changes.get('value', {})
+                messages = value.get('messages', [])
+                
+                if not messages:
+                    print("No messages found in payload")
+                    return "No messages", 200
+                
+                # 5. Get message details
+                message = messages[0]
+                print(f"\nMessage Details:")
+                print(f"Type: {message.get('type')}")
+                print(f"From: {message.get('from')}")
+                if message.get('type') == 'text':
+                    print(f"Text: {message.get('text', {}).get('body')}")
+                elif message.get('type') == 'document':
+                    print(f"Document: {message.get('document')}")
+                
+                # 6. Process message
+                try:
+                    result = await whatsapp_handler.handle_incoming_message(data)
+                    print(f"Handler result: {result}")
+                    return "OK", 200
+                except Exception as e:
+                    print(f"Error in message handler: {str(e)}")
+                    import traceback
+                    print(f"Handler traceback: {traceback.format_exc()}")
+                    return "Handler error", 500
+                    
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {str(e)}")
                 return "Invalid JSON", 400
-
-            try:
-                if not data:
-                    print("No data received")
-                    return "No data received", 400
-
-                if data.get('object') == 'whatsapp_business_account':
-                    print("\n=== Processing WhatsApp Message ===")
-                    try:
-                        # Extract message details for logging
-                        entry = data.get('entry', [{}])[0]
-                        changes = entry.get('changes', [{}])[0]
-                        value = changes.get('value', {})
-                        messages = value.get('messages', [])
-                        
-                        if messages:
-                            message = messages[0]
-                            print(f"\nMessage Details:")
-                            print(f"Message Type: {message.get('type')}")
-                            print(f"From: {message.get('from')}")
-                            if message.get('type') == 'text':
-                                print(f"Text: {message.get('text', {}).get('body')}")
-                            elif message.get('type') == 'document':
-                                print(f"Document: {message.get('document')}")
-
-                        # Process the message
-                        result = await whatsapp_handler.handle_incoming_message(data)
-                        print(f"\nHandler Result: {result}")
-                        
-                        if isinstance(result, tuple):
-                            return result
-                        return result if result else ("OK", 200)
-                    except Exception as e:
-                        print(f"Error in message handler: {str(e)}")
-                        import traceback
-                        print(f"Handler Traceback: {traceback.format_exc()}")
-                        return "Handler Error", 500
-                else:
-                    print(f"Invalid object type: {data.get('object')}")
-                    return "Invalid request", 404
             except Exception as e:
-                print(f"Error processing message: {str(e)}")
+                print(f"Unexpected error: {str(e)}")
                 import traceback
-                print(f"Processing Traceback: {traceback.format_exc()}")
-                return "Error", 500
+                print(f"Traceback: {traceback.format_exc()}")
+                return "Server error", 500
 
     except Exception as e:
-        print(f"Webhook Error: {str(e)}")
+        print(f"Top-level error: {str(e)}")
         import traceback
-        print(f"Webhook Traceback: {traceback.format_exc()}")
-        return "Server Error", 500
+        print(f"Top-level traceback: {traceback.format_exc()}")
+        return "Server error", 500
 
 @app.route("/oauth2callback")
 def oauth2callback():
