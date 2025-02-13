@@ -8,13 +8,15 @@ services:
     healthCheckTimeout: 100
     autoDeploy: true
     prebootCommand: |
-      mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db
+      mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets
       python -c "
       import os
       os.makedirs('/tmp/docsapp/logs', exist_ok=True)
       os.makedirs('/tmp/docsapp/data', exist_ok=True)
       os.makedirs('/tmp/docsapp/db', exist_ok=True)
+      os.makedirs('/etc/secrets', exist_ok=True)
       "
+      echo "$OAUTH_CREDENTIALS" > credentials.json
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -42,4 +44,6 @@ services:
         value: "1"
     secrets:
       - key: GOOGLE_CREDENTIALS
-        name: google-credentials 
+        name: google-credentials
+      - key: OAUTH_CREDENTIALS
+        name: oauth-credentials 

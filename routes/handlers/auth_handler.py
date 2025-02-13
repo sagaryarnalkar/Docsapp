@@ -20,8 +20,19 @@ class AuthHandler:
             print(f"\n=== Starting Authorization for {user_phone} ===")
             
             # Load client configuration
-            with open(os.path.join(BASE_DIR, 'credentials.json'), 'r') as f:
+            credentials_path = os.path.join(BASE_DIR, 'credentials.json')
+            print(f"Loading credentials from: {credentials_path}")
+            print(f"Current directory: {os.getcwd()}")
+            print(f"BASE_DIR: {BASE_DIR}")
+            
+            if not os.path.exists(credentials_path):
+                print(f"ERROR: credentials.json not found at {credentials_path}")
+                return "❌ Error: OAuth credentials file not found."
+            
+            with open(credentials_path, 'r') as f:
                 client_config = json.load(f)
+                print("Successfully loaded client config")
+                print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
             
             # Create flow using client config
             flow = Flow.from_client_config(
@@ -29,6 +40,7 @@ class AuthHandler:
                 scopes=SCOPES,
                 redirect_uri=OAUTH_REDIRECT_URI
             )
+            print("Successfully created OAuth flow")
             
             # Generate authorization URL
             auth_url, _ = flow.authorization_url(
@@ -40,8 +52,11 @@ class AuthHandler:
             print(f"Generated auth URL: {auth_url}")
             
             # Store user phone for callback
-            with open(os.path.join(TEMP_DIR, 'temp_user.txt'), 'w') as f:
+            temp_file_path = os.path.join(TEMP_DIR, 'temp_user.txt')
+            print(f"Storing user phone in: {temp_file_path}")
+            with open(temp_file_path, 'w') as f:
                 f.write(user_phone)
+            print(f"Successfully stored user phone: {user_phone}")
             
             response = ResponseBuilder.get_auth_message(auth_url)
             print(f"Auth response: {response}")
@@ -50,8 +65,11 @@ class AuthHandler:
         except Exception as e:
             logger.error(f"Error in handle_authorization: {str(e)}")
             import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            return "❌ Error setting up authorization. Please try again."
+            error_trace = traceback.format_exc()
+            logger.error(f"Traceback: {error_trace}")
+            print(f"Authorization Error: {str(e)}")
+            print(f"Traceback: {error_trace}")
+            return f"❌ Error setting up authorization: {str(e)}"
 
     def _get_success_html(self):
         """Get HTML for successful authorization"""
