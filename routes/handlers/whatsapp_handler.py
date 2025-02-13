@@ -3,6 +3,7 @@ import requests
 import json
 import logging
 import os
+import time
 from .auth_handler import AuthHandler
 from config import (
     WHATSAPP_ACCESS_TOKEN,
@@ -31,10 +32,24 @@ class WhatsAppHandler:
         }
         self.auth_handler = AuthHandler(self.user_state)
         self.rag_handler = RAGHandler(self.docs_app)
+        self.sent_messages = {}  # Track sent messages
 
     async def send_message(self, to_number, message):
         """Send WhatsApp message using Meta API"""
         try:
+            # Generate a unique key for this message
+            message_key = f"{to_number}:{message}"
+            current_time = int(time.time())
+            
+            # Clean up old sent messages (older than 1 hour)
+            cutoff_time = current_time - 3600
+            self.sent_messages = {k:v for k,v in self.sent_messages.items() if v > cutoff_time}
+            
+            # Check if we've sent this exact message recently
+            if message_key in self.sent_messages:
+                print(f"Skipping duplicate message to {to_number}: {message[:50]}...")
+                return True
+            
             url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
             
             headers = {
@@ -67,6 +82,10 @@ class WhatsAppHandler:
                             print("WhatsApp access token error detected")
                             logger.error(f"WhatsApp API Error: {error_message}")
                             return False
+                    
+                    if response.status == 200:
+                        # Mark message as sent
+                        self.sent_messages[message_key] = current_time
                     
                     return response.status == 200
             

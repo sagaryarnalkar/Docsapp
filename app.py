@@ -15,6 +15,7 @@ from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandH
 from routes.handlers.whatsapp_handler import WhatsAppHandler
 from dotenv import load_dotenv
 import uuid  # Add at top with other imports
+import time
 
 # At the top with your other imports
 from config import (
@@ -99,6 +100,9 @@ media_handler = MediaHandler(docs_app, pending_descriptions)
 document_handler = DocumentHandler(docs_app, user_documents)
 command_handler = CommandHandler(media_handler, document_handler)
 whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  # Pass user_state
+
+# Add after initializing other objects
+processed_messages = {}
 
 @app.before_request
 def before_request():
@@ -206,6 +210,29 @@ async def whatsapp_route():
                 data = request.get_json()
                 print(f"[{request_id}] Parsed data: {json.dumps(data, indent=2)}")
                 
+                # Check for duplicate messages
+                messages = data.get('entry', [{}])[0].get('changes', [{}])[0].get('value', {}).get('messages', [])
+                if messages:
+                    message = messages[0]
+                    message_id = message.get('id')
+                    timestamp = message.get('timestamp')
+                    
+                    # Clean up old messages (older than 1 hour)
+                    current_time = int(time.time())
+                    processed_messages.clear()  # Clear all old messages
+                    
+                    # Check if we've processed this message recently
+                    if message_id in processed_messages:
+                        print(f"[{request_id}] Duplicate message detected: {message_id}")
+                        return jsonify({
+                            "status": "success",
+                            "message": "Duplicate message ignored",
+                            "request_id": request_id
+                        }), 200
+                    
+                    # Mark message as processed
+                    processed_messages[message_id] = current_time
+                
                 # Call WhatsApp handler
                 print(f"\n[{request_id}] Step 3: Calling WhatsApp handler")
                 result = await whatsapp_handler.handle_incoming_message(data)
@@ -251,22 +278,23 @@ async def whatsapp_route():
                 import traceback
                 print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
                 
-                # Send error message to user
-                try:
-                    data = request.get_json()
-                    entry = data.get('entry', [{}])[0]
-                    changes = entry.get('changes', [{}])[0]
-                    value = changes.get('value', {})
-                    messages = value.get('messages', [])
-                    if messages:
-                        from_number = messages[0].get('from')
-                        if from_number:
-                            await whatsapp_handler.send_message(
-                                from_number,
-                                "❌ Sorry, there was an error processing your request. Please try again later."
-                            )
-                except Exception as send_error:
-                    print(f"Error sending error message: {str(send_error)}")
+                # Only send error message if it wasn't already handled by the WhatsApp handler
+                if not isinstance(e, WhatsAppHandlerError):
+                    try:
+                        data = request.get_json()
+                        entry = data.get('entry', [{}])[0]
+                        changes = entry.get('changes', [{}])[0]
+                        value = changes.get('value', {})
+                        messages = value.get('messages', [])
+                        if messages:
+                            from_number = messages[0].get('from')
+                            if from_number:
+                                await whatsapp_handler.send_message(
+                                    from_number,
+                                    "❌ Sorry, there was an error processing your request. Please try again later."
+                                )
+                    except Exception as send_error:
+                        print(f"Error sending error message: {str(send_error)}")
                 
                 return jsonify({
                     "status": "error", 
