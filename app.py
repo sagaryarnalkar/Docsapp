@@ -5,7 +5,7 @@ import sys
 # Add these to your imports
 import json
 import requests
-from datetime import timedelta
+from datetime import timedelta, datetime
 from config import TEMP_DIR, BASE_DIR
 # Remove webhook imports since we handle it in this file now
 # from routes.webhook import handle_webhook, handle_oauth_callback
@@ -24,6 +24,14 @@ from config import (
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_BUSINESS_ACCOUNT_ID
 )
+
+# At the very top of the file, after imports
+VERSION = "v1.0.1"  # Increment this each time we deploy
+
+print("\n" + "="*50)
+print(f"STARTING DOCSAPP SERVER VERSION {VERSION}")
+print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print("="*50 + "\n")
 
 # Ensure logs directory exists
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
@@ -90,10 +98,13 @@ whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  
 @app.before_request
 def before_request():
     """Log details of every incoming request"""
-    print("\n=== New Request ===")
+    print("\n" + "="*50)
+    print(f"PROCESSING REQUEST - SERVER VERSION {VERSION}")
+    print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Method: {request.method}")
     print(f"URL: {request.url}")
     print(f"Headers: {dict(request.headers)}")
+    print("="*50 + "\n")
     if request.form:
         print(f"Form Data: {dict(request.form)}")
     if request.args:
@@ -199,7 +210,11 @@ async def test_whatsapp_handler(data):
 @app.route("/whatsapp-webhook", methods=['GET', 'POST'])
 async def whatsapp_route():
     try:
-        print("\n=== WhatsApp Webhook Called ===")
+        print("\n" + "="*50)
+        print(f"WEBHOOK CALLED - SERVER VERSION {VERSION}")
+        print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*50 + "\n")
+        
         print(f"Method: {request.method}")
         print(f"URL: {request.url}")
         print(f"Headers: {dict(request.headers)}")
