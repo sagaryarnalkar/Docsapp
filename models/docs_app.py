@@ -431,6 +431,9 @@ class DocsApp:
         pass
 
     def _get_user_credentials(self, user_phone):
-        """Get user's Google credentials - implement based on your auth system"""
-        # This should be implemented based on how you're storing user credentials
-        pass
+        """Get user's Google credentials from user state"""
+        try:
+            return user_state.get_credentials(user_phone)
+        except Exception as e:
+            logger.error(f"Error getting user credentials: {str(e)}")
+            return None

@@ -294,15 +294,23 @@ def oauth2callback():
         code = request.args.get('code')
         state = request.args.get('state')
         
-        if code:
-            # Store the authorization code
-            user_state.store_auth_code(code, state)
-            return "Authorization successful! You can close this window and return to WhatsApp."
-        return "Authorization failed!"
+        if not code:
+            logger.error("No authorization code received")
+            return "Authorization failed - no code received", 400
+
+        # Get the full URL for the OAuth flow
+        auth_response = request.url
+        
+        # Let the auth handler process the callback
+        result = auth_handler.handle_oauth_callback(auth_response)
+        
+        return result
 
     except Exception as e:
         logger.error(f"Error in oauth2callback: {str(e)}")
-        return str(e), 500
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return "Authorization failed - internal error", 500
 
 @app.route('/temp/<path:filename>')
 def serve_file(filename):
