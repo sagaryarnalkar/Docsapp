@@ -14,6 +14,7 @@ from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
 from routes.handlers.whatsapp_handler import WhatsAppHandler
 from dotenv import load_dotenv
+import uuid  # Add at top with other imports
 
 # At the top with your other imports
 from config import (
@@ -82,6 +83,10 @@ print(f"Base directory: {BASE_DIR}")
 
 app = Flask(__name__)
 
+# Add after app = Flask(__name__)
+app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max-limit
+
 # Initialize all required objects
 user_state = UserState()
 docs_app = DocsApp()
@@ -99,33 +104,48 @@ whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  
 def before_request():
     """Log details of every incoming request"""
     try:
-        print("\n" + "="*50)
+        # Generate unique request ID
+        request.request_id = str(uuid.uuid4())
+        print(f"\n{'='*50}")
+        print(f"REQUEST ID: {request.request_id}")
         print(f"PROCESSING REQUEST - SERVER VERSION {VERSION}")
         print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Method: {request.method}")
         print(f"URL: {request.url}")
         print(f"Headers: {dict(request.headers)}")
-        print("="*50 + "\n")
+        print(f"{'='*50}\n")
         
         # Log request body for POST requests
         if request.method == 'POST':
             try:
                 raw_data = request.get_data()
-                print(f"Raw request data length: {len(raw_data)} bytes")
-                print(f"Raw request data: {raw_data.decode('utf-8')}")
+                print(f"[{request.request_id}] Raw request data length: {len(raw_data)} bytes")
+                print(f"[{request.request_id}] Raw request data: {raw_data.decode('utf-8')}")
             except Exception as e:
-                print(f"Error reading request data: {str(e)}")
+                print(f"[{request.request_id}] Error reading request data: {str(e)}")
         
         if request.form:
-            print(f"Form Data: {dict(request.form)}")
+            print(f"[{request.request_id}] Form Data: {dict(request.form)}")
         if request.args:
-            print(f"Query Args: {dict(request.args)}")
+            print(f"[{request.request_id}] Query Args: {dict(request.args)}")
             
-        # Don't return anything to allow request to continue to route
     except Exception as e:
         print(f"Error in before_request: {str(e)}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
+
+@app.after_request
+def after_request(response):
+    """Log after request processing"""
+    try:
+        request_id = getattr(request, 'request_id', 'NO_ID')
+        print(f"\n[{request_id}] === After Request ===")
+        print(f"[{request_id}] Response Status: {response.status_code}")
+        print(f"[{request_id}] Response Headers: {dict(response.headers)}")
+        return response
+    except Exception as e:
+        print(f"Error in after_request: {str(e)}")
+        return response
 
 @app.route("/")
 def home():
@@ -227,73 +247,82 @@ async def test_whatsapp_handler(data):
 @app.route("/whatsapp-webhook", methods=['GET', 'POST'])
 async def whatsapp_route():
     """Handle WhatsApp webhook requests"""
+    request_id = getattr(request, 'request_id', 'NO_ID')
     try:
-        print("\n=== WhatsApp Webhook Route Started ===")
-        print(f"Processing {request.method} request at {datetime.now()}")
+        print(f"\n[{request_id}] === WhatsApp Webhook Route Started ===")
+        print(f"[{request_id}] Processing {request.method} request at {datetime.now()}")
 
         if request.method == "GET":
-            print("\nProcessing GET request (verification)")
+            print(f"\n[{request_id}] Processing GET request (verification)")
             mode = request.args.get("hub.mode")
             token = request.args.get("hub.verify_token")
             challenge = request.args.get("hub.challenge")
             
-            print(f"Verification Request:")
-            print(f"Mode: {mode}")
-            print(f"Token: {token}")
-            print(f"Challenge: {challenge}")
+            print(f"[{request_id}] Verification Request:")
+            print(f"[{request_id}] Mode: {mode}")
+            print(f"[{request_id}] Token: {token}")
+            print(f"[{request_id}] Challenge: {challenge}")
             
             VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'sagar')
-            print(f"Expected token: {VERIFY_TOKEN}")
+            print(f"[{request_id}] Expected token: {VERIFY_TOKEN}")
             
             if mode == "subscribe" and token == VERIFY_TOKEN:
-                print("Verification successful - returning challenge")
+                print(f"[{request_id}] Verification successful - returning challenge")
                 return challenge
                 
-            print("Verification failed - returning 403")
+            print(f"[{request_id}] Verification failed - returning 403")
             return "Forbidden", 403
 
         elif request.method == "POST":
-            print("\n=== Processing POST Request ===")
+            print(f"\n[{request_id}] === Processing POST Request ===")
             try:
                 # Get raw data first
-                print("\nStep 1: Getting raw data")
+                print(f"\n[{request_id}] Step 1: Getting raw data")
                 raw_data = request.get_data()
-                print(f"Raw data length: {len(raw_data)} bytes")
+                print(f"[{request_id}] Raw data length: {len(raw_data)} bytes")
                 decoded_data = raw_data.decode('utf-8')
-                print(f"Raw data: {decoded_data}")
+                print(f"[{request_id}] Raw data: {decoded_data}")
                 
                 # Parse JSON
-                print("\nStep 2: Parsing JSON")
+                print(f"\n[{request_id}] Step 2: Parsing JSON")
                 data = request.get_json()
-                print(f"Parsed data: {json.dumps(data, indent=2)}")
+                print(f"[{request_id}] Parsed data: {json.dumps(data, indent=2)}")
                 
                 # Call test handler
-                print("\nStep 3: Calling test handler")
+                print(f"\n[{request_id}] Step 3: Calling test handler")
                 success = await test_whatsapp_handler(data)
-                print(f"Handler result: {success}")
+                print(f"[{request_id}] Handler result: {success}")
                 
                 if success:
-                    print("Handler succeeded - returning 200")
-                    return jsonify({"status": "success"}), 200
+                    print(f"[{request_id}] Handler succeeded - returning 200")
+                    return jsonify({"status": "success", "request_id": request_id}), 200
                 else:
-                    print("Handler failed - returning 500")
-                    return jsonify({"status": "error", "message": "Handler failed"}), 500
+                    print(f"[{request_id}] Handler failed - returning 500")
+                    return jsonify({"status": "error", "message": "Handler failed", "request_id": request_id}), 500
                 
             except Exception as e:
-                print("\n=== Error processing message ===")
-                print(f"Error type: {type(e).__name__}")
-                print(f"Error message: {str(e)}")
+                print(f"\n[{request_id}] === Error processing message ===")
+                print(f"[{request_id}] Error type: {type(e).__name__}")
+                print(f"[{request_id}] Error message: {str(e)}")
                 import traceback
-                print(f"Traceback:\n{traceback.format_exc()}")
-                return jsonify({"status": "error", "message": str(e)}), 500
+                print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
+                return jsonify({
+                    "status": "error", 
+                    "message": str(e),
+                    "request_id": request_id
+                }), 500
 
     except Exception as e:
-        print("\n=== Webhook Error ===")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
+        print(f"\n[{request_id}] === Webhook Error ===")
+        print(f"[{request_id}] Error type: {type(e).__name__}")
+        print(f"[{request_id}] Error message: {str(e)}")
         import traceback
-        print(f"Traceback:\n{traceback.format_exc()}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "request_id": request_id
+        }), 500
 
 @app.route("/oauth2callback")
 def oauth2callback():

@@ -8,6 +8,10 @@ load_dotenv()
 app = Flask(__name__)
 user_state = UserState()
 
+@app.route('/')
+def home():
+    return "Auth server is running!"
+
 @app.route('/oauth2callback')
 def oauth2callback():
     # Get authorization code from query parameters
@@ -21,4 +25,6 @@ def oauth2callback():
     return "Authorization failed!"
 
 if __name__ == '__main__':
-    app.run(port=8080) 
+    print("\n=== Auth Server Starting ===")
+    print("Please keep this server running and use another terminal for testing")
+    app.run(port=8080, debug=True) 
