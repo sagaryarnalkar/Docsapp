@@ -24,14 +24,18 @@ class AuthHandler:
             print(f"Loading credentials from: {credentials_path}")
             print(f"Current directory: {os.getcwd()}")
             print(f"BASE_DIR: {BASE_DIR}")
+            print(f"Directory contents: {os.listdir(BASE_DIR)}")
             
             if not os.path.exists(credentials_path):
                 print(f"ERROR: credentials.json not found at {credentials_path}")
+                print(f"Checking absolute path exists: {os.path.exists('/app/credentials.json')}")
+                print(f"Contents of /app: {os.listdir('/app')}")
                 return "❌ Error: OAuth credentials file not found."
             
             with open(credentials_path, 'r') as f:
                 client_config = json.load(f)
                 print("Successfully loaded client config")
+                print(f"Client config keys: {list(client_config.keys())}")
                 print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
             
             # Create flow using client config

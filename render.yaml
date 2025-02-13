@@ -16,7 +16,8 @@ services:
       os.makedirs('/tmp/docsapp/db', exist_ok=True)
       os.makedirs('/etc/secrets', exist_ok=True)
       "
-      echo "$OAUTH_CREDENTIALS" > credentials.json
+      echo "$OAUTH_CREDENTIALS" > /app/credentials.json
+      echo "$GOOGLE_CREDENTIALS" > /etc/secrets/google-credentials.json
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
