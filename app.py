@@ -223,6 +223,15 @@ async def whatsapp_route():
                             "request_id": request_id
                         }), 200
                     
+                    # Handle WhatsApp token errors
+                    if message == "WhatsApp token error" and status_code == 500:
+                        logger.error("WhatsApp access token is invalid or expired")
+                        return jsonify({
+                            "status": "error",
+                            "message": "WhatsApp configuration error",
+                            "request_id": request_id
+                        }), 500
+                    
                     # Handle other responses
                     return jsonify({
                         "status": "success" if status_code == 200 else "error",

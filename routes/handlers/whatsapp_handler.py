@@ -56,6 +56,14 @@ class WhatsAppHandler:
                     print(f"Response Status: {response.status}")
                     print(f"Response Body: {response_text}")
                     
+                    if response.status == 400:
+                        error_data = json.loads(response_text)
+                        error_message = error_data.get('error', {}).get('message', '')
+                        if 'access token' in error_message.lower():
+                            print("WhatsApp access token error detected")
+                            logger.error(f"WhatsApp API Error: {error_message}")
+                            return False
+                    
                     return response.status == 200
             
         except Exception as e:
@@ -158,7 +166,10 @@ class WhatsAppHandler:
                         f"{auth_url}\n\n"
                         "After authorizing, send your document again!"
                     )
-                    await self.send_message(from_number, message)
+                    send_result = await self.send_message(from_number, message)
+                    if not send_result:
+                        print("Failed to send authorization message - WhatsApp token may be invalid")
+                        return "WhatsApp token error", 500
                     print(f"Sent authorization URL to {from_number}")
                 else:
                     error_msg = "❌ Error getting authorization URL. Please try again later."
