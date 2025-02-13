@@ -123,12 +123,28 @@ class WhatsAppHandler:
             print(f"Type: {message_type}")
             print(f"From: {from_number}")
 
-            # Handle document messages with caption
-            if message_type == 'document':
-                print("Processing document message...")
-                result = await self.handle_document(from_number, message.get('document', {}), message)
-                print(f"Document processing result: {result}")
+            # Handle all file types (document, image, video, audio)
+            if message_type in ['document', 'image', 'video', 'audio']:
+                print(f"Processing {message_type} message...")
+                # Get the media object based on type
+                media_obj = message.get(message_type, {})
+                if not media_obj:
+                    print(f"No {message_type} object found in message")
+                    return f"No {message_type} found", 400
+                
+                # For images and other media that might not have filename
+                if message_type != 'document':
+                    extension = {
+                        'image': '.jpg',
+                        'video': '.mp4',
+                        'audio': '.mp3'
+                    }.get(message_type, '')
+                    media_obj['filename'] = f"{message_type}_{int(time.time())}{extension}"
+                
+                result = await self.handle_document(from_number, media_obj, message)
+                print(f"{message_type.capitalize()} processing result: {result}")
                 return result
+                
             # Handle text messages and document replies
             elif message_type == 'text':
                 # Check if this is a reply to a document (for adding descriptions)
@@ -145,7 +161,7 @@ class WhatsAppHandler:
                     return result
             else:
                 print(f"Unsupported message type: {message_type}")
-                await self.send_message(from_number, "Sorry, I can only process text messages and documents at the moment.")
+                await self.send_message(from_number, "Sorry, I don't understand this type of message. You can send me documents, images, videos, audio files, or text commands.")
                 raise WhatsAppHandlerError("Unsupported message type")
 
         except WhatsAppHandlerError:
@@ -341,12 +357,18 @@ class WhatsAppHandler:
             # Process different commands
             if command == 'help':
                 help_message = """🤖 Available commands:
-- Send any document to store it
-- Add descriptions by replying to a document
-- 'list' to see your documents
-- 'find <text>' to search documents
+- Send any file to store it (documents, images, videos, audio)
+- Add descriptions by replying to a stored file
+- 'list' to see your stored files
+- 'find <text>' to search your files
 - '/ask <question>' to ask questions about your documents (Beta)
-- 'help' to see this message"""
+- 'help' to see this message
+
+📎 Supported file types:
+• Documents (PDF, Word, Excel, PowerPoint, etc.)
+• Images (JPG, PNG, etc.)
+• Videos (MP4, etc.)
+• Audio files (MP3, etc.)"""
                 await self.send_message(from_number, help_message)
                 return "Help message sent", 200
 
