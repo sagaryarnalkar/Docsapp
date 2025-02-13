@@ -95,33 +95,51 @@ def home():
 async def test_whatsapp_handler(data):
     """Simple test handler that doubles the input text"""
     try:
+        print("\n=== Starting test_whatsapp_handler ===")
+        
         # Extract the message
+        print("Step 1: Extracting entry from data")
         entry = data.get('entry', [{}])[0]
+        print(f"Entry: {json.dumps(entry, indent=2)}")
+        
+        print("\nStep 2: Extracting changes")
         changes = entry.get('changes', [{}])[0]
+        print(f"Changes: {json.dumps(changes, indent=2)}")
+        
+        print("\nStep 3: Extracting value")
         value = changes.get('value', {})
+        print(f"Value: {json.dumps(value, indent=2)}")
+        
+        print("\nStep 4: Extracting messages")
         messages = value.get('messages', [])
+        print(f"Messages: {json.dumps(messages, indent=2)}")
         
         if not messages:
-            print("No messages found")
+            print("No messages found - returning False")
             return False
             
+        print("\nStep 5: Getting first message")
         message = messages[0]
+        print(f"Message: {json.dumps(message, indent=2)}")
+        
         if message.get('type') != 'text':
-            print(f"Not a text message: {message.get('type')}")
+            print(f"Not a text message: {message.get('type')} - returning False")
             return False
             
         # Get the text and sender
+        print("\nStep 6: Extracting text and sender")
         text = message.get('text', {}).get('body', '')
         from_number = message.get('from')
-        
-        print(f"\n=== Received Message ===")
-        print(f"From: {from_number}")
         print(f"Text: {text}")
+        print(f"From: {from_number}")
         
         # Double the text
+        print("\nStep 7: Creating response text")
         response_text = text + text
+        print(f"Response text: {response_text}")
         
-        # Send response
+        # Prepare WhatsApp API request
+        print("\nStep 8: Preparing WhatsApp API request")
         url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
         headers = {
             'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
@@ -135,20 +153,24 @@ async def test_whatsapp_handler(data):
             'text': {'body': response_text}
         }
         
-        print(f"\n=== Sending Response ===")
-        print(f"To: {from_number}")
-        print(f"Text: {response_text}")
+        print(f"URL: {url}")
+        print(f"Headers (excluding auth): {json.dumps({k:v for k,v in headers.items() if k != 'Authorization'}, indent=2)}")
+        print(f"Request data: {json.dumps(response_data, indent=2)}")
         
+        print("\nStep 9: Sending WhatsApp API request")
         response = requests.post(url, headers=headers, json=response_data)
         print(f"Response Status: {response.status_code}")
         print(f"Response Body: {response.text}")
         
+        print("\nStep 10: Handler completed successfully - returning True")
         return True
         
     except Exception as e:
-        print(f"Error in test handler: {str(e)}")
+        print(f"\n=== Error in test handler ===")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
         import traceback
-        print(f"Traceback: {traceback.format_exc()}")
+        print(f"Traceback:\n{traceback.format_exc()}")
         return False
 
 @app.route("/whatsapp-webhook", methods=['GET', 'POST'])
@@ -156,9 +178,11 @@ async def whatsapp_route():
     try:
         print("\n=== WhatsApp Webhook Called ===")
         print(f"Method: {request.method}")
+        print(f"URL: {request.url}")
+        print(f"Headers: {dict(request.headers)}")
 
         if request.method == "GET":
-            # Handle verification (keep existing verification code)
+            print("\nProcessing GET request (verification)")
             mode = request.args.get("hub.mode")
             token = request.args.get("hub.verify_token")
             challenge = request.args.get("hub.challenge")
@@ -169,42 +193,57 @@ async def whatsapp_route():
             print(f"Challenge: {challenge}")
             
             VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'sagar')
+            print(f"Expected token: {VERIFY_TOKEN}")
+            
             if mode == "subscribe" and token == VERIFY_TOKEN:
+                print("Verification successful - returning challenge")
                 return challenge
+                
+            print("Verification failed - returning 403")
             return "Forbidden", 403
 
         else:
-            # Handle incoming message
+            print("\nProcessing POST request (incoming message)")
             try:
-                # Log raw request data
-                print("\n=== Request Details ===")
+                # Log request details
+                print("\nStep 1: Getting request details")
                 print(f"Content-Type: {request.content_type}")
-                print(f"Raw Data: {request.get_data().decode('utf-8')}")
+                raw_data = request.get_data()
+                print(f"Raw data length: {len(raw_data)} bytes")
+                decoded_data = raw_data.decode('utf-8')
+                print(f"Decoded data: {decoded_data}")
                 
-                # Parse the request data
+                # Parse JSON
+                print("\nStep 2: Parsing JSON data")
                 data = request.get_json()
-                print(f"\n=== Parsed JSON Data ===")
-                print(json.dumps(data, indent=2))
+                print(f"Parsed JSON: {json.dumps(data, indent=2)}")
                 
-                # Call our simple test handler
+                # Call test handler
+                print("\nStep 3: Calling test handler")
                 success = await test_whatsapp_handler(data)
+                print(f"Handler result: {success}")
                 
                 if success:
+                    print("Handler succeeded - returning 200")
                     return "OK", 200
                 else:
-                    print("Handler failed")
+                    print("Handler failed - returning 500")
                     return "Handler failed", 500
                 
             except Exception as e:
-                print(f"Error processing message: {str(e)}")
+                print("\n=== Error processing message ===")
+                print(f"Error type: {type(e).__name__}")
+                print(f"Error message: {str(e)}")
                 import traceback
-                print(f"Traceback: {traceback.format_exc()}")
+                print(f"Traceback:\n{traceback.format_exc()}")
                 return "Error", 500
 
     except Exception as e:
-        print(f"Webhook Error: {str(e)}")
+        print("\n=== Webhook Error ===")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
         import traceback
-        print(f"Traceback: {traceback.format_exc()}")
+        print(f"Traceback:\n{traceback.format_exc()}")
         return "Error", 500
 
 @app.route("/oauth2callback")
