@@ -163,7 +163,7 @@ class WhatsAppHandler:
                     return "Description updated", 200
 
             # First check if user is authorized
-            print(f"=== Starting Authorization for {from_number} ===")
+            print(f"=== Starting Authorization Check for {from_number} ===")
             is_authorized = self.user_state.is_authorized(from_number)
             debug_info.append(f"User authorization status: {is_authorized}")
 
@@ -193,6 +193,10 @@ class WhatsAppHandler:
                     await self.send_message(from_number, error_msg)
                     print(f"Could not extract auth URL from response: {auth_response}")
                 return "Authorization needed", 200
+
+            # If this is a reply or no document provided, return early
+            if not document:
+                return "No document to process", 200
 
             # Get document details
             doc_id = document.get('id')
@@ -266,28 +270,39 @@ class WhatsAppHandler:
                                                 logger.error(f"RAG processing failed but document was stored: {str(e)}")
                                             
                                             await self.send_message(from_number, response_message)
+                                            return "Document stored successfully", 200
                                         else:
                                             debug_info.append("Failed to store document")
-                                            await self.send_message(from_number, "❌ Error storing document. Please try again later.")
+                                            error_msg = "❌ Error storing document. Please try again later."
+                                            await self.send_message(from_number, error_msg)
+                                            raise WhatsAppHandlerError("Failed to store document")
 
                                         if os.path.exists(temp_path):
                                             os.remove(temp_path)
                                             debug_info.append("Temp file cleaned up")
                                     else:
                                         debug_info.append(f"File download failed: {await file_response.text()}")
-                                        await self.send_message(from_number, "❌ Failed to download the document. Please try sending it again.")
+                                        error_msg = "❌ Failed to download the document. Please try sending it again."
+                                        await self.send_message(from_number, error_msg)
+                                        raise WhatsAppHandlerError("Failed to download document")
                             else:
                                 debug_info.append("No download URL found in response")
-                                await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
+                                error_msg = "❌ Could not access the document. Please try sending it again."
+                                await self.send_message(from_number, error_msg)
+                                raise WhatsAppHandlerError("No download URL found")
                         except json.JSONDecodeError as e:
                             debug_info.append(f"Error parsing media response: {str(e)}")
-                            await self.send_message(from_number, "❌ Error processing the document. Please try again later.")
+                            error_msg = "❌ Error processing the document. Please try again later."
+                            await self.send_message(from_number, error_msg)
+                            raise WhatsAppHandlerError(str(e))
                     else:
                         debug_info.append(f"Media URL request failed: {media_response_text}")
-                        await self.send_message(from_number, "❌ Could not access the document. Please try sending it again.")
+                        error_msg = "❌ Could not access the document. Please try sending it again."
+                        await self.send_message(from_number, error_msg)
+                        raise WhatsAppHandlerError("Media URL request failed")
 
-            return "Document processed", 200
-
+        except WhatsAppHandlerError:
+            raise
         except Exception as e:
             error_msg = f"❌ Error processing document: {str(e)}"
             await self.send_message(from_number, error_msg)
