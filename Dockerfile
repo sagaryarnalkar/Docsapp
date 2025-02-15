@@ -12,27 +12,32 @@ RUN apt-get update && apt-get install -y \
     curl \
     gcc \
     python3-dev \
-    && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -r requirements.txt \
     && apt-get purge -y gcc python3-dev \
-    && apt-get autoremove -y
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create necessary directories
-RUN mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets
+# Create necessary directories with correct permissions
+RUN mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets \
+    && chmod -R 755 /tmp/docsapp
 
 # Copy the rest of the application
 COPY . .
 
-# Environment variables
+# Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV GOOGLE_CLOUD_LOCATION=us-central1
-ENV GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+ENV TEMP_DIR=/tmp/docsapp
+ENV LOGS_DIR=/tmp/docsapp/logs
+ENV DATA_DIR=/tmp/docsapp/data
+ENV DB_DIR=/tmp/docsapp/db
 
 # Expose port
 EXPOSE 8080
 
-# Healthcheck command
+# Healthcheck
 HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1
 
 # Start command
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "--graceful-timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "50", "--log-level", "debug", "app:app"] 
+CMD ["hypercorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--keep-alive", "120", "--graceful-timeout", "60", "--access-log", "-", "--error-log", "-", "--log-level", "DEBUG", "app:app"] 
