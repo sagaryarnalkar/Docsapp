@@ -6,7 +6,7 @@ import vertexai
 from vertexai.language_models import TextGenerationModel
 from google.cloud import aiplatform
 from google.cloud import storage
-from google.cloud import documentai_v1 as documentai
+from google.cloud import documentai
 from google.api_core import retry
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION
 
