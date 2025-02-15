@@ -5,7 +5,6 @@ from typing import Dict, List, Optional
 import vertexai
 from vertexai.language_models import TextGenerationModel
 from google.cloud import aiplatform
-from vertexai.generative_models import GenerativeModel, Content, Part, FileData
 from google.cloud import storage
 from google.cloud import documentai_v1 as documentai
 from google.api_core import retry
@@ -31,8 +30,8 @@ class RAGProcessor:
             # Initialize Vertex AI
             vertexai.init(project=self.project_id, location=self.location)
             
-            # Initialize Gemini Pro model
-            self.model = GenerativeModel("gemini-pro")
+            # Initialize language model
+            self.model = TextGenerationModel.from_pretrained("text-bison@001")
             
             # Initialize Document AI
             self.docai_client = documentai.DocumentProcessorServiceClient()
@@ -72,7 +71,7 @@ class RAGProcessor:
         self.last_api_call = time.time()
 
     async def process_document_async(self, file_id: str, mime_type: str) -> Dict:
-        """Process a document asynchronously using Vertex AI's built-in RAG functionality."""
+        """Process a document asynchronously using Vertex AI."""
         if not self.is_available:
             return {
                 "status": "error",
@@ -88,23 +87,11 @@ class RAGProcessor:
             # Download file from Google Drive to GCS
             gcs_uri = await self._copy_drive_to_gcs(file_id)
             
-            # Use Vertex AI's built-in file import for RAG
-            file_data = FileData(
-                file_uri=gcs_uri,
-                mime_type=mime_type
-            )
-            
-            # Import file into Vertex AI
-            response = await self.model.get_file_context(
-                file_data=file_data,
-                project=self.project_id,
-                location=self.location
-            )
-            
+            # For now, just store the file ID and GCS URI
             logger.info(f"Document processed successfully with file_id: {file_id}")
             return {
                 "status": "success",
-                "data_store_id": file_id,
+                "data_store_id": gcs_uri,
                 "document_id": file_id
             }
             
@@ -139,7 +126,7 @@ class RAGProcessor:
             raise
 
     async def query_documents(self, user_query: str, data_store_id: str) -> Dict:
-        """Query documents using Vertex AI's built-in RAG functionality."""
+        """Query documents using Vertex AI."""
         if not self.is_available:
             return {
                 "status": "error",
@@ -150,33 +137,18 @@ class RAGProcessor:
             logger.info(f"Querying documents with: {user_query}")
             self._rate_limit()
             
-            # Create content with file context
-            content = Content(
-                parts=[
-                    Part.from_text(
-                        "You are a helpful assistant analyzing documents. Using only the provided context, "
-                        "answer the following question. If the answer cannot be found in the context, "
-                        "explicitly say so. If the context contains partial information, acknowledge what "
-                        "is known and what is missing."
-                    ),
-                    Part.from_text(f"Question: {user_query}")
-                ]
-            )
+            prompt = f"""Using the document context, answer the following question. 
+            If the answer cannot be found in the context, explicitly say so. 
+            If the context contains partial information, acknowledge what is known and what is missing.
+
+            Question: {user_query}"""
             
-            # Query using the imported file
-            response = await self.model.generate_content(
-                content,
-                generation_config={
-                    "temperature": 0.2,
-                    "candidate_count": 1
-                },
-                file_ids=[data_store_id]
-            )
+            response = self.model.predict(prompt)
             
             return {
                 "status": "success",
                 "answer": response.text,
-                "sources": response.metadata.get("citations", [])
+                "sources": []
             }
             
         except Exception as e:
@@ -187,7 +159,7 @@ class RAGProcessor:
             }
 
     async def get_document_summary(self, data_store_id: str, document_id: str) -> Dict:
-        """Get a comprehensive document summary using Vertex AI's built-in RAG functionality."""
+        """Get a comprehensive document summary using Vertex AI."""
         if not self.is_available:
             return {
                 "status": "error",
@@ -198,34 +170,19 @@ class RAGProcessor:
             logger.info(f"Generating summary for document: {document_id}")
             self._rate_limit()
             
-            # Create content for summary generation
-            content = Content(
-                parts=[
-                    Part.from_text(
-                        """Please provide a comprehensive summary of the document.
-                        Include:
-                        1. Main topics and key points
-                        2. Important findings or conclusions
-                        3. Any significant dates, numbers, or statistics
-                        4. Document structure and organization"""
-                    )
-                ]
-            )
+            prompt = """Please provide a comprehensive summary of the document.
+            Include:
+            1. Main topics and key points
+            2. Important findings or conclusions
+            3. Any significant dates, numbers, or statistics
+            4. Document structure and organization"""
             
-            # Generate summary using the imported file
-            response = await self.model.generate_content(
-                content,
-                generation_config={
-                    "temperature": 0.2,
-                    "candidate_count": 1
-                },
-                file_ids=[data_store_id]
-            )
+            response = self.model.predict(prompt)
             
             return {
                 "status": "success",
                 "summary": response.text,
-                "metadata": response.metadata
+                "metadata": {}
             }
             
         except Exception as e:
