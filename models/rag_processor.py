@@ -5,9 +5,7 @@ from typing import Dict, List, Optional
 import vertexai
 from vertexai.language_models import TextGenerationModel
 from google.cloud import aiplatform
-from vertexai.generative_models import GenerativeModel, Content, Part
-from vertexai_preview import generative_models
-from vertexai_preview.generative_models import GenerativeModel as PreviewGenerativeModel
+from vertexai.generative_models import GenerativeModel, Content, Part, FileData
 from google.cloud import storage
 from google.cloud import documentai_v1 as documentai
 from google.api_core import retry
@@ -33,9 +31,8 @@ class RAGProcessor:
             # Initialize Vertex AI
             vertexai.init(project=self.project_id, location=self.location)
             
-            # Initialize Gemini Pro model for both standard and preview features
+            # Initialize Gemini Pro model
             self.model = GenerativeModel("gemini-pro")
-            self.preview_model = PreviewGenerativeModel("gemini-pro")
             
             # Initialize Document AI
             self.docai_client = documentai.DocumentProcessorServiceClient()
@@ -92,20 +89,17 @@ class RAGProcessor:
             gcs_uri = await self._copy_drive_to_gcs(file_id)
             
             # Use Vertex AI's built-in file import for RAG
-            file_data = generative_models.FileData(
+            file_data = FileData(
                 file_uri=gcs_uri,
                 mime_type=mime_type
             )
             
             # Import file into Vertex AI
-            response = await self.preview_model.import_file_async(
+            response = await self.model.get_file_context(
                 file_data=file_data,
                 project=self.project_id,
                 location=self.location
             )
-            
-            # Wait for import to complete
-            file_id = response.result()
             
             logger.info(f"Document processed successfully with file_id: {file_id}")
             return {
@@ -157,25 +151,25 @@ class RAGProcessor:
             self._rate_limit()
             
             # Create content with file context
-            content = generative_models.Content(
+            content = Content(
                 parts=[
-                    generative_models.Part.from_text(
+                    Part.from_text(
                         "You are a helpful assistant analyzing documents. Using only the provided context, "
                         "answer the following question. If the answer cannot be found in the context, "
                         "explicitly say so. If the context contains partial information, acknowledge what "
                         "is known and what is missing."
                     ),
-                    generative_models.Part.from_text(f"Question: {user_query}")
+                    Part.from_text(f"Question: {user_query}")
                 ]
             )
             
             # Query using the imported file
-            response = await self.preview_model.generate_content(
+            response = await self.model.generate_content(
                 content,
-                generation_config=generative_models.GenerationConfig(
-                    temperature=0.2,
-                    candidate_count=1
-                ),
+                generation_config={
+                    "temperature": 0.2,
+                    "candidate_count": 1
+                },
                 file_ids=[data_store_id]
             )
             
@@ -205,9 +199,9 @@ class RAGProcessor:
             self._rate_limit()
             
             # Create content for summary generation
-            content = generative_models.Content(
+            content = Content(
                 parts=[
-                    generative_models.Part.from_text(
+                    Part.from_text(
                         """Please provide a comprehensive summary of the document.
                         Include:
                         1. Main topics and key points
@@ -219,12 +213,12 @@ class RAGProcessor:
             )
             
             # Generate summary using the imported file
-            response = await self.preview_model.generate_content(
+            response = await self.model.generate_content(
                 content,
-                generation_config=generative_models.GenerationConfig(
-                    temperature=0.2,
-                    candidate_count=1
-                ),
+                generation_config={
+                    "temperature": 0.2,
+                    "candidate_count": 1
+                },
                 file_ids=[data_store_id]
             )
             
