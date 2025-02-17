@@ -259,12 +259,12 @@ class AuthHandler:
                 os.remove(temp_user_file)
                 print("Successfully stored tokens and cleaned up temp file")
                 return self._get_success_html()
-            else:
-                error_msg = "User session expired. Please try again."
-                logger.error("No temp user file found")
-                print(f"Temp file not found at {temp_user_file}")
-                print(f"TEMP_DIR contents: {os.listdir(TEMP_DIR)}")
-                return self._get_error_html(error_msg)
+            
+            error_msg = "User session expired. Please try again."
+            logger.error("No temp user file found")
+            print(f"Temp file not found at {temp_user_file}")
+            print(f"TEMP_DIR contents: {os.listdir(TEMP_DIR)}")
+            return self._get_error_html(error_msg)
             
         except Exception as e:
             logger.error(f"Error in OAuth callback: {str(e)}")
