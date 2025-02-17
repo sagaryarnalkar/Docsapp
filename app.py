@@ -317,26 +317,41 @@ async def whatsapp_route():
 def oauth2callback():
     """Handle OAuth callback from Google"""
     try:
+        print(f"\n{'='*50}")
+        print("OAUTH CALLBACK RECEIVED")
+        print(f"{'='*50}")
+        
+        # Log full request details
+        print("\n=== Request Details ===")
+        print(f"URL: {request.url}")
+        print(f"Base URL: {request.base_url}")
+        print(f"Headers: {dict(request.headers)}")
+        print(f"Args: {dict(request.args)}")
+        
         # Get authorization code from query parameters
         code = request.args.get('code')
         state = request.args.get('state')
         
         if not code:
-            logger.error("No authorization code received")
+            error = "No authorization code received"
+            print(f"\nERROR: {error}")
             return "Authorization failed - no code received", 400
 
         # Get the full URL for the OAuth flow
         auth_response = request.url
+        print(f"\n=== Processing Callback ===")
+        print(f"Auth Response URL: {auth_response}")
         
         # Let the auth handler process the callback
         result = auth_handler.handle_oauth_callback(auth_response)
+        print(f"\nCallback Result: {result[:200]}...")  # Print first 200 chars of result
         
         return result
 
     except Exception as e:
-        logger.error(f"Error in oauth2callback: {str(e)}")
+        print(f"\nERROR in oauth2callback: {str(e)}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        print(f"Traceback:\n{traceback.format_exc()}")
         return "Authorization failed - internal error", 500
 
 @app.route('/temp/<path:filename>')

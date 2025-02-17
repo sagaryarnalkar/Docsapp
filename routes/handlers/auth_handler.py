@@ -17,7 +17,9 @@ class AuthHandler:
     def handle_authorization(self, user_phone):
         """Handle Google Drive authorization"""
         try:
-            print(f"\n=== Starting Authorization for {user_phone} ===")
+            print(f"\n{'='*50}")
+            print(f"OAUTH FLOW START - Phone: {user_phone}")
+            print(f"{'='*50}")
             
             # Try multiple possible paths for credentials
             possible_paths = [
@@ -26,7 +28,7 @@ class AuthHandler:
                 os.path.join(os.getcwd(), 'credentials.json')
             ]
             
-            print("Checking possible credential paths:")
+            print("\n=== Checking Credentials ===")
             credentials_found = False
             credentials_path = None
             client_config = None
@@ -34,10 +36,11 @@ class AuthHandler:
             # First check if the environment variable is set
             oauth_creds = os.environ.get('OAUTH_CREDENTIALS')
             if oauth_creds:
-                print("Found OAUTH_CREDENTIALS in environment, attempting to use it directly")
+                print("Found OAUTH_CREDENTIALS in environment")
                 try:
                     client_config = json.loads(oauth_creds)
                     print("Successfully parsed credentials from environment")
+                    print(f"Redirect URIs in config: {client_config.get('web', {}).get('redirect_uris', [])}")
                     credentials_found = True
                 except json.JSONDecodeError as e:
                     print(f"Error parsing credentials from environment: {str(e)}")
@@ -45,50 +48,29 @@ class AuthHandler:
             # If environment variable didn't work, try file paths
             if not credentials_found:
                 for path in possible_paths:
-                    print(f"Trying path: {path}")
+                    print(f"Checking path: {path}")
                     if os.path.exists(path):
                         print(f"Found credentials at: {path}")
                         try:
                             with open(path, 'r') as f:
                                 content = f.read()
-                                print(f"File contents length: {len(content)}")
                                 client_config = json.loads(content)
+                                print(f"Redirect URIs in config file: {client_config.get('web', {}).get('redirect_uris', [])}")
                                 credentials_path = path
                                 credentials_found = True
-                                print(f"Successfully loaded credentials from: {path}")
                                 break
-                        except json.JSONDecodeError as e:
-                            print(f"JSON parsing error for {path}: {str(e)}")
                         except Exception as e:
                             print(f"Error reading {path}: {str(e)}")
-                    else:
-                        print(f"Path does not exist: {path}")
             
             if not credentials_found:
-                print("\nCredentials not found in any location")
+                print("\n=== ERROR: No Valid Credentials Found ===")
                 print(f"Current directory: {os.getcwd()}")
                 print(f"BASE_DIR: {BASE_DIR}")
-                print(f"Directory contents of {BASE_DIR}: {os.listdir(BASE_DIR)}")
-                print(f"Directory contents of /app: {os.listdir('/app')}")
-                print("Environment variables:", list(os.environ.keys()))
-                return "❌ Error: OAuth credentials file not found."
+                print(f"Available environment variables: {list(os.environ.keys())}")
+                return "❌ Error: OAuth credentials not found"
             
-            if not client_config:
-                return "❌ Error: Invalid credentials format"
-            
-            if 'web' not in client_config:
-                print("Error: Missing 'web' key in credentials")
-                print(f"Available keys: {list(client_config.keys())}")
-                return "❌ Error: Invalid credentials format - missing 'web' configuration"
-            
-            print("\nCredentials loaded successfully")
-            if credentials_path:
-                print(f"Using credentials from file: {credentials_path}")
-            else:
-                print("Using credentials from environment variable")
-            print(f"Client config keys: {list(client_config.keys())}")
-            print(f"Web config keys: {list(client_config['web'].keys())}")
-            print(f"Redirect URI from config: {OAUTH_REDIRECT_URI}")
+            print("\n=== Creating OAuth Flow ===")
+            print(f"Using redirect URI: {OAUTH_REDIRECT_URI}")
             
             # Create flow using client config
             flow = Flow.from_client_config(
@@ -96,35 +78,34 @@ class AuthHandler:
                 scopes=SCOPES,
                 redirect_uri=OAUTH_REDIRECT_URI
             )
-            print("Successfully created OAuth flow")
             
-            # Generate authorization URL
-            auth_url, _ = flow.authorization_url(
+            # Generate authorization URL with state parameter
+            auth_url, state = flow.authorization_url(
                 access_type='offline',
                 include_granted_scopes='true',
                 prompt='consent'
             )
             
-            print(f"Generated auth URL: {auth_url}")
+            print("\n=== Generated Auth URL ===")
+            print(f"Full Auth URL: {auth_url}")
+            print(f"State parameter: {state}")
             
             # Store user phone for callback
             temp_file_path = os.path.join(TEMP_DIR, 'temp_user.txt')
-            print(f"Storing user phone in: {temp_file_path}")
+            print(f"\nStoring user data at: {temp_file_path}")
             with open(temp_file_path, 'w') as f:
                 f.write(user_phone)
-            print(f"Successfully stored user phone: {user_phone}")
             
-            response = ResponseBuilder.get_auth_message(auth_url)
-            print(f"Auth response: {response}")
-            return response
+            print("\n=== OAuth Flow Setup Complete ===")
+            return auth_url
             
         except Exception as e:
-            logger.error(f"Error in handle_authorization: {str(e)}")
+            print(f"\n{'='*50}")
+            print("OAUTH FLOW ERROR")
+            print(f"Error: {str(e)}")
             import traceback
-            error_trace = traceback.format_exc()
-            logger.error(f"Traceback: {error_trace}")
-            print(f"Authorization Error: {str(e)}")
-            print(f"Traceback: {error_trace}")
+            print(f"Traceback:\n{traceback.format_exc()}")
+            print(f"{'='*50}\n")
             return f"❌ Error setting up authorization: {str(e)}"
 
     def _get_success_html(self):

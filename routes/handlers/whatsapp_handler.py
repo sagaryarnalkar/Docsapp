@@ -98,7 +98,9 @@ class WhatsAppHandler:
     async def handle_incoming_message(self, data):
         """Handle incoming WhatsApp message"""
         try:
-            print("\n=== Processing WhatsApp Message ===")
+            print(f"\n{'='*50}")
+            print("WHATSAPP MESSAGE PROCESSING START")
+            print(f"{'='*50}")
             print(f"Raw Data: {json.dumps(data, indent=2)}")
 
             entry = data.get('entry', [{}])[0]
@@ -118,7 +120,7 @@ class WhatsAppHandler:
             message = messages[0]
             from_number = message.get('from')
 
-            print(f"\nMessage Details:")
+            print(f"\n=== Message Details ===")
             print(f"From: {from_number}")
 
             # Check authentication status first for any message
@@ -126,14 +128,11 @@ class WhatsAppHandler:
             print(f"User authorization status: {is_authorized}")
 
             if not is_authorized:
-                print("User not authorized - getting auth URL")
-                auth_response = self.auth_handler.handle_authorization(from_number)
-                print(f"Auth Response: {auth_response}")
+                print("\n=== Starting OAuth Flow ===")
+                auth_url = self.auth_handler.handle_authorization(from_number)
+                print(f"Generated Auth URL: {auth_url}")
 
-                import re
-                url_match = re.search(r'(https://accounts\.google\.com/[^\s]+)', auth_response)
-                if url_match:
-                    auth_url = url_match.group(1)
+                if auth_url.startswith('http'):
                     message = (
                         "🔐 *Authorization Required*\n\n"
                         "To use this bot and manage your documents, I need access to your Google Drive.\n\n"
@@ -141,15 +140,18 @@ class WhatsAppHandler:
                         f"{auth_url}\n\n"
                         "After authorizing, you can start using the bot!"
                     )
+                    print("\n=== Sending Auth Message ===")
+                    print(f"Message: {message}")
+                    
                     send_result = await self.send_message(from_number, message)
                     if not send_result:
                         print("Failed to send authorization message - WhatsApp token may be invalid")
                         return "WhatsApp token error", 500
-                    print(f"Sent authorization URL to {from_number}")
+                    print(f"Successfully sent authorization URL to {from_number}")
                 else:
                     error_msg = "❌ Error getting authorization URL. Please try again later."
                     await self.send_message(from_number, error_msg)
-                    print(f"Could not extract auth URL from response: {auth_response}")
+                    print(f"Error with auth URL: {auth_url}")
                 return "Authorization needed", 200
 
             # Now process the message since user is authorized
