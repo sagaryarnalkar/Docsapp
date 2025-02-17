@@ -116,12 +116,44 @@ class WhatsAppHandler:
                 return "No messages found", 200
 
             message = messages[0]
-            message_type = message.get('type')
             from_number = message.get('from')
 
             print(f"\nMessage Details:")
-            print(f"Type: {message_type}")
             print(f"From: {from_number}")
+
+            # Check authentication status first for any message
+            is_authorized = self.user_state.is_authorized(from_number)
+            print(f"User authorization status: {is_authorized}")
+
+            if not is_authorized:
+                print("User not authorized - getting auth URL")
+                auth_response = self.auth_handler.handle_authorization(from_number)
+                print(f"Auth Response: {auth_response}")
+
+                import re
+                url_match = re.search(r'(https://accounts\.google\.com/[^\s]+)', auth_response)
+                if url_match:
+                    auth_url = url_match.group(1)
+                    message = (
+                        "🔐 *Authorization Required*\n\n"
+                        "To use this bot and manage your documents, I need access to your Google Drive.\n\n"
+                        "Please click the link below to authorize:\n\n"
+                        f"{auth_url}\n\n"
+                        "After authorizing, you can start using the bot!"
+                    )
+                    send_result = await self.send_message(from_number, message)
+                    if not send_result:
+                        print("Failed to send authorization message - WhatsApp token may be invalid")
+                        return "WhatsApp token error", 500
+                    print(f"Sent authorization URL to {from_number}")
+                else:
+                    error_msg = "❌ Error getting authorization URL. Please try again later."
+                    await self.send_message(from_number, error_msg)
+                    print(f"Could not extract auth URL from response: {auth_response}")
+                return "Authorization needed", 200
+
+            # Now process the message since user is authorized
+            message_type = message.get('type')
 
             # Handle all file types (document, image, video, audio)
             if message_type in ['document', 'image', 'video', 'audio']:

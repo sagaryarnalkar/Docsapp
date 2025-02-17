@@ -12,6 +12,7 @@ class UserState:
     def __init__(self):
         self.db_pool = DatabasePool('users.db')
         self.init_database()
+        self._credentials_cache = {}  # In-memory cache for credentials
 
     def init_database(self):
         with self.db_pool.get_cursor() as cursor:
@@ -19,7 +20,8 @@ class UserState:
                 CREATE TABLE IF NOT EXISTS users (
                     phone TEXT PRIMARY KEY,
                     google_authorized BOOLEAN DEFAULT FALSE,
-                    tokens TEXT
+                    tokens TEXT,
+                    last_refresh TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_phone ON users(phone)')
@@ -31,10 +33,13 @@ class UserState:
             
             with self.db_pool.get_cursor() as cursor:
                 cursor.execute('''
-                    INSERT OR REPLACE INTO users (phone, google_authorized, tokens)
-                    VALUES (?, TRUE, ?)
+                    INSERT OR REPLACE INTO users (phone, google_authorized, tokens, last_refresh)
+                    VALUES (?, TRUE, ?, CURRENT_TIMESTAMP)
                 ''', (phone, json.dumps(tokens)))
             print("Successfully stored tokens in database")
+            
+            # Update cache
+            self._credentials_cache[phone] = Credentials.from_authorized_user_info(tokens, SCOPES)
             
         except Exception as e:
             print(f"Error storing tokens: {str(e)}")
@@ -45,6 +50,15 @@ class UserState:
     def is_authorized(self, phone):
         try:
             print(f"\n=== Checking Authorization for {phone} ===")
+            
+            # Try cache first
+            if phone in self._credentials_cache:
+                creds = self._credentials_cache[phone]
+                if not creds.expired:
+                    print("Using cached credentials")
+                    return True
+            
+            # Get fresh credentials from database
             creds = self.get_credentials(phone)
             
             if not creds:
@@ -63,11 +77,16 @@ class UserState:
                     # Store refreshed tokens
                     self.store_tokens(phone, json.loads(creds.to_json()))
                     print("Successfully refreshed credentials")
+                    return True
                 except Exception as e:
                     print(f"Error refreshing token: {str(e)}")
                     return False
             
             is_valid = creds is not None and creds.valid
+            if is_valid:
+                # Update cache
+                self._credentials_cache[phone] = creds
+            
             print(f"Final authorization status: {is_valid}")
             return is_valid
             
