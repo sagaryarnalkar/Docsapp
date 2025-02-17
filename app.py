@@ -12,7 +12,7 @@ from config import TEMP_DIR, BASE_DIR
 from models.user_state import UserState
 from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
-from routes.handlers.whatsapp_handler import WhatsAppHandler
+from routes.handlers.whatsapp_handler import WhatsAppHandler, WhatsAppHandlerError
 from dotenv import load_dotenv
 import uuid  # Add at top with other imports
 import time
@@ -132,7 +132,6 @@ def before_request():
             print(f"[{request.request_id}] Form Data: {dict(request.form)}")
         if request.args:
             print(f"[{request.request_id}] Query Args: {dict(request.args)}")
-            
     except Exception as e:
         print(f"Error in before_request: {str(e)}")
         import traceback
