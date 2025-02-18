@@ -56,7 +56,7 @@ class RAGHandler:
             logger.error(f"Error in RAG processing: {str(e)}", exc_info=True)
             return False, "⚠️ Unable to process your question at the moment. Your other commands will still work normally!"
 
-    async def process_document_async(self, file_id: str, mime_type: str) -> Optional[Dict]:
+    async def process_document_async(self, file_id: str, mime_type: str, user_phone: str = None) -> Optional[Dict]:
         """
         Process document with RAG in the background
         Returns None if processing fails, to ensure main document storage continues
@@ -74,7 +74,7 @@ class RAGHandler:
             
             # Process document with RAG
             try:
-                result = await self.rag_processor.process_document_async(file_id, mime_type)
+                result = await self.rag_processor.process_document_async(file_id, mime_type, user_phone)
             except Exception as e:
                 logger.error(f"RAG processing failed for document {file_id}: {str(e)}")
                 return None
