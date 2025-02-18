@@ -337,8 +337,10 @@ def oauth2callback():
             print(f"\nERROR: {error}")
             return "Authorization failed - no code received", 400
 
-        # Get the full URL for the OAuth flow
+        # Get the full URL and ensure it uses HTTPS
         auth_response = request.url
+        if auth_response.startswith('http://'):
+            auth_response = 'https://' + auth_response[7:]
         print(f"\n=== Processing Callback ===")
         print(f"Auth Response URL: {auth_response}")
         

@@ -141,6 +141,11 @@ class AuthHandler:
             logger.debug(f"OAuth callback received. URL: {request_url}")
             print("\n=== Processing OAuth Callback ===")
             
+            # Force HTTPS for the callback URL
+            if request_url.startswith('http://'):
+                request_url = 'https://' + request_url[7:]
+            print(f"Using secure URL: {request_url}")
+            
             # Try multiple possible paths for credentials
             possible_paths = [
                 os.path.join(BASE_DIR, 'credentials.json'),
