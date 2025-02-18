@@ -234,20 +234,49 @@ class RAGProcessor:
                 blob_path = data_store_id.replace(f"gs://{bucket_name}/", "")
                 bucket = self.storage_client.bucket(bucket_name)
                 blob = bucket.blob(blob_path)
-                content = blob.download_as_string()
+                content = blob.download_as_bytes()
                 print("Successfully retrieved document content")
-            except Exception as e:
-                print(f"Error getting document content: {str(e)}")
-                return {
-                    "status": "error",
-                    "error": "Could not retrieve document content"
-                }
-            
-            # Create prompt with document content
-            prompt = f"""Using the following document content, answer this question: {user_query}
+
+                # For PDF files, we need to extract text
+                if blob_path.lower().endswith('.pdf'):
+                    try:
+                        import io
+                        import PyPDF2
+                        pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
+                        text_content = ""
+                        for page in pdf_reader.pages:
+                            text_content += page.extract_text() + "\n"
+                        print("Successfully extracted text from PDF")
+                    except Exception as e:
+                        print(f"Error extracting text from PDF: {str(e)}")
+                        return {
+                            "status": "error",
+                            "error": "Could not extract text from PDF document"
+                        }
+                else:
+                    # For text files, try different encodings
+                    encodings = ['utf-8', 'latin-1', 'cp1252']
+                    text_content = None
+                    for encoding in encodings:
+                        try:
+                            text_content = content.decode(encoding)
+                            print(f"Successfully decoded content using {encoding}")
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    
+                    if text_content is None:
+                        print("Could not decode document content with any encoding")
+                        return {
+                            "status": "error",
+                            "error": "Could not decode document content"
+                        }
+                
+                # Create prompt with document content
+                prompt = f"""Using the following document content, answer this question: {user_query}
 
 Document Content:
-{content.decode('utf-8')}
+{text_content}
 
 Instructions:
 1. Answer the question based only on the information in the document
@@ -256,22 +285,29 @@ Instructions:
 4. Be specific and cite relevant details from the document
 
 Question: {user_query}"""
-            
-            print("Generating answer...")
-            response = self.model.predict(
-                prompt,
-                temperature=0.3,
-                max_output_tokens=1024,
-                top_k=40,
-                top_p=0.8,
-            )
-            print("Answer generated successfully")
-            
-            return {
-                "status": "success",
-                "answer": response.text,
-                "sources": []
-            }
+                
+                print("Generating answer...")
+                response = self.model.predict(
+                    prompt,
+                    temperature=0.3,
+                    max_output_tokens=1024,
+                    top_k=40,
+                    top_p=0.8,
+                )
+                print("Answer generated successfully")
+                
+                return {
+                    "status": "success",
+                    "answer": response.text,
+                    "sources": []
+                }
+                
+            except Exception as e:
+                print(f"Error getting document content: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": "Could not retrieve document content"
+                }
             
         except Exception as e:
             print(f"Error querying documents: {str(e)}")
