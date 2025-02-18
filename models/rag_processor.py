@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import json
 from typing import Dict, List, Optional
 import vertexai
 from vertexai.language_models import TextGenerationModel
@@ -48,6 +49,18 @@ class RAGProcessor:
             print(f"Found credentials file at: {creds_path}")
             print(f"File permissions: {oct(os.stat(creds_path).st_mode)[-3:]}")
 
+            # Read and validate credentials file
+            try:
+                with open(creds_path, 'r') as f:
+                    creds_content = f.read()
+                    creds_json = json.loads(creds_content)
+                    print("Successfully read and parsed credentials file")
+                    print(f"Credential type: {creds_json.get('type')}")
+                    print(f"Project ID from creds: {creds_json.get('project_id')}")
+            except Exception as e:
+                print(f"Error reading credentials file: {str(e)}")
+                raise
+
             self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
             self.location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
             
@@ -67,7 +80,9 @@ class RAGProcessor:
             self.temp_bucket_name = f"{self.project_id}-temp-docs"
             print(f"Storage client initialized with bucket name: {self.temp_bucket_name}")
             
+            print("Ensuring bucket exists...")
             self.ensure_temp_bucket_exists()
+            print("Bucket setup complete")
             
             self.is_available = True
             print("RAG processor initialization complete!")
@@ -84,11 +99,19 @@ class RAGProcessor:
         try:
             bucket = self.storage_client.bucket(self.temp_bucket_name)
             if not bucket.exists():
-                bucket = self.storage_client.create_bucket(
-                    self.temp_bucket_name,
-                    location=self.location
-                )
-                logger.info(f"Created temporary bucket: {self.temp_bucket_name}")
+                try:
+                    bucket = self.storage_client.create_bucket(
+                        self.temp_bucket_name,
+                        location=self.location
+                    )
+                    logger.info(f"Created temporary bucket: {self.temp_bucket_name}")
+                except Exception as e:
+                    # If bucket already exists (409 error), that's fine
+                    if "409" in str(e) and "already own it" in str(e):
+                        logger.info(f"Bucket {self.temp_bucket_name} already exists")
+                        return
+                    raise  # Re-raise other exceptions
+            logger.info(f"Using existing bucket: {self.temp_bucket_name}")
         except Exception as e:
             logger.error(f"Error ensuring temp bucket exists: {str(e)}")
             raise
