@@ -27,28 +27,55 @@ class RAGProcessor:
         self.user_state = UserState()
         
         try:
+            print("\n=== RAG Processor Initialization ===")
             # Check if all required Google Cloud configs are available
+            print(f"GOOGLE_CLOUD_PROJECT: {os.getenv('GOOGLE_CLOUD_PROJECT')}")
+            print(f"GOOGLE_CLOUD_LOCATION: {os.getenv('GOOGLE_CLOUD_LOCATION')}")
+            print(f"GOOGLE_APPLICATION_CREDENTIALS: {os.getenv('GOOGLE_APPLICATION_CREDENTIALS')}")
+            
             if not os.getenv('GOOGLE_CLOUD_PROJECT') or not os.getenv('GOOGLE_CLOUD_LOCATION') or not os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
                 logger.warning("Google Cloud configuration incomplete. RAG features will be disabled.")
+                print("Missing required Google Cloud configuration")
                 return
+
+            # Check if credentials file exists
+            creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            if not os.path.exists(creds_path):
+                print(f"Credentials file not found at: {creds_path}")
+                logger.warning(f"Google Cloud credentials file not found at {creds_path}")
+                return
+
+            print(f"Found credentials file at: {creds_path}")
+            print(f"File permissions: {oct(os.stat(creds_path).st_mode)[-3:]}")
 
             self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
             self.location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
             
             # Initialize Vertex AI
+            print("Initializing Vertex AI...")
             vertexai.init(project=self.project_id, location=self.location)
+            print("Vertex AI initialized successfully")
             
             # Initialize language model
+            print("Loading language model...")
             self.model = TextGenerationModel.from_pretrained("text-bison@001")
+            print("Language model loaded successfully")
             
             # Initialize Storage client for temporary file storage
+            print("Initializing Storage client...")
             self.storage_client = storage.Client()
             self.temp_bucket_name = f"{self.project_id}-temp-docs"
+            print(f"Storage client initialized with bucket name: {self.temp_bucket_name}")
+            
             self.ensure_temp_bucket_exists()
             
             self.is_available = True
+            print("RAG processor initialization complete!")
             logger.info("RAG processor initialized successfully")
         except Exception as e:
+            print(f"\nError initializing RAG processor: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Failed to initialize RAG processor: {str(e)}")
             self.is_available = False
 
