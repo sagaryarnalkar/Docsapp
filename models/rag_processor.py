@@ -135,14 +135,21 @@ class RAGProcessor:
             }
 
         try:
-            logger.info(f"Processing document: {file_id} ({mime_type}) for user: {user_phone}")
+            print(f"\n=== Processing Document ===")
+            print(f"File ID: {file_id}")
+            print(f"MIME Type: {mime_type}")
+            print(f"User: {user_phone}")
+            
             self._rate_limit()
             
             # Download file from Google Drive to GCS
+            print("Copying file to GCS...")
             gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
+            print(f"File copied to GCS: {gcs_uri}")
             
-            # For now, just store the file ID and GCS URI
-            logger.info(f"Document processed successfully with file_id: {file_id}")
+            # For now, store the GCS URI as the data store ID
+            # This will be used to retrieve the document content later
+            print("Document processing complete")
             return {
                 "status": "success",
                 "data_store_id": gcs_uri,
@@ -150,6 +157,7 @@ class RAGProcessor:
             }
             
         except RAGProcessorError as e:
+            print(f"RAG processing error: {str(e)}")
             logger.error(f"RAG processing error: {str(e)}")
             return {
                 "status": "error",
@@ -158,6 +166,9 @@ class RAGProcessor:
                 "document_id": None
             }
         except Exception as e:
+            print(f"Unexpected error processing document: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Unexpected error processing document: {str(e)}", exc_info=True)
             return {
                 "status": "error",
@@ -210,16 +221,51 @@ class RAGProcessor:
             }
 
         try:
-            logger.info(f"Querying documents with: {user_query}")
+            print(f"\n=== Querying Document ===")
+            print(f"Query: {user_query}")
+            print(f"Data Store ID: {data_store_id}")
+            
             self._rate_limit()
             
-            prompt = f"""Using the document context, answer the following question. 
-            If the answer cannot be found in the context, explicitly say so. 
-            If the context contains partial information, acknowledge what is known and what is missing.
-
-            Question: {user_query}"""
+            # Get document content from GCS
+            print("Getting document content...")
+            try:
+                bucket_name = self.temp_bucket_name
+                blob_path = data_store_id.replace(f"gs://{bucket_name}/", "")
+                bucket = self.storage_client.bucket(bucket_name)
+                blob = bucket.blob(blob_path)
+                content = blob.download_as_string()
+                print("Successfully retrieved document content")
+            except Exception as e:
+                print(f"Error getting document content: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": "Could not retrieve document content"
+                }
             
-            response = self.model.predict(prompt)
+            # Create prompt with document content
+            prompt = f"""Using the following document content, answer this question: {user_query}
+
+Document Content:
+{content.decode('utf-8')}
+
+Instructions:
+1. Answer the question based only on the information in the document
+2. If the answer cannot be found in the document, explicitly say so
+3. If you find partial information, explain what is known and what is missing
+4. Be specific and cite relevant details from the document
+
+Question: {user_query}"""
+            
+            print("Generating answer...")
+            response = self.model.predict(
+                prompt,
+                temperature=0.3,
+                max_output_tokens=1024,
+                top_k=40,
+                top_p=0.8,
+            )
+            print("Answer generated successfully")
             
             return {
                 "status": "success",
@@ -228,6 +274,9 @@ class RAGProcessor:
             }
             
         except Exception as e:
+            print(f"Error querying documents: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Error querying documents: {str(e)}", exc_info=True)
             return {
                 "status": "error",

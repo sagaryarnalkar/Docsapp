@@ -98,16 +98,24 @@ class DocsApp:
     async def store_document(self, user_phone, file_path, description, filename):
         """Store document in Drive and metadata in SQLite"""
         try:
+            print(f"\n=== Storing Document ===")
+            print(f"User: {user_phone}")
+            print(f"File: {filename}")
+            print(f"Description: {description}")
+            
             # Get Drive service
             service = self._get_drive_service(user_phone)
             if not service:
+                print("Failed to get Drive service")
                 return False
 
             # Get or create DocsApp folder
             folder_id = self._get_or_create_folder(service, self.folder_name)
             if not folder_id:
+                print("Failed to get/create Drive folder")
                 return False
 
+            print("Uploading file to Drive...")
             # Upload file to Drive
             file_metadata = {
                 'name': filename,
@@ -124,14 +132,25 @@ class DocsApp:
                 media_body=media,
                 fields='id, mimeType'
             ).execute()
+            
+            print(f"File uploaded to Drive with ID: {file['id']}")
+            print(f"MIME Type: {file.get('mimeType')}")
 
             # Process document with Vertex AI in the background
-            rag_result = await self.rag_processor.process_document_async(
-                file['id'],
-                file.get('mimeType')
-            )
+            print("\nProcessing document with RAG...")
+            if not self.rag_processor or not self.rag_processor.is_available:
+                print("WARNING: RAG processor not available")
+                rag_result = {"status": "error", "error": "RAG processor not available"}
+            else:
+                rag_result = await self.rag_processor.process_document_async(
+                    file['id'],
+                    file.get('mimeType'),
+                    user_phone
+                )
+            print(f"RAG processing result: {rag_result}")
 
             # Store metadata in SQLite
+            print("\nStoring document metadata...")
             with Session() as session:
                 doc = Document(
                     user_phone=user_phone,
@@ -144,16 +163,24 @@ class DocsApp:
                 )
                 session.add(doc)
                 session.commit()
+                print("Document metadata stored successfully")
 
             return True
 
         except Exception as e:
+            print(f"Error storing document: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Error storing document: {str(e)}")
             return False
 
     async def ask_question(self, user_phone, question):
         """Ask a question about the user's documents"""
         try:
+            print(f"\n=== Processing Question ===")
+            print(f"User: {user_phone}")
+            print(f"Question: {question}")
+            
             # Get all data store IDs for the user's documents
             with Session() as session:
                 docs = session.query(Document).filter(
@@ -161,19 +188,27 @@ class DocsApp:
                     Document.data_store_id.isnot(None)
                 ).all()
                 
+                print(f"\nFound {len(docs)} processed documents")
+                for doc in docs:
+                    print(f"- {doc.filename} (ID: {doc.file_id}, Store ID: {doc.data_store_id})")
+                
                 if not docs:
+                    print("No processed documents found")
                     return {
                         "status": "error",
                         "message": "No processed documents found to answer questions from."
                     }
                 
                 # Query across all user's documents
+                print("\nQuerying documents...")
                 all_answers = []
                 for doc in docs:
+                    print(f"\nQuerying document: {doc.filename}")
                     result = await self.rag_processor.query_documents(
                         question,
                         doc.data_store_id
                     )
+                    print(f"Query result: {result}")
                     if result["status"] == "success":
                         all_answers.append({
                             "answer": result["answer"],
@@ -182,17 +217,22 @@ class DocsApp:
                         })
 
                 if not all_answers:
+                    print("No answers found in any documents")
                     return {
                         "status": "error",
                         "message": "No relevant information found in your documents."
                     }
 
+                print(f"\nFound {len(all_answers)} answers")
                 return {
                     "status": "success",
                     "answers": all_answers
                 }
 
         except Exception as e:
+            print(f"Error processing question: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Error processing question: {str(e)}")
             return {
                 "status": "error",
