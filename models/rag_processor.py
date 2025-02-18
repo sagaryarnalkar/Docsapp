@@ -8,8 +8,10 @@ from google.cloud import aiplatform
 from google.cloud import storage
 from google.cloud import documentai
 from google.api_core import retry
-from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION
+from googleapiclient.discovery import build
+from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, SCOPES
 from .database import Document
+from .user_state import UserState
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,7 @@ class RAGProcessor:
         self.is_available = False
         self.last_api_call = 0
         self.min_delay = 1.0  # Minimum delay between API calls in seconds
+        self.user_state = UserState()
         
         try:
             # Check if all required Google Cloud configs are available
@@ -71,7 +74,7 @@ class RAGProcessor:
             time.sleep(self.min_delay - time_since_last_call)
         self.last_api_call = time.time()
 
-    async def process_document_async(self, file_id: str, mime_type: str) -> Dict:
+    async def process_document_async(self, file_id: str, mime_type: str, user_phone: str = None) -> Dict:
         """Process a document asynchronously using Vertex AI."""
         if not self.is_available:
             return {
@@ -82,11 +85,11 @@ class RAGProcessor:
             }
 
         try:
-            logger.info(f"Processing document: {file_id} ({mime_type})")
+            logger.info(f"Processing document: {file_id} ({mime_type}) for user: {user_phone}")
             self._rate_limit()
             
             # Download file from Google Drive to GCS
-            gcs_uri = await self._copy_drive_to_gcs(file_id)
+            gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
             
             # For now, just store the file ID and GCS URI
             logger.info(f"Document processed successfully with file_id: {file_id}")
@@ -96,35 +99,57 @@ class RAGProcessor:
                 "document_id": file_id
             }
             
-        except Exception as e:
-            logger.error(f"Error processing document: {str(e)}", exc_info=True)
+        except RAGProcessorError as e:
+            logger.error(f"RAG processing error: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e),
                 "data_store_id": None,
                 "document_id": None
             }
+        except Exception as e:
+            logger.error(f"Unexpected error processing document: {str(e)}", exc_info=True)
+            return {
+                "status": "error",
+                "error": "An unexpected error occurred",
+                "data_store_id": None,
+                "document_id": None
+            }
 
-    async def _copy_drive_to_gcs(self, file_id: str) -> str:
+    async def _copy_drive_to_gcs(self, file_id: str, user_phone: str = None) -> str:
         """Copy file from Google Drive to GCS and return the GCS URI"""
         try:
             # Get file metadata and content from Google Drive
-            drive_service = self._get_drive_service()
-            file_metadata = drive_service.files().get(fileId=file_id).execute()
-            file_content = drive_service.files().get_media(fileId=file_id).execute()
+            drive_service = self._get_drive_service(user_phone)
+            if not drive_service:
+                raise RAGProcessorError("Could not initialize Drive service")
+
+            try:
+                logger.info(f"Fetching file metadata for {file_id}")
+                file_metadata = drive_service.files().get(fileId=file_id).execute()
+                logger.info(f"Fetching file content for {file_id}")
+                file_content = drive_service.files().get_media(fileId=file_id).execute()
+            except Exception as e:
+                raise RAGProcessorError(f"Could not access file in Drive: {str(e)}")
             
             # Upload to GCS
-            bucket = self.storage_client.bucket(self.temp_bucket_name)
-            blob = bucket.blob(f"temp/{file_id}/{file_metadata['name']}")
-            blob.upload_from_string(file_content)
+            try:
+                logger.info(f"Uploading file to GCS bucket: {self.temp_bucket_name}")
+                bucket = self.storage_client.bucket(self.temp_bucket_name)
+                blob = bucket.blob(f"temp/{file_id}/{file_metadata['name']}")
+                blob.upload_from_string(file_content)
+                
+                gcs_uri = f"gs://{self.temp_bucket_name}/{blob.name}"
+                logger.info(f"File copied to GCS: {gcs_uri}")
+                return gcs_uri
+            except Exception as e:
+                raise RAGProcessorError(f"Could not upload to GCS: {str(e)}")
             
-            gcs_uri = f"gs://{self.temp_bucket_name}/{blob.name}"
-            logger.info(f"File copied to GCS: {gcs_uri}")
-            return gcs_uri
-            
-        except Exception as e:
-            logger.error(f"Error copying file to GCS: {str(e)}")
+        except RAGProcessorError:
             raise
+        except Exception as e:
+            logger.error(f"Unexpected error copying file to GCS: {str(e)}", exc_info=True)
+            raise RAGProcessorError(f"Failed to copy file: {str(e)}")
 
     async def query_documents(self, user_query: str, data_store_id: str) -> Dict:
         """Query documents using Vertex AI."""
@@ -193,35 +218,95 @@ class RAGProcessor:
                 "error": str(e)
             }
 
-    async def process_question(self, question: str, documents: List[Document]) -> str:
+    async def process_question(self, question: str, documents: List[Document], user_phone: str = None) -> str:
         """Process a question against the given documents"""
+        if not self.is_available:
+            raise RAGProcessorError("RAG processing is not available")
+
         try:
-            # Combine document contents
+            # Validate input
+            if not question or not documents:
+                raise RAGProcessorError("Question and documents are required")
+
+            # Get Drive service for accessing documents
+            drive_service = self._get_drive_service(user_phone)
+            if not drive_service:
+                raise RAGProcessorError("Could not access Google Drive")
+
+            # Combine document information
             document_texts = []
             for doc in documents:
-                if doc.description:
+                try:
+                    # Get document metadata
+                    file_metadata = drive_service.files().get(
+                        fileId=doc.file_id, 
+                        fields='name,mimeType'
+                    ).execute()
+
+                    doc_info = [
+                        f"Document: {file_metadata.get('name', doc.filename)}",
+                        f"Type: {file_metadata.get('mimeType', 'unknown')}"
+                    ]
+
+                    if doc.description:
+                        doc_info.append(f"Description: {doc.description}")
+
+                    document_texts.append("\n".join(doc_info))
+                except Exception as e:
+                    logger.warning(f"Could not get metadata for document {doc.file_id}: {str(e)}")
+                    # Still include basic information
                     document_texts.append(f"Document: {doc.filename}\nDescription: {doc.description}")
             
+            if not document_texts:
+                raise RAGProcessorError("No accessible documents found")
+
             combined_text = "\n\n".join(document_texts)
             
-            # Create prompt
+            # Create prompt with more context
             prompt = f"""Based on the following document information, please answer this question: {question}
 
-Document information:
+Available Documents:
 {combined_text}
 
-Answer the question based only on the information provided. If the answer cannot be found in the documents, say so.
+Instructions:
+1. Answer the question based only on the information provided in the documents
+2. If the answer cannot be found in the documents, explicitly say so
+3. If you find partial information, explain what is known and what is missing
+4. If multiple documents contain relevant information, mention which document provides each piece of information
+
+Question: {question}
 """
             
-            # Generate response
+            # Generate response with controlled parameters
             response = self.model.predict(
                 prompt,
-                temperature=0.3,
+                temperature=0.3,  # Lower temperature for more focused responses
                 max_output_tokens=1024,
+                top_k=40,
+                top_p=0.8,
             )
             
             return response.text
             
+        except RAGProcessorError:
+            raise
         except Exception as e:
-            logger.error(f"Error processing question: {str(e)}")
-            raise RAGProcessorError(f"Failed to process question: {str(e)}") 
+            logger.error(f"Error processing question: {str(e)}", exc_info=True)
+            raise RAGProcessorError(f"Failed to process question: {str(e)}")
+
+    def _get_drive_service(self, user_phone=None):
+        """Get Google Drive service instance"""
+        try:
+            if user_phone:
+                # Get user-specific credentials
+                credentials = self.user_state.get_credentials(user_phone)
+                if not credentials:
+                    raise RAGProcessorError("User not authorized")
+            else:
+                # Use application default credentials
+                credentials = None
+            
+            return build('drive', 'v3', credentials=credentials)
+        except Exception as e:
+            logger.error(f"Error getting Drive service: {str(e)}")
+            raise RAGProcessorError(f"Failed to get Drive service: {str(e)}") 
