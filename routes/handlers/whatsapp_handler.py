@@ -13,6 +13,7 @@ from config import (
 )
 from .rag_handler import RAGHandler
 import aiohttp
+from .rag_processor import RAGProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,16 @@ class WhatsAppHandler:
         self.auth_handler = AuthHandler(self.user_state)
         self.rag_handler = RAGHandler(self.docs_app)
         self.sent_messages = {}  # Track sent messages
+        
+        # Initialize RAG processor
+        try:
+            self.rag_processor = RAGProcessor()
+            self.rag_available = self.rag_processor.is_available
+            logger.info("RAG processor initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize RAG processor: {str(e)}")
+            self.rag_available = False
+            self.rag_processor = None
 
     async def send_message(self, to_number, message):
         """Send WhatsApp message using Meta API"""
@@ -437,6 +448,60 @@ class WhatsAppHandler:
                 success, message = await self.rag_handler.handle_question(from_number, question)
                 await self.send_message(from_number, message)
                 return "Question processed", 200 if success else 500
+
+            else:
+                print(f"Unknown command: {command}")
+                await self.send_message(from_number, "I don't understand that command. Type 'help' to see available commands.")
+                return "Unknown command", 200
+
+        except Exception as e:
+            error_msg = "❌ Error processing command. Please try again."
+            await self.send_message(from_number, error_msg)
+            raise WhatsAppHandlerError(str(e))
+
+    async def handle_command(self, from_number, command, message_text):
+        """Handle various commands"""
+        try:
+            command = command.lower()
+            
+            if command == "ask":
+                if not self.rag_available:
+                    await self.send_message(
+                        from_number,
+                        "⚠️ Document Q&A feature is not available at the moment. Your other commands will still work normally!"
+                    )
+                    return "Document Q&A feature not available", 200
+                    
+                # Get the question from the message
+                question = message_text.replace("/ask", "").strip()
+                if not question:
+                    await self.send_message(
+                        from_number,
+                        "❓ Please provide a question after /ask. For example:\n/ask what was the revenue in December?"
+                    )
+                    return "No question provided", 200
+                    
+                # Get user's documents
+                user_docs = self.docs_app.get_user_documents(from_number)
+                if not user_docs:
+                    await self.send_message(
+                        from_number,
+                        "❌ You don't have any stored documents to ask questions about."
+                    )
+                    return "No documents found", 200
+                    
+                # Process the question
+                try:
+                    answer = await self.rag_processor.process_question(question, user_docs)
+                    await self.send_message(from_number, f"🤖 {answer}")
+                    return "Question processed successfully", 200
+                except Exception as e:
+                    logger.error(f"Error processing question: {str(e)}")
+                    await self.send_message(
+                        from_number,
+                        "❌ Sorry, I encountered an error while processing your question. Please try again later."
+                    )
+                    return f"Error processing question: {str(e)}", 500
 
             else:
                 print(f"Unknown command: {command}")

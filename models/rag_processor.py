@@ -33,10 +33,6 @@ class RAGProcessor:
             # Initialize language model
             self.model = TextGenerationModel.from_pretrained("text-bison@001")
             
-            # Initialize Document AI
-            self.docai_client = documentai.DocumentProcessorServiceClient()
-            self.processor_name = f"projects/{self.project_id}/locations/{self.location}/processors/YOUR_PROCESSOR_ID"
-            
             # Initialize Storage client for temporary file storage
             self.storage_client = storage.Client()
             self.temp_bucket_name = f"{self.project_id}-temp-docs"
@@ -190,4 +186,32 @@ class RAGProcessor:
             return {
                 "status": "error",
                 "error": str(e)
-            } 
+            }
+
+    async def process_question(self, question: str, documents: List[Document]) -> str:
+        """Process a question against the given documents"""
+        try:
+            # Combine document contents
+            combined_text = "\n\n".join([doc.content for doc in documents])
+            
+            # Create prompt
+            prompt = f"""Based on the following document content, please answer this question: {question}
+
+Document content:
+{combined_text}
+
+Answer the question based only on the information provided in the document. If the answer cannot be found in the document, say so.
+"""
+            
+            # Generate response
+            response = self.model.predict(
+                prompt,
+                temperature=0.3,
+                max_output_tokens=1024,
+            )
+            
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Error processing question: {str(e)}")
+            raise RAGProcessorError(f"Failed to process question: {str(e)}") 
