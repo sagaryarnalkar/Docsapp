@@ -328,11 +328,17 @@ class WhatsAppHandler:
 
                                         debug_info.append(f"File saved to: {temp_path}")
 
-                                        # Store in Drive with description
-                                        store_result = await self.docs_app.store_document(from_number, temp_path, description, filename)
-                                        debug_info.append(f"Store document result: {store_result}")
+                                        try:
+                                            # Store in Drive with description
+                                            store_result = await self.docs_app.store_document(from_number, temp_path, description, filename)
+                                            debug_info.append(f"Store document result: {store_result}")
 
-                                        if store_result:
+                                            if not store_result:
+                                                debug_info.append("Failed to store document")
+                                                error_msg = "❌ Error storing document. Please try again later."
+                                                await self.send_message(from_number, error_msg)
+                                                raise WhatsAppHandlerError("Failed to store document")
+
                                             debug_info.append("Document stored successfully")
                                             response_message = (
                                                 f"✅ Document '{filename}' stored successfully!\n\n"
@@ -341,25 +347,28 @@ class WhatsAppHandler:
                                                 "to make the document easier to find later!"
                                             )
                                             
-                                            # Try RAG processing in the background
+                                            # Try RAG processing in the background, but don't wait for it
                                             try:
-                                                rag_result = await self.rag_handler.process_document_async(store_result.get('file_id'), mime_type)
-                                                if rag_result:
-                                                    response_message += "\n\nℹ️ Document is being processed for Q&A functionality."
+                                                # Fire and forget RAG processing
+                                                import asyncio
+                                                asyncio.create_task(self.rag_handler.process_document_async(store_result.get('file_id'), store_result.get('mime_type')))
+                                                response_message += "\n\nℹ️ Document is being processed for Q&A functionality in the background."
                                             except Exception as e:
-                                                logger.error(f"RAG processing failed but document was stored: {str(e)}")
+                                                logger.error(f"RAG processing setup failed but document was stored: {str(e)}")
+                                                # Don't affect the user response if RAG fails
                                             
                                             await self.send_message(from_number, response_message)
-                                            return "Document stored successfully", 200
-                                        else:
-                                            debug_info.append("Failed to store document")
-                                            error_msg = "❌ Error storing document. Please try again later."
-                                            await self.send_message(from_number, error_msg)
-                                            raise WhatsAppHandlerError("Failed to store document")
-
-                                        if os.path.exists(temp_path):
-                                            os.remove(temp_path)
-                                            debug_info.append("Temp file cleaned up")
+                                            
+                                        finally:
+                                            # Always clean up temp file
+                                            try:
+                                                if os.path.exists(temp_path):
+                                                    os.remove(temp_path)
+                                                    debug_info.append("Temp file cleaned up")
+                                            except Exception as e:
+                                                logger.error(f"Failed to clean up temp file: {str(e)}")
+                                            
+                                        return "Document stored successfully", 200
                                     else:
                                         debug_info.append(f"File download failed: {await file_response.text()}")
                                         error_msg = "❌ Failed to download the document. Please try sending it again."

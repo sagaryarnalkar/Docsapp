@@ -1,6 +1,7 @@
 import logging
 from typing import Tuple, Dict, Optional
 from models.rag_processor import RAGProcessor
+from models.database import Session, Document
 
 logger = logging.getLogger(__name__)
 
@@ -60,26 +61,52 @@ class RAGHandler:
         Process document with RAG in the background
         Returns None if processing fails, to ensure main document storage continues
         """
-        try:
-            if not self.rag_processor.is_available:
-                logger.warning("RAG processing not available, skipping document processing")
-                return None
-
-            logger.info(f"Starting RAG processing for document {file_id}")
-            result = await self.rag_processor.process_document_async(file_id, mime_type)
-            
-            if result["status"] == "success":
-                logger.info(f"Successfully processed document {file_id} with RAG")
-                return {
-                    "data_store_id": result.get("data_store_id"),
-                    "document_id": result.get("document_id")
-                }
-            
-            logger.error(f"Failed to process document {file_id} with RAG: {result.get('error')}")
+        if not file_id:
+            logger.error("No file ID provided for RAG processing")
             return None
 
+        if not self.rag_processor.is_available:
+            logger.warning("RAG processing not available, skipping document processing")
+            return None
+
+        try:
+            logger.info(f"Starting background RAG processing for document {file_id}")
+            
+            # Process document with RAG
+            try:
+                result = await self.rag_processor.process_document_async(file_id, mime_type)
+            except Exception as e:
+                logger.error(f"RAG processing failed for document {file_id}: {str(e)}")
+                return None
+            
+            if not result or result.get("status") != "success":
+                logger.error(f"RAG processing failed for document {file_id}: {result.get('error', 'Unknown error')}")
+                return None
+
+            logger.info(f"Successfully processed document {file_id} with RAG")
+            
+            # Update document record with RAG processing results
+            try:
+                with Session() as session:
+                    doc = session.query(Document).filter(Document.file_id == file_id).first()
+                    if doc:
+                        doc.data_store_id = result.get("data_store_id")
+                        doc.document_id = result.get("document_id")
+                        session.commit()
+                        logger.info(f"Updated document {file_id} with RAG processing results")
+                    else:
+                        logger.warning(f"Could not find document {file_id} to update RAG results")
+            except Exception as e:
+                logger.error(f"Failed to update document {file_id} with RAG results: {str(e)}")
+                # Don't return None here - we still want to return the processing results
+                
+            return {
+                "data_store_id": result.get("data_store_id"),
+                "document_id": result.get("document_id")
+            }
+
         except Exception as e:
-            logger.error(f"Error in RAG document processing: {str(e)}", exc_info=True)
+            logger.error(f"Unexpected error in RAG document processing: {str(e)}", exc_info=True)
             return None
 
     async def get_document_summary(self, from_number: str, file_id: str) -> Tuple[bool, str]:

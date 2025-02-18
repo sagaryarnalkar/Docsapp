@@ -103,69 +103,81 @@ class DocsApp:
             print(f"File: {filename}")
             print(f"Description: {description}")
             
+            # Validate inputs
+            if not user_phone or not file_path or not filename:
+                logger.error("Missing required parameters for document storage")
+                return False
+                
+            # Verify file exists
+            if not os.path.exists(file_path):
+                logger.error(f"File not found at path: {file_path}")
+                return False
+                
             # Get Drive service
             service = self._get_drive_service(user_phone)
             if not service:
-                print("Failed to get Drive service")
+                logger.error("Failed to get Drive service")
                 return False
 
             # Get or create DocsApp folder
             folder_id = self._get_or_create_folder(service, self.folder_name)
             if not folder_id:
-                print("Failed to get/create Drive folder")
+                logger.error("Failed to get/create Drive folder")
                 return False
 
             print("Uploading file to Drive...")
-            # Upload file to Drive
-            file_metadata = {
-                'name': filename,
-                'parents': [folder_id]
-            }
-            
-            media = MediaFileUpload(
-                file_path,
-                resumable=True
-            )
-            
-            file = service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id, mimeType'
-            ).execute()
-            
-            print(f"File uploaded to Drive with ID: {file['id']}")
-            print(f"MIME Type: {file.get('mimeType')}")
-
-            # Process document with Vertex AI in the background
-            print("\nProcessing document with RAG...")
-            if not self.rag_processor or not self.rag_processor.is_available:
-                print("WARNING: RAG processor not available")
-                rag_result = {"status": "error", "error": "RAG processor not available"}
-            else:
-                rag_result = await self.rag_processor.process_document_async(
-                    file['id'],
-                    file.get('mimeType'),
-                    user_phone
+            try:
+                # Upload file to Drive
+                file_metadata = {
+                    'name': filename,
+                    'parents': [folder_id]
+                }
+                
+                media = MediaFileUpload(
+                    file_path,
+                    resumable=True
                 )
-            print(f"RAG processing result: {rag_result}")
+                
+                file = service.files().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields='id, mimeType'
+                ).execute()
+                
+                print(f"File uploaded to Drive with ID: {file['id']}")
+                print(f"MIME Type: {file.get('mimeType')}")
+            except Exception as e:
+                logger.error(f"Drive upload failed: {str(e)}")
+                return False
 
-            # Store metadata in SQLite
+            # Store metadata in SQLite without waiting for RAG processing
             print("\nStoring document metadata...")
-            with Session() as session:
-                doc = Document(
-                    user_phone=user_phone,
-                    file_id=file['id'],
-                    filename=filename,
-                    description=description,
-                    mime_type=file.get('mimeType'),
-                    data_store_id=rag_result.get('data_store_id'),
-                    document_id=rag_result.get('document_id')
-                )
-                session.add(doc)
-                session.commit()
-                print("Document metadata stored successfully")
+            try:
+                with Session() as session:
+                    doc = Document(
+                        user_phone=user_phone,
+                        file_id=file['id'],
+                        filename=filename,
+                        description=description,
+                        mime_type=file.get('mimeType')
+                    )
+                    session.add(doc)
+                    session.commit()
+                    print("Document metadata stored successfully")
+            except Exception as e:
+                logger.error(f"Database storage failed: {str(e)}")
+                # Try to delete the file from Drive since DB storage failed
+                try:
+                    service.files().delete(fileId=file['id']).execute()
+                except Exception as del_err:
+                    logger.error(f"Failed to delete file from Drive after DB error: {str(del_err)}")
+                return False
 
-            return True
+            return {
+                'status': 'success',
+                'file_id': file['id'],
+                'mime_type': file.get('mimeType')
+            }
 
         except Exception as e:
             print(f"Error storing document: {str(e)}")
