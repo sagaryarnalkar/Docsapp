@@ -9,8 +9,13 @@ from google.cloud import storage
 from google.cloud import documentai
 from google.api_core import retry
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION
+from .database import Document
 
 logger = logging.getLogger(__name__)
+
+class RAGProcessorError(Exception):
+    """Custom exception for RAG processor errors."""
+    pass
 
 class RAGProcessor:
     def __init__(self):
@@ -192,15 +197,20 @@ class RAGProcessor:
         """Process a question against the given documents"""
         try:
             # Combine document contents
-            combined_text = "\n\n".join([doc.content for doc in documents])
+            document_texts = []
+            for doc in documents:
+                if doc.description:
+                    document_texts.append(f"Document: {doc.filename}\nDescription: {doc.description}")
+            
+            combined_text = "\n\n".join(document_texts)
             
             # Create prompt
-            prompt = f"""Based on the following document content, please answer this question: {question}
+            prompt = f"""Based on the following document information, please answer this question: {question}
 
-Document content:
+Document information:
 {combined_text}
 
-Answer the question based only on the information provided in the document. If the answer cannot be found in the document, say so.
+Answer the question based only on the information provided. If the answer cannot be found in the documents, say so.
 """
             
             # Generate response
