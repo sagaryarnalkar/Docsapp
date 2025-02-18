@@ -11,9 +11,9 @@ from config import (
     WHATSAPP_API_VERSION,
     TEMP_DIR
 )
+from models.rag_processor import RAGProcessor
 from .rag_handler import RAGHandler
 import aiohttp
-from .rag_processor import RAGProcessor
 
 logger = logging.getLogger(__name__)
 
