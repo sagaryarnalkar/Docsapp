@@ -30,6 +30,9 @@ from config import (
 # At the very top of the file, after imports
 VERSION = "v1.0.1"  # Increment this each time we deploy
 
+# Configure oauthlib to handle HTTPS behind proxy
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 print("\n" + "="*50)
 print(f"STARTING DOCSAPP SERVER VERSION {VERSION}")
 print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

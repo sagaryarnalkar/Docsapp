@@ -105,6 +105,8 @@ services:
         value: "true"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: OAUTHLIB_INSECURE_TRANSPORT
+        value: "1"
     secrets:
       - key: GOOGLE_CREDENTIALS
         name: google-credentials
