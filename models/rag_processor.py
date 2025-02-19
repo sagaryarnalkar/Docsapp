@@ -69,10 +69,22 @@ class RAGProcessor:
             vertexai.init(project=self.project_id, location=self.location)
             print("Vertex AI initialized successfully")
             
-            # Initialize language model
+            # Initialize language model with proper error handling
             print("Loading language model...")
-            self.model = TextGenerationModel.from_pretrained("text-bison@001")
-            print("Language model loaded successfully")
+            try:
+                self.model = TextGenerationModel.from_pretrained("text-bison@002")
+                # Test the model with a simple query to verify access
+                test_response = self.model.predict(
+                    "Test query to verify model access.",
+                    temperature=0.1,
+                    max_output_tokens=5
+                )
+                print("Language model loaded and tested successfully")
+            except Exception as e:
+                print(f"Error initializing language model: {str(e)}")
+                print("Vertex AI model access is not available - check project permissions")
+                self.model = None
+                raise
             
             # Initialize Storage client for temporary file storage
             print("Initializing Storage client...")
@@ -214,10 +226,10 @@ class RAGProcessor:
 
     async def query_documents(self, user_query: str, data_store_id: str) -> Dict:
         """Query documents using Vertex AI."""
-        if not self.is_available:
+        if not self.is_available or not self.model:
             return {
                 "status": "error",
-                "error": "RAG processing not available"
+                "error": "RAG processing or language model not available"
             }
 
         try:
@@ -240,19 +252,41 @@ class RAGProcessor:
                 # For PDF files, we need to extract text
                 if blob_path.lower().endswith('.pdf'):
                     try:
-                        import io
-                        import PyPDF2
-                        pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
-                        text_content = ""
-                        for page in pdf_reader.pages:
-                            text_content += page.extract_text() + "\n"
-                        print("Successfully extracted text from PDF")
-                    except Exception as e:
-                        print(f"Error extracting text from PDF: {str(e)}")
-                        return {
-                            "status": "error",
-                            "error": "Could not extract text from PDF document"
-                        }
+                        # Initialize Document AI
+                        client = documentai.DocumentProcessorServiceClient()
+                        name = client.processor_path(self.project_id, self.location, "general-processor")
+                        
+                        # Process the document content
+                        document = documentai.Document(
+                            content=content,
+                            mime_type='application/pdf'
+                        )
+                        
+                        request = documentai.ProcessRequest(
+                            name=name,
+                            document=document
+                        )
+                        
+                        result = client.process_document(request=request)
+                        text_content = result.document.text
+                        print("Successfully extracted text using Document AI")
+                    except Exception as doc_ai_error:
+                        print(f"Document AI error: {str(doc_ai_error)}")
+                        # Fallback to simple text extraction if Document AI fails
+                        try:
+                            import io
+                            from PyPDF2 import PdfReader
+                            reader = PdfReader(io.BytesIO(content))
+                            text_content = ""
+                            for page in reader.pages:
+                                text_content += page.extract_text() + "\n"
+                            print("Successfully extracted text using PyPDF2 fallback")
+                        except Exception as pdf_error:
+                            print(f"PDF extraction error: {str(pdf_error)}")
+                            return {
+                                "status": "error",
+                                "error": "Could not extract text from PDF document"
+                            }
                 else:
                     # For text files, try different encodings
                     encodings = ['utf-8', 'latin-1', 'cp1252']
@@ -287,26 +321,33 @@ Instructions:
 Question: {user_query}"""
                 
                 print("Generating answer...")
-                response = self.model.predict(
-                    prompt,
-                    temperature=0.3,
-                    max_output_tokens=1024,
-                    top_k=40,
-                    top_p=0.8,
-                )
-                print("Answer generated successfully")
-                
-                return {
-                    "status": "success",
-                    "answer": response.text,
-                    "sources": []
-                }
+                try:
+                    response = self.model.predict(
+                        prompt,
+                        temperature=0.3,
+                        max_output_tokens=1024,
+                        top_k=40,
+                        top_p=0.8,
+                    )
+                    print("Answer generated successfully")
+                    
+                    return {
+                        "status": "success",
+                        "answer": response.text,
+                        "sources": []
+                    }
+                except Exception as model_error:
+                    print(f"Error generating answer: {str(model_error)}")
+                    return {
+                        "status": "error",
+                        "error": f"Could not generate answer: {str(model_error)}"
+                    }
                 
             except Exception as e:
                 print(f"Error getting document content: {str(e)}")
                 return {
                     "status": "error",
-                    "error": "Could not retrieve document content"
+                    "error": f"Could not retrieve document content: {str(e)}"
                 }
             
         except Exception as e:
