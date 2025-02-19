@@ -9,7 +9,10 @@ from config import (
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_API_VERSION,
-    TEMP_DIR
+    TEMP_DIR,
+    GOOGLE_CLOUD_PROJECT,
+    GOOGLE_CLOUD_LOCATION,
+    GOOGLE_APPLICATION_CREDENTIALS
 )
 from models.rag_processor import RAGProcessor
 from .rag_handler import RAGHandler
@@ -37,8 +40,12 @@ class WhatsAppHandler:
         
         # Initialize RAG processor
         try:
-            self.rag_processor = RAGProcessor()
-            self.rag_available = self.rag_processor.is_available
+            self.rag_processor = RAGProcessor(
+                project_id=GOOGLE_CLOUD_PROJECT,
+                location=GOOGLE_CLOUD_LOCATION,
+                credentials_path=GOOGLE_APPLICATION_CREDENTIALS
+            )
+            self.rag_available = hasattr(self.rag_processor, 'language_model')
             logger.info("RAG processor initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize RAG processor: {str(e)}")

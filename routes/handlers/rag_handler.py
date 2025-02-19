@@ -2,13 +2,18 @@ import logging
 from typing import Tuple, Dict, Optional
 from models.rag_processor import RAGProcessor
 from models.database import Session, Document
+from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_APPLICATION_CREDENTIALS
 
 logger = logging.getLogger(__name__)
 
 class RAGHandler:
     def __init__(self, docs_app):
         self.docs_app = docs_app
-        self.rag_processor = RAGProcessor()
+        self.rag_processor = RAGProcessor(
+            project_id=GOOGLE_CLOUD_PROJECT,
+            location=GOOGLE_CLOUD_LOCATION,
+            credentials_path=GOOGLE_APPLICATION_CREDENTIALS
+        )
 
     async def handle_question(self, from_number: str, question: str) -> Tuple[bool, str]:
         """
