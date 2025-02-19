@@ -66,19 +66,45 @@ class RAGProcessor:
             
             # Initialize Vertex AI
             print("Initializing Vertex AI...")
-            vertexai.init(project=self.project_id, location=self.location)
-            print("Vertex AI initialized successfully")
+            try:
+                vertexai.init(
+                    project=self.project_id,
+                    location=self.location,
+                    credentials=storage.Client().get_credentials()
+                )
+                print(f"Vertex AI initialized successfully with project {self.project_id}")
+            except Exception as e:
+                print(f"Error initializing Vertex AI: {str(e)}")
+                raise
             
             # Initialize language model with proper error handling
             print("Loading language model...")
             try:
-                self.model = TextGenerationModel.from_pretrained("text-bison@002")
-                # Test the model with a simple query to verify access
-                test_response = self.model.predict(
-                    "Test query to verify model access.",
-                    temperature=0.1,
-                    max_output_tokens=5
-                )
+                # Try text-bison@001 first, then fall back to @002 if needed
+                model_versions = ["text-bison@001", "text-bison@002"]
+                self.model = None
+                last_error = None
+                
+                for model_version in model_versions:
+                    try:
+                        print(f"Attempting to load {model_version}...")
+                        self.model = TextGenerationModel.from_pretrained(model_version)
+                        # Test the model with a simple query to verify access
+                        test_response = self.model.predict(
+                            "Test query to verify model access.",
+                            temperature=0.1,
+                            max_output_tokens=5
+                        )
+                        print(f"Successfully loaded and tested {model_version}")
+                        break
+                    except Exception as e:
+                        print(f"Error loading {model_version}: {str(e)}")
+                        last_error = e
+                        continue
+                
+                if self.model is None:
+                    raise Exception(f"Failed to load any model version. Last error: {str(last_error)}")
+                
                 print("Language model loaded and tested successfully")
             except Exception as e:
                 print(f"Error initializing language model: {str(e)}")
