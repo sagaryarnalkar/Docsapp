@@ -21,117 +21,53 @@ class RAGProcessorError(Exception):
     pass
 
 class RAGProcessor:
-    def __init__(self):
-        self.is_available = False
-        self.last_api_call = 0
-        self.min_delay = 1.0  # Minimum delay between API calls in seconds
-        self.user_state = UserState()
+    def __init__(self, project_id, location, credentials_path):
+        self.project_id = project_id
+        self.location = location
+        self.credentials_path = credentials_path
         
         try:
-            print("\n=== RAG Processor Initialization ===")
-            # Check if all required Google Cloud configs are available
-            print(f"GOOGLE_CLOUD_PROJECT: {os.getenv('GOOGLE_CLOUD_PROJECT')}")
-            print(f"GOOGLE_CLOUD_LOCATION: {os.getenv('GOOGLE_CLOUD_LOCATION')}")
-            print(f"GOOGLE_APPLICATION_CREDENTIALS: {os.getenv('GOOGLE_APPLICATION_CREDENTIALS')}")
+            # Initialize storage client with explicit project
+            storage_client = storage.Client(project=self.project_id)
             
-            if not os.getenv('GOOGLE_CLOUD_PROJECT') or not os.getenv('GOOGLE_CLOUD_LOCATION') or not os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
-                logger.warning("Google Cloud configuration incomplete. RAG features will be disabled.")
-                print("Missing required Google Cloud configuration")
-                return
-
-            # Check if credentials file exists
-            creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-            if not os.path.exists(creds_path):
-                print(f"Credentials file not found at: {creds_path}")
-                logger.warning(f"Google Cloud credentials file not found at {creds_path}")
-                return
-
-            print(f"Found credentials file at: {creds_path}")
-            print(f"File permissions: {oct(os.stat(creds_path).st_mode)[-3:]}")
-
-            # Read and validate credentials file
-            try:
-                with open(creds_path, 'r') as f:
-                    creds_content = f.read()
-                    creds_json = json.loads(creds_content)
-                    print("Successfully read and parsed credentials file")
-                    print(f"Credential type: {creds_json.get('type')}")
-                    print(f"Project ID from creds: {creds_json.get('project_id')}")
-            except Exception as e:
-                print(f"Error reading credentials file: {str(e)}")
-                raise
-
-            self.project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
-            self.location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
+            # Initialize Vertex AI with explicit project and credentials
+            vertexai.init(
+                project=self.project_id,
+                location=self.location,
+                credentials=storage_client._credentials
+            )
+            print(f"Vertex AI initialized successfully with project: {self.project_id}")
             
-            # Initialize Vertex AI
-            print("Initializing Vertex AI...")
-            try:
-                storage_client = storage.Client()
-                vertexai.init(
-                    project=self.project_id,
-                    location=self.location,
-                    credentials=storage_client._credentials
-                )
-                print(f"Vertex AI initialized successfully with project {self.project_id}")
-            except Exception as e:
-                print(f"Error initializing Vertex AI: {str(e)}")
-                raise
+            # Try loading the model with explicit error handling
+            model_versions = ["text-bison@002", "text-bison@001"]
+            last_error = None
             
-            # Initialize language model with proper error handling
-            print("Loading language model...")
-            try:
-                # Try text-bison@001 first, then fall back to @002 if needed
-                model_versions = ["text-bison@001", "text-bison@002"]
-                self.model = None
-                last_error = None
+            for model_version in model_versions:
+                try:
+                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    print(f"Successfully loaded model version: {model_version}")
+                    
+                    # Verify model access with a test query
+                    test_response = self.language_model.predict(
+                        "Test query to verify model access.",
+                        temperature=0,
+                        max_output_tokens=5
+                    )
+                    print("Model access verified with test query")
+                    break
+                except Exception as e:
+                    last_error = e
+                    print(f"Failed to load model version {model_version}: {str(e)}")
+            
+            if not hasattr(self, 'language_model'):
+                raise Exception(f"Failed to load any model version. Last error: {str(last_error)}")
                 
-                for model_version in model_versions:
-                    try:
-                        print(f"Attempting to load {model_version}...")
-                        self.model = TextGenerationModel.from_pretrained(model_version)
-                        # Test the model with a simple query to verify access
-                        test_response = self.model.predict(
-                            "Test query to verify model access.",
-                            temperature=0.1,
-                            max_output_tokens=5
-                        )
-                        print(f"Successfully loaded and tested {model_version}")
-                        break
-                    except Exception as e:
-                        print(f"Error loading {model_version}: {str(e)}")
-                        last_error = e
-                        continue
-                
-                if self.model is None:
-                    raise Exception(f"Failed to load any model version. Last error: {str(last_error)}")
-                
-                print("Language model loaded and tested successfully")
-            except Exception as e:
-                print(f"Error initializing language model: {str(e)}")
-                print("Vertex AI model access is not available - check project permissions")
-                self.model = None
-                raise
-            
-            # Initialize Storage client for temporary file storage
-            print("Initializing Storage client...")
-            self.storage_client = storage.Client()
-            self.temp_bucket_name = f"{self.project_id}-temp-docs"
-            print(f"Storage client initialized with bucket name: {self.temp_bucket_name}")
-            
-            print("Ensuring bucket exists...")
-            self.ensure_temp_bucket_exists()
-            print("Bucket setup complete")
-            
-            self.is_available = True
-            print("RAG processor initialization complete!")
-            logger.info("RAG processor initialized successfully")
         except Exception as e:
-            print(f"\nError initializing RAG processor: {str(e)}")
-            import traceback
-            print(f"Traceback:\n{traceback.format_exc()}")
-            logger.error(f"Failed to initialize RAG processor: {str(e)}")
-            self.is_available = False
+            print(f"Error during initialization: {str(e)}")
+            print(f"Project ID: {self.project_id}")
+            print(f"Location: {self.location}")
+            print(f"Credentials path: {self.credentials_path}")
+            raise
 
     def ensure_temp_bucket_exists(self):
         """Ensure temporary storage bucket exists"""
@@ -253,7 +189,7 @@ class RAGProcessor:
 
     async def query_documents(self, user_query: str, data_store_id: str) -> Dict:
         """Query documents using Vertex AI."""
-        if not self.is_available or not self.model:
+        if not self.is_available or not self.language_model:
             return {
                 "status": "error",
                 "error": "RAG processing or language model not available"
@@ -349,7 +285,7 @@ Question: {user_query}"""
                 
                 print("Generating answer...")
                 try:
-                    response = self.model.predict(
+                    response = self.language_model.predict(
                         prompt,
                         temperature=0.3,
                         max_output_tokens=1024,
@@ -406,7 +342,7 @@ Question: {user_query}"""
             3. Any significant dates, numbers, or statistics
             4. Document structure and organization"""
             
-            response = self.model.predict(prompt)
+            response = self.language_model.predict(prompt)
             
             return {
                 "status": "success",
@@ -481,7 +417,7 @@ Question: {question}
 """
             
             # Generate response with controlled parameters
-            response = self.model.predict(
+            response = self.language_model.predict(
                 prompt,
                 temperature=0.3,  # Lower temperature for more focused responses
                 max_output_tokens=1024,
