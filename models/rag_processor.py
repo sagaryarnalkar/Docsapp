@@ -9,6 +9,7 @@ from google.cloud import aiplatform
 from google.cloud import storage
 from google.cloud import documentai
 from google.api_core import retry
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, SCOPES
 from .database import Document
@@ -27,14 +28,26 @@ class RAGProcessor:
         self.credentials_path = credentials_path
         
         try:
-            # Initialize storage client with explicit project
-            storage_client = storage.Client(project=self.project_id)
+            # Load service account credentials explicitly
+            print(f"Loading credentials from: {self.credentials_path}")
+            credentials = service_account.Credentials.from_service_account_file(
+                self.credentials_path,
+                scopes=['https://www.googleapis.com/auth/cloud-platform']
+            )
+            print("Successfully loaded service account credentials")
+            
+            # Initialize storage client with explicit credentials
+            storage_client = storage.Client(
+                project=self.project_id,
+                credentials=credentials
+            )
+            print(f"Storage client initialized with project: {self.project_id}")
             
             # Initialize Vertex AI with explicit project and credentials
             vertexai.init(
                 project=self.project_id,
                 location=self.location,
-                credentials=storage_client._credentials
+                credentials=credentials
             )
             print(f"Vertex AI initialized successfully with project: {self.project_id}")
             
@@ -44,7 +57,12 @@ class RAGProcessor:
             
             for model_version in model_versions:
                 try:
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    print(f"Attempting to load model version: {model_version}")
+                    self.language_model = TextGenerationModel.from_pretrained(
+                        model_version,
+                        project=self.project_id,
+                        location=self.location
+                    )
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
