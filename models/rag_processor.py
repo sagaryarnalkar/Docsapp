@@ -67,10 +67,11 @@ class RAGProcessor:
             # Initialize Vertex AI
             print("Initializing Vertex AI...")
             try:
+                storage_client = storage.Client()
                 vertexai.init(
                     project=self.project_id,
                     location=self.location,
-                    credentials=storage.Client().get_credentials()
+                    credentials=storage_client._credentials
                 )
                 print(f"Vertex AI initialized successfully with project {self.project_id}")
             except Exception as e:
