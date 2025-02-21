@@ -62,6 +62,11 @@ class RAGProcessor:
             print(f"Storage client initialized with project: {self.project_id}")
             
             # Initialize Vertex AI with explicit project and credentials
+            aiplatform.init(
+                project=self.project_id,
+                location=self.location,
+                credentials=credentials
+            )
             vertexai.init(
                 project=self.project_id,
                 location=self.location,
