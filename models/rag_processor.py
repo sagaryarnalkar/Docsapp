@@ -71,11 +71,6 @@ class RAGProcessor:
             print(f"Storage client initialized with project: {self.project_id}")
             
             # Initialize Vertex AI with explicit project and credentials
-            aiplatform.init(
-                project=self.project_id,
-                location=self.location,
-                credentials=credentials
-            )
             vertexai.init(
                 project=self.project_id,
                 location=self.location,
@@ -90,14 +85,8 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model using aiplatform with explicit project and location
-                    model_name = f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/{model_version}"
-                    self.language_model = aiplatform.TextGenerationModel(
-                        model_name=model_name,
-                        project=self.project_id,
-                        location=self.location,
-                        credentials=credentials
-                    )
+                    # Initialize model using vertexai.language_models
+                    self.language_model = TextGenerationModel.from_pretrained(model_version)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
