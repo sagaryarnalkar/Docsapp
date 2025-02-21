@@ -41,6 +41,15 @@ class RAGProcessor:
             )
             print("Successfully loaded service account credentials")
             
+            # Verify the project ID in the credentials
+            service_info = json.load(open(self.credentials_path))
+            creds_project_id = service_info.get('project_id')
+            print(f"Credentials project ID: {creds_project_id}")
+            
+            if creds_project_id != self.project_id:
+                print(f"Warning: Credentials project ID ({creds_project_id}) does not match target project ID ({self.project_id})")
+                print("Please ensure the service account has the necessary permissions in the target project")
+            
             # Initialize storage client with explicit credentials
             self.storage_client = storage.Client(
                 project=self.project_id,
@@ -81,6 +90,9 @@ class RAGProcessor:
                     print(f"Failed to load model version {model_version}: {str(e)}")
                     print(f"Error type: {type(e)}")
                     print(f"Error details: {str(e)}")
+                    if "is not allowed to use Publisher Model" in str(e):
+                        print(f"Permission error: The service account does not have access to model {model_version}")
+                        print("Please ensure the service account has the 'Vertex AI User' role in project {self.project_id}")
                     self.is_available = False
             
             if not hasattr(self, 'language_model'):
