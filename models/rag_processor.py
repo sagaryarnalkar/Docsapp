@@ -37,7 +37,7 @@ class RAGProcessor:
             print("Successfully loaded service account credentials")
             
             # Initialize storage client with explicit credentials
-            storage_client = storage.Client(
+            self.storage_client = storage.Client(
                 project=self.project_id,
                 credentials=credentials
             )
@@ -59,7 +59,11 @@ class RAGProcessor:
                 try:
                     print(f"Attempting to load model version: {model_version}")
                     # Initialize model without project and location parameters
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    self.language_model = TextGenerationModel.from_pretrained(
+                        model_version,
+                        project=self.project_id,
+                        location=self.location
+                    )
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
@@ -69,21 +73,27 @@ class RAGProcessor:
                         max_output_tokens=5
                     )
                     print("Model access verified with test query")
+                    self.is_available = True
                     break
                 except Exception as e:
                     last_error = e
                     print(f"Failed to load model version {model_version}: {str(e)}")
                     print(f"Error type: {type(e)}")
                     print(f"Error details: {str(e)}")
+                    self.is_available = False
             
             if not hasattr(self, 'language_model'):
-                raise Exception(f"Failed to load any model version. Last error: {str(last_error)}")
+                print(f"Failed to load any model version. Last error: {str(last_error)}")
+                print(f"Project ID: {self.project_id}")
+                print(f"Location: {self.location}")
+                self.is_available = False
                 
         except Exception as e:
             print(f"Error during initialization: {str(e)}")
             print(f"Project ID: {self.project_id}")
             print(f"Location: {self.location}")
             print(f"Credentials path: {self.credentials_path}")
+            self.is_available = False
             raise
 
     def ensure_temp_bucket_exists(self):
