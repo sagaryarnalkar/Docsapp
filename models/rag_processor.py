@@ -81,8 +81,14 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model without project and location in from_pretrained
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    # Initialize model using aiplatform with explicit project and location
+                    model_name = f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/{model_version}"
+                    self.language_model = aiplatform.TextGenerationModel(
+                        model_name=model_name,
+                        project=self.project_id,
+                        location=self.location,
+                        credentials=credentials
+                    )
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
