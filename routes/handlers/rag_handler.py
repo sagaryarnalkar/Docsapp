@@ -10,7 +10,7 @@ class RAGHandler:
     def __init__(self, docs_app):
         self.docs_app = docs_app
         self.rag_processor = RAGProcessor(
-            project_id=GOOGLE_CLOUD_PROJECT,
+            project_id="docsapp-447706",
             location=GOOGLE_CLOUD_LOCATION,
             credentials_path=GOOGLE_APPLICATION_CREDENTIALS
         )

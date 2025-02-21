@@ -23,9 +23,14 @@ class RAGProcessorError(Exception):
 
 class RAGProcessor:
     def __init__(self, project_id, location, credentials_path):
-        self.project_id = project_id
+        # Force project ID to be docsapp-447706
+        self.project_id = "docsapp-447706"
         self.location = location
         self.credentials_path = credentials_path
+        self.temp_bucket_name = f"{self.project_id}-temp"
+        self.last_api_call = time.time()
+        self.min_delay = 1.0  # Minimum delay between API calls
+        self.is_available = False
         
         try:
             # Load service account credentials explicitly
@@ -58,7 +63,7 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model without project and location parameters
+                    # Initialize model with explicit project and location
                     self.language_model = TextGenerationModel.from_pretrained(
                         model_version,
                         project=self.project_id,
