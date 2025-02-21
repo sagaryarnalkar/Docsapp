@@ -37,9 +37,16 @@ class RAGProcessor:
             print(f"Loading credentials from: {self.credentials_path}")
             credentials = service_account.Credentials.from_service_account_file(
                 self.credentials_path,
-                scopes=['https://www.googleapis.com/auth/cloud-platform']
+                scopes=[
+                    'https://www.googleapis.com/auth/cloud-platform',
+                    'https://www.googleapis.com/auth/drive.file',
+                    'https://www.googleapis.com/auth/drive.metadata.readonly'
+                ]
             )
             print("Successfully loaded service account credentials")
+            
+            # Store credentials for reuse
+            self.credentials = credentials
             
             # Verify the project ID in the credentials
             service_info = json.load(open(self.credentials_path))
@@ -53,6 +60,8 @@ class RAGProcessor:
                 print(f"Please grant {service_account_email} the following roles in project {self.project_id}:")
                 print("1. Vertex AI User (roles/aiplatform.user)")
                 print("2. Service Account User (roles/iam.serviceAccountUser)")
+                print("3. Storage Admin (roles/storage.admin)")
+                print("4. Document AI API User (roles/documentai.apiUser)")
             
             # Initialize storage client with explicit credentials
             self.storage_client = storage.Client(
@@ -491,16 +500,8 @@ Question: {question}
     def _get_drive_service(self, user_phone=None):
         """Get Google Drive service instance"""
         try:
-            if user_phone:
-                # Get user-specific credentials
-                credentials = self.user_state.get_credentials(user_phone)
-                if not credentials:
-                    raise RAGProcessorError("User not authorized")
-            else:
-                # Use application default credentials
-                credentials = None
-            
-            return build('drive', 'v3', credentials=credentials)
+            # Always use the service account credentials
+            return build('drive', 'v3', credentials=self.credentials)
         except Exception as e:
             logger.error(f"Error getting Drive service: {str(e)}")
             raise RAGProcessorError(f"Failed to get Drive service: {str(e)}") 
