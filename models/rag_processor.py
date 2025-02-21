@@ -44,11 +44,15 @@ class RAGProcessor:
             # Verify the project ID in the credentials
             service_info = json.load(open(self.credentials_path))
             creds_project_id = service_info.get('project_id')
+            service_account_email = service_info.get('client_email')
             print(f"Credentials project ID: {creds_project_id}")
+            print(f"Service Account Email: {service_account_email}")
             
             if creds_project_id != self.project_id:
                 print(f"Warning: Credentials project ID ({creds_project_id}) does not match target project ID ({self.project_id})")
-                print("Please ensure the service account has the necessary permissions in the target project")
+                print(f"Please grant {service_account_email} the following roles in project {self.project_id}:")
+                print("1. Vertex AI User (roles/aiplatform.user)")
+                print("2. Service Account User (roles/iam.serviceAccountUser)")
             
             # Initialize storage client with explicit credentials
             self.storage_client = storage.Client(
