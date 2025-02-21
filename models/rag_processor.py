@@ -58,11 +58,8 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    self.language_model = TextGenerationModel.from_pretrained(
-                        model_version,
-                        project=self.project_id,
-                        location=self.location
-                    )
+                    # Initialize model without project and location parameters
+                    self.language_model = TextGenerationModel.from_pretrained(model_version)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
@@ -76,6 +73,8 @@ class RAGProcessor:
                 except Exception as e:
                     last_error = e
                     print(f"Failed to load model version {model_version}: {str(e)}")
+                    print(f"Error type: {type(e)}")
+                    print(f"Error details: {str(e)}")
             
             if not hasattr(self, 'language_model'):
                 raise Exception(f"Failed to load any model version. Last error: {str(last_error)}")
