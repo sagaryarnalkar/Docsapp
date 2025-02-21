@@ -35,42 +35,36 @@ class RAGProcessor:
         try:
             # Load service account credentials explicitly
             print(f"Loading credentials from: {self.credentials_path}")
-            credentials = service_account.Credentials.from_service_account_file(
-                self.credentials_path,
-                scopes=[
-                    'https://www.googleapis.com/auth/cloud-platform',
-                    'https://www.googleapis.com/auth/drive.file',
-                    'https://www.googleapis.com/auth/drive.metadata.readonly'
-                ]
-            )
-            print("Successfully loaded service account credentials")
-            
-            # Store credentials for reuse
-            self.credentials = credentials
-            
-            # Verify the project ID in the credentials
             service_info = json.load(open(self.credentials_path))
             creds_project_id = service_info.get('project_id')
             service_account_email = service_info.get('client_email')
             print(f"Credentials project ID: {creds_project_id}")
             print(f"Service Account Email: {service_account_email}")
             
+            # Verify project ID matches
             if creds_project_id != self.project_id:
-                print(f"Warning: Credentials project ID ({creds_project_id}) does not match target project ID ({self.project_id})")
-                print(f"Please grant {service_account_email} the following roles in project {self.project_id}:")
-                print("1. Vertex AI User (roles/aiplatform.user)")
-                print("2. Service Account User (roles/iam.serviceAccountUser)")
-                print("3. Storage Admin (roles/storage.admin)")
-                print("4. Document AI API User (roles/documentai.apiUser)")
+                error_msg = f"Credentials project ID ({creds_project_id}) does not match target project ID ({self.project_id})"
+                print(f"Error: {error_msg}")
+                print(f"Please ensure you are using the service account from project {self.project_id}")
+                raise RAGProcessorError(error_msg)
             
-            # Initialize storage client with explicit credentials
+            # Load credentials with explicit project
+            credentials = service_account.Credentials.from_service_account_info(
+                service_info,
+                scopes=['https://www.googleapis.com/auth/cloud-platform']
+            ).with_quota_project(self.project_id)
+            
+            print("Successfully loaded service account credentials")
+            self.credentials = credentials
+            
+            # Initialize storage client with explicit project
             self.storage_client = storage.Client(
                 project=self.project_id,
                 credentials=credentials
             )
             print(f"Storage client initialized with project: {self.project_id}")
             
-            # Initialize Vertex AI with explicit project and credentials
+            # Initialize Vertex AI with explicit project
             vertexai.init(
                 project=self.project_id,
                 location=self.location,
@@ -85,8 +79,12 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model using vertexai.language_models
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    # Initialize model using vertexai.language_models with explicit project
+                    self.language_model = TextGenerationModel.from_pretrained(
+                        model_version,
+                        project=self.project_id,
+                        location=self.location
+                    )
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
@@ -105,7 +103,7 @@ class RAGProcessor:
                     print(f"Error details: {str(e)}")
                     if "is not allowed to use Publisher Model" in str(e):
                         print(f"Permission error: The service account does not have access to model {model_version}")
-                        print("Please ensure the service account has the 'Vertex AI User' role in project {self.project_id}")
+                        print(f"Please ensure the service account has the 'Vertex AI User' role in project {self.project_id}")
                     self.is_available = False
             
             if not hasattr(self, 'language_model'):
