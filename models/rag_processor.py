@@ -78,11 +78,11 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Use the full model path
-                    model_path = f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/{model_version}"
+                    # Use the simple model name for Publisher Models
+                    model_path = model_version
                     print(f"Using model path: {model_path}")
                     
-                    # Initialize model using the full path
+                    # Initialize model using the model name
                     self.language_model = TextGenerationModel(model_name=model_path)
                     print(f"Successfully loaded model version: {model_version}")
                     
