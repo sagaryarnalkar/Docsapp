@@ -78,8 +78,12 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model using vertexai directly without project parameter
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    # Use the full model path
+                    model_path = f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/{model_version}"
+                    print(f"Using model path: {model_path}")
+                    
+                    # Initialize model using the full path
+                    self.language_model = TextGenerationModel(model_name=model_path)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
