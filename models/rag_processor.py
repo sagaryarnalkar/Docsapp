@@ -22,9 +22,8 @@ class RAGProcessorError(Exception):
 
 class RAGProcessor:
     def __init__(self, project_id, location, credentials_path):
-        # Store both numeric and human-readable project IDs
-        self.numeric_project_id = "290892119731"  # Used for model access
-        self.project_id = "docsapp-447706"  # Used for other operations
+        # Store project ID from credentials
+        self.project_id = project_id
         self.location = location
         self.credentials_path = credentials_path
         self.temp_bucket_name = f"{self.project_id}-temp"
