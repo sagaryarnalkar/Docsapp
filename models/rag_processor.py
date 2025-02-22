@@ -83,12 +83,8 @@ class RAGProcessor:
                     model_path = f"projects/{self.numeric_project_id}/locations/{self.location}/publishers/google/models/{model_version}"
                     print(f"Using model path: {model_path}")
                     
-                    # Initialize model using the numeric project ID
-                    self.language_model = TextGenerationModel.from_pretrained(
-                        model_path,
-                        project=self.numeric_project_id,
-                        location=self.location
-                    )
+                    # Initialize model using only the model path
+                    self.language_model = TextGenerationModel.from_pretrained(model_path)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
