@@ -22,8 +22,9 @@ class RAGProcessorError(Exception):
 
 class RAGProcessor:
     def __init__(self, project_id, location, credentials_path):
-        # Force project ID to be docsapp-447706
-        self.project_id = "docsapp-447706"
+        # Store both numeric and human-readable project IDs
+        self.numeric_project_id = "290892119731"  # Used for model access
+        self.project_id = "docsapp-447706"  # Used for other operations
         self.location = location
         self.credentials_path = credentials_path
         self.temp_bucket_name = f"{self.project_id}-temp"
@@ -78,12 +79,16 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Use the simple model name for Publisher Models
-                    model_path = model_version
+                    # Use the numeric project ID for model path
+                    model_path = f"projects/{self.numeric_project_id}/locations/{self.location}/publishers/google/models/{model_version}"
                     print(f"Using model path: {model_path}")
                     
-                    # Initialize model using the model path
-                    self.language_model = TextGenerationModel.from_pretrained(model_path)
+                    # Initialize model using the numeric project ID
+                    self.language_model = TextGenerationModel.from_pretrained(
+                        model_path,
+                        project=self.numeric_project_id,
+                        location=self.location
+                    )
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
