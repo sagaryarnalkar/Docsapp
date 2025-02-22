@@ -81,25 +81,30 @@ class RAGProcessor:
                     print(f"Attempting to load model version: {model_version}")
                     # Initialize model directly without using a path
                     self.language_model = TextGenerationModel.from_pretrained(model_version)
-                    print(f"Successfully loaded model version: {model_version}")
+                    print(f"Model {model_version} loaded successfully")
                     
-                    # Verify model access with a test query
-                    test_response = self.language_model.predict(
-                        "Test query to verify model access.",
-                        temperature=0,
-                        max_output_tokens=5
-                    )
-                    print("Model access verified with test query")
-                    self.is_available = True
-                    break
+                    # Test model access in a separate try block
+                    try:
+                        print(f"Testing access to model {model_version}...")
+                        test_response = self.language_model.predict(
+                            "Test query to verify model access.",
+                            temperature=0,
+                            max_output_tokens=5
+                        )
+                        print(f"Successfully verified access to model version: {model_version}")
+                        self.is_available = True
+                        break
+                    except Exception as test_error:
+                        print(f"Failed to test model access: {str(test_error)}")
+                        if "is not allowed to use Publisher Model" in str(test_error):
+                            print(f"Permission error: The service account does not have access to model {model_version}")
+                            print(f"Please ensure the service account has the necessary roles in project {self.project_id}")
+                        raise test_error
                 except Exception as e:
                     last_error = e
                     print(f"Failed to load model version {model_version}: {str(e)}")
                     print(f"Error type: {type(e)}")
                     print(f"Error details: {str(e)}")
-                    if "is not allowed to use Publisher Model" in str(e):
-                        print(f"Permission error: The service account does not have access to model {model_version}")
-                        print(f"Please ensure the service account has the 'Vertex AI User' role in project {self.project_id}")
                     self.is_available = False
             
             if not hasattr(self, 'language_model'):
