@@ -22,8 +22,9 @@ class RAGProcessorError(Exception):
 
 class RAGProcessor:
     def __init__(self, project_id, location, credentials_path):
-        # Store project ID from credentials
-        self.project_id = project_id
+        # Store both numeric and human-readable project IDs
+        self.project_id = project_id  # Human-readable ID (e.g. docsapp-447706)
+        self.numeric_project_id = "290892119731"  # Numeric ID for model access
         self.location = location
         self.credentials_path = credentials_path
         self.temp_bucket_name = f"{self.project_id}-temp"
@@ -65,11 +66,11 @@ class RAGProcessor:
             
             # Initialize Vertex AI with explicit project
             vertexai.init(
-                project=self.project_id,
+                project=self.numeric_project_id,  # Use numeric ID for Vertex AI
                 location=self.location,
                 credentials=credentials
             )
-            print(f"Vertex AI initialized successfully with project: {self.project_id}")
+            print(f"Vertex AI initialized successfully with project: {self.numeric_project_id}")
             
             # Try loading the model with explicit error handling
             model_versions = ["text-bison@002", "text-bison@001"]
