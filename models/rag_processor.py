@@ -82,8 +82,8 @@ class RAGProcessor:
                     model_path = model_version
                     print(f"Using model path: {model_path}")
                     
-                    # Initialize model using the model name
-                    self.language_model = TextGenerationModel(model_name=model_path)
+                    # Initialize model using the model path
+                    self.language_model = TextGenerationModel.from_pretrained(model_path)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
