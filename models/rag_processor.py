@@ -5,7 +5,6 @@ import json
 from typing import Dict, List, Optional
 import vertexai
 from vertexai.language_models import TextGenerationModel
-from google.cloud import aiplatform
 from google.cloud import storage
 from google.cloud import documentai
 from google.api_core import retry
@@ -79,8 +78,12 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model using vertexai.language_models
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
+                    # Initialize model using vertexai directly
+                    self.language_model = vertexai.language_models.TextGenerationModel.from_pretrained(
+                        model_version,
+                        project=self.project_id,
+                        location=self.location
+                    )
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
