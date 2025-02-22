@@ -79,12 +79,8 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Use the numeric project ID for model path
-                    model_path = f"projects/{self.numeric_project_id}/locations/{self.location}/publishers/google/models/{model_version}"
-                    print(f"Using model path: {model_path}")
-                    
-                    # Initialize model using only the model path
-                    self.language_model = TextGenerationModel.from_pretrained(model_path)
+                    # Initialize model directly without using a path
+                    self.language_model = TextGenerationModel.from_pretrained(model_version)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
