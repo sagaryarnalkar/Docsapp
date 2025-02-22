@@ -78,12 +78,8 @@ class RAGProcessor:
             for model_version in model_versions:
                 try:
                     print(f"Attempting to load model version: {model_version}")
-                    # Initialize model using vertexai directly
-                    self.language_model = vertexai.language_models.TextGenerationModel.from_pretrained(
-                        model_version,
-                        project=self.project_id,
-                        location=self.location
-                    )
+                    # Initialize model using vertexai directly without project parameter
+                    self.language_model = TextGenerationModel.from_pretrained(model_version)
                     print(f"Successfully loaded model version: {model_version}")
                     
                     # Verify model access with a test query
