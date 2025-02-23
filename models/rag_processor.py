@@ -1,4 +1,5 @@
 import os
+import io
 import logging
 import time
 import json
@@ -10,6 +11,7 @@ from google.cloud import documentai
 from google.api_core import retry
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, SCOPES
 from .database import Document
 from .user_state import UserState
@@ -48,19 +50,23 @@ class RAGProcessor:
                 print(f"Please ensure you are using the service account from project {self.project_id}")
                 raise RAGProcessorError(error_msg)
             
-            # Load credentials with explicit project
-            credentials = service_account.Credentials.from_service_account_info(
+            # Load credentials with explicit project and scopes
+            self.credentials = service_account.Credentials.from_service_account_info(
                 service_info,
-                scopes=['https://www.googleapis.com/auth/cloud-platform']
+                scopes=[
+                    'https://www.googleapis.com/auth/cloud-platform',
+                    'https://www.googleapis.com/auth/drive',
+                    'https://www.googleapis.com/auth/drive.file',
+                    'https://www.googleapis.com/auth/drive.readonly'
+                ]
             ).with_quota_project(self.project_id)
             
             print("Successfully loaded service account credentials")
-            self.credentials = credentials
             
             # Initialize storage client with explicit project
             self.storage_client = storage.Client(
                 project=self.project_id,
-                credentials=credentials
+                credentials=self.credentials
             )
             print(f"Storage client initialized with project: {self.project_id}")
             
@@ -68,9 +74,13 @@ class RAGProcessor:
             vertexai.init(
                 project=self.numeric_project_id,  # Use numeric ID for Vertex AI
                 location=self.location,
-                credentials=credentials
+                credentials=self.credentials
             )
             print(f"Vertex AI initialized successfully with project: {self.numeric_project_id}")
+            
+            # Initialize Drive service
+            self.drive_service = build('drive', 'v3', credentials=self.credentials)
+            print("Drive service initialized successfully")
             
             # Initialize Gemini Pro
             try:
@@ -187,15 +197,17 @@ class RAGProcessor:
         """Copy file from Google Drive to GCS and return the GCS URI"""
         try:
             # Get file metadata and content from Google Drive
-            drive_service = self._get_drive_service(user_phone)
-            if not drive_service:
-                raise RAGProcessorError("Could not initialize Drive service")
-
             try:
                 logger.info(f"Fetching file metadata for {file_id}")
-                file_metadata = drive_service.files().get(fileId=file_id).execute()
+                file_metadata = self.drive_service.files().get(fileId=file_id).execute()
                 logger.info(f"Fetching file content for {file_id}")
-                file_content = drive_service.files().get_media(fileId=file_id).execute()
+                request = self.drive_service.files().get_media(fileId=file_id)
+                file_content = io.BytesIO()
+                downloader = MediaIoBaseDownload(file_content, request)
+                done = False
+                while done is False:
+                    status, done = downloader.next_chunk()
+                file_content.seek(0)
             except Exception as e:
                 raise RAGProcessorError(f"Could not access file in Drive: {str(e)}")
             
@@ -204,7 +216,7 @@ class RAGProcessor:
                 logger.info(f"Uploading file to GCS bucket: {self.temp_bucket_name}")
                 bucket = self.storage_client.bucket(self.temp_bucket_name)
                 blob = bucket.blob(f"temp/{file_id}/{file_metadata['name']}")
-                blob.upload_from_string(file_content)
+                blob.upload_from_string(file_content.read())
                 
                 gcs_uri = f"gs://{self.temp_bucket_name}/{blob.name}"
                 logger.info(f"File copied to GCS: {gcs_uri}")
