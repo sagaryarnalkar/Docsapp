@@ -4,7 +4,7 @@ import time
 import json
 from typing import Dict, List, Optional
 import vertexai
-from vertexai.language_models import TextGenerationModel
+from vertexai.generative_models import GenerativeModel
 from google.cloud import storage
 from google.cloud import documentai
 from google.api_core import retry
@@ -72,46 +72,25 @@ class RAGProcessor:
             )
             print(f"Vertex AI initialized successfully with project: {self.numeric_project_id}")
             
-            # Try loading the model with explicit error handling
-            model_versions = ["text-bison@002", "text-bison@001"]
-            last_error = None
-            
-            for model_version in model_versions:
-                try:
-                    print(f"Attempting to load model version: {model_version}")
-                    # Initialize model directly without using a path
-                    self.language_model = TextGenerationModel.from_pretrained(model_version)
-                    print(f"Model {model_version} loaded successfully")
-                    
-                    # Test model access in a separate try block
-                    try:
-                        print(f"Testing access to model {model_version}...")
-                        test_response = self.language_model.predict(
-                            "Test query to verify model access.",
-                            temperature=0,
-                            max_output_tokens=5
-                        )
-                        print(f"Successfully verified access to model version: {model_version}")
-                        self.is_available = True
-                        break
-                    except Exception as test_error:
-                        print(f"Failed to test model access: {str(test_error)}")
-                        if "is not allowed to use Publisher Model" in str(test_error):
-                            print(f"Permission error: The service account does not have access to model {model_version}")
-                            print(f"Please ensure the service account has the necessary roles in project {self.project_id}")
-                        raise test_error
-                except Exception as e:
-                    last_error = e
-                    print(f"Failed to load model version {model_version}: {str(e)}")
-                    print(f"Error type: {type(e)}")
-                    print(f"Error details: {str(e)}")
-                    self.is_available = False
-            
-            if not hasattr(self, 'language_model'):
-                print(f"Failed to load any model version. Last error: {str(last_error)}")
-                print(f"Project ID: {self.project_id}")
-                print(f"Location: {self.location}")
+            # Initialize Gemini Pro
+            try:
+                print("Initializing Gemini Pro...")
+                self.language_model = GenerativeModel("gemini-pro")
+                
+                # Test model access
+                print("Testing access to Gemini Pro...")
+                test_response = self.language_model.generate_content(
+                    "Test query to verify model access."
+                )
+                print("Successfully verified access to Gemini Pro")
+                self.is_available = True
+                
+            except Exception as e:
+                print(f"Failed to initialize Gemini Pro: {str(e)}")
+                print(f"Error type: {type(e)}")
+                print(f"Error details: {str(e)}")
                 self.is_available = False
+                raise
                 
         except Exception as e:
             print(f"Error during initialization: {str(e)}")
@@ -337,13 +316,7 @@ Question: {user_query}"""
                 
                 print("Generating answer...")
                 try:
-                    response = self.language_model.predict(
-                        prompt,
-                        temperature=0.3,
-                        max_output_tokens=1024,
-                        top_k=40,
-                        top_p=0.8,
-                    )
+                    response = self.language_model.generate_content(prompt)
                     print("Answer generated successfully")
                     
                     return {
@@ -394,7 +367,7 @@ Question: {user_query}"""
             3. Any significant dates, numbers, or statistics
             4. Document structure and organization"""
             
-            response = self.language_model.predict(prompt)
+            response = self.language_model.generate_content(prompt)
             
             return {
                 "status": "success",
@@ -469,13 +442,7 @@ Question: {question}
 """
             
             # Generate response with controlled parameters
-            response = self.language_model.predict(
-                prompt,
-                temperature=0.3,  # Lower temperature for more focused responses
-                max_output_tokens=1024,
-                top_k=40,
-                top_p=0.8,
-            )
+            response = self.language_model.generate_content(prompt)
             
             return response.text
             
