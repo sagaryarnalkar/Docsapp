@@ -66,6 +66,13 @@ class RAGHandler:
         Process document with RAG in the background
         Returns None if processing fails, to ensure main document storage continues
         """
+        print(f"\n{'='*50}")
+        print("RAG HANDLER: STARTING DOCUMENT PROCESSING")
+        print(f"File ID: {file_id}")
+        print(f"MIME Type: {mime_type}")
+        print(f"User: {user_phone}")
+        print(f"{'='*50}\n")
+
         if not file_id:
             logger.error("No file ID provided for RAG processing")
             return None
@@ -80,12 +87,17 @@ class RAGHandler:
             # Process document with RAG
             try:
                 result = await self.rag_processor.process_document_async(file_id, mime_type, user_phone)
+                print("\n=== RAG Processing Result ===")
+                print(f"Status: {result.get('status')}")
+                print(f"Document: {result.get('filename')}")
+                print(f"Data Store ID: {result.get('data_store_id')}")
             except Exception as e:
                 logger.error(f"RAG processing failed for document {file_id}: {str(e)}")
                 return None
             
             if not result or result.get("status") != "success":
-                logger.error(f"RAG processing failed for document {file_id}: {result.get('error', 'Unknown error')}")
+                error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
+                logger.error(f"RAG processing failed for document {file_id}: {error_msg}")
                 return None
 
             logger.info(f"Successfully processed document {file_id} with RAG")
@@ -99,6 +111,21 @@ class RAGHandler:
                         doc.document_id = result.get("document_id")
                         session.commit()
                         logger.info(f"Updated document {file_id} with RAG processing results")
+                        
+                        # Send success notification via WhatsApp
+                        try:
+                            from routes.handlers.whatsapp_handler import WhatsAppHandler
+                            whatsapp = WhatsAppHandler(self.docs_app, {}, None)
+                            success_message = (
+                                f"✅ Document '{result.get('filename')}' has been processed and added to your knowledge base.\n\n"
+                                "You can now ask questions about this document using the /ask command!"
+                            )
+                            await whatsapp.send_message(user_phone, success_message)
+                            print(f"Sent success notification to {user_phone}")
+                        except Exception as e:
+                            print(f"Error sending success notification: {str(e)}")
+                            # Don't fail the process if notification fails
+                            
                     else:
                         logger.warning(f"Could not find document {file_id} to update RAG results")
             except Exception as e:
@@ -107,7 +134,8 @@ class RAGHandler:
                 
             return {
                 "data_store_id": result.get("data_store_id"),
-                "document_id": result.get("document_id")
+                "document_id": result.get("document_id"),
+                "filename": result.get("filename")
             }
 
         except Exception as e:

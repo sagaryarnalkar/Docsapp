@@ -225,47 +225,71 @@ class DocsApp:
     async def ask_question(self, user_phone, question):
         """Ask a question about the user's documents"""
         try:
-            print(f"\n=== Processing Question ===")
+            print(f"\n{'='*50}")
+            print("PROCESSING QUESTION")
             print(f"User: {user_phone}")
             print(f"Question: {question}")
+            print(f"{'='*50}\n")
             
             # Get all data store IDs for the user's documents
             with Session() as session:
-                docs = session.query(Document).filter(
-                    Document.user_phone == user_phone,
-                    Document.data_store_id.isnot(None)
+                print("\n=== Checking Available Documents ===")
+                # First get all documents
+                all_docs = session.query(Document).filter(
+                    Document.user_phone == user_phone
                 ).all()
+                print(f"Total documents found: {len(all_docs)}")
                 
-                print(f"\nFound {len(docs)} processed documents")
-                for doc in docs:
-                    print(f"- {doc.filename} (ID: {doc.file_id}, Store ID: {doc.data_store_id})")
+                # Then filter for processed ones
+                docs = [doc for doc in all_docs if doc.data_store_id is not None]
+                print(f"Processed documents: {len(docs)}")
                 
-                if not docs:
-                    print("No processed documents found")
+                if all_docs and not docs:
+                    print("Documents found but none are processed yet")
                     return {
                         "status": "error",
-                        "message": "No processed documents found to answer questions from."
+                        "message": "Your documents are still being processed. Please try again in a few moments."
                     }
                 
+                if not docs:
+                    print("No documents found at all")
+                    return {
+                        "status": "error",
+                        "message": "No processed documents found to answer questions from. Please upload some documents first."
+                    }
+                
+                print("\n=== Available Documents ===")
+                for doc in docs:
+                    print(f"- {doc.filename}")
+                    print(f"  ID: {doc.file_id}")
+                    print(f"  Data Store ID: {doc.data_store_id}")
+                
                 # Query across all user's documents
-                print("\nQuerying documents...")
+                print("\n=== Querying Documents ===")
                 all_answers = []
                 for doc in docs:
                     print(f"\nQuerying document: {doc.filename}")
-                    result = await self.rag_processor.query_documents(
-                        question,
-                        doc.data_store_id
-                    )
-                    print(f"Query result: {result}")
-                    if result["status"] == "success":
-                        all_answers.append({
-                            "answer": result["answer"],
-                            "document": doc.filename,
-                            "sources": result["sources"]
-                        })
+                    try:
+                        result = await self.rag_processor.query_documents(
+                            question,
+                            doc.data_store_id
+                        )
+                        print(f"Query result status: {result.get('status')}")
+                        if result.get("status") == "success":
+                            print("Successfully got answer")
+                            all_answers.append({
+                                "answer": result["answer"],
+                                "document": doc.filename,
+                                "sources": result["sources"]
+                            })
+                        else:
+                            print(f"Query failed: {result.get('error')}")
+                    except Exception as e:
+                        print(f"Error querying document {doc.filename}: {str(e)}")
+                        continue
 
                 if not all_answers:
-                    print("No answers found in any documents")
+                    print("\nNo answers found in any documents")
                     return {
                         "status": "error",
                         "message": "No relevant information found in your documents."
@@ -278,9 +302,12 @@ class DocsApp:
                 }
 
         except Exception as e:
-            print(f"Error processing question: {str(e)}")
+            print(f"\n{'='*50}")
+            print("ERROR PROCESSING QUESTION")
+            print(f"Error: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
+            print(f"{'='*50}")
             logger.error(f"Error processing question: {str(e)}")
             return {
                 "status": "error",

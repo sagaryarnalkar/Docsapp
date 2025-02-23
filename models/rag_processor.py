@@ -398,108 +398,137 @@ Answer:"""
 
     async def process_document_async(self, file_id: str, mime_type: str, user_phone: str = None) -> Dict:
         """Process a document asynchronously using Vertex AI."""
+        print(f"\n{'='*50}")
+        print("STARTING DOCUMENT PROCESSING")
+        print(f"{'='*50}")
+        print(f"File ID: {file_id}")
+        print(f"MIME Type: {mime_type}")
+        print(f"User: {user_phone}")
+
         if not self.is_available:
             print("RAG processing not available")
             return {
                 "status": "error",
                 "error": "RAG processing not available",
                 "data_store_id": None,
-                "document_id": None
+                "document_id": None,
+                "filename": None
             }
 
         try:
-            print(f"\n=== Processing Document ===")
-            print(f"File ID: {file_id}")
-            print(f"MIME Type: {mime_type}")
-            print(f"User: {user_phone}")
-            
             self._rate_limit()
             
+            # Get file metadata first
+            drive_service = self._get_drive_service(user_phone)
+            try:
+                file_metadata = drive_service.files().get(fileId=file_id, fields='name,mimeType').execute()
+                filename = file_metadata.get('name', 'Unknown Document')
+                print(f"Processing document: {filename}")
+            except Exception as e:
+                print(f"Error getting file metadata: {str(e)}")
+                filename = 'Unknown Document'
+            
             # 1. Copy file to GCS for processing
+            print("\n=== Step 1: Copying to GCS ===")
             try:
                 gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
-                print(f"File copied to GCS: {gcs_uri}")
+                print(f"✅ File copied to GCS: {gcs_uri}")
             except Exception as e:
-                print(f"Error copying to GCS: {str(e)}")
+                print(f"❌ Error copying to GCS: {str(e)}")
                 return {
                     "status": "error",
                     "error": f"Failed to copy to GCS: {str(e)}",
                     "data_store_id": None,
-                    "document_id": None
+                    "document_id": None,
+                    "filename": filename
                 }
             
             # 2. Extract text from document
+            print("\n=== Step 2: Extracting Text ===")
             try:
                 text_content = await self._extract_text(gcs_uri, mime_type)
-                print("Text extracted successfully")
-                print(f"Extracted text length: {len(text_content)}")
+                print(f"✅ Text extracted successfully ({len(text_content)} characters)")
             except Exception as e:
-                print(f"Error extracting text: {str(e)}")
+                print(f"❌ Error extracting text: {str(e)}")
                 return {
                     "status": "error",
                     "error": f"Failed to extract text: {str(e)}",
                     "data_store_id": None,
-                    "document_id": None
+                    "document_id": None,
+                    "filename": filename
                 }
             
             # 3. Split text into chunks
+            print("\n=== Step 3: Chunking Text ===")
             try:
                 chunks = self._chunk_text(text_content)
-                print(f"Split into {len(chunks)} chunks")
-                print(f"First chunk preview: {chunks[0]['text'][:100]}...")
+                print(f"✅ Split into {len(chunks)} chunks")
             except Exception as e:
-                print(f"Error chunking text: {str(e)}")
+                print(f"❌ Error chunking text: {str(e)}")
                 return {
                     "status": "error",
                     "error": f"Failed to chunk text: {str(e)}",
                     "data_store_id": None,
-                    "document_id": None
+                    "document_id": None,
+                    "filename": filename
                 }
             
             # 4. Generate embeddings
+            print("\n=== Step 4: Generating Embeddings ===")
             try:
                 chunk_texts = [chunk['text'] for chunk in chunks]
                 embeddings = await self._generate_embeddings(chunk_texts)
-                print(f"Generated {len(embeddings)} embeddings")
-                print(f"Embedding dimension: {len(embeddings[0])}")
+                print(f"✅ Generated {len(embeddings)} embeddings")
             except Exception as e:
-                print(f"Error generating embeddings: {str(e)}")
+                print(f"❌ Error generating embeddings: {str(e)}")
                 return {
                     "status": "error",
                     "error": f"Failed to generate embeddings: {str(e)}",
                     "data_store_id": None,
-                    "document_id": None
+                    "document_id": None,
+                    "filename": filename
                 }
             
             # 5. Store embeddings in Vector Search
+            print("\n=== Step 5: Storing Embeddings ===")
             try:
                 index_id = await self._store_embeddings(embeddings, chunks)
-                print(f"Stored embeddings with index ID: {index_id}")
+                print(f"✅ Stored embeddings with index ID: {index_id}")
             except Exception as e:
-                print(f"Error storing embeddings: {str(e)}")
+                print(f"❌ Error storing embeddings: {str(e)}")
                 return {
                     "status": "error",
                     "error": f"Failed to store embeddings: {str(e)}",
                     "data_store_id": None,
-                    "document_id": None
+                    "document_id": None,
+                    "filename": filename
                 }
+            
+            print(f"\n{'='*50}")
+            print("DOCUMENT PROCESSING COMPLETED SUCCESSFULLY")
+            print(f"{'='*50}")
             
             return {
                 "status": "success",
                 "data_store_id": index_id,
-                "document_id": file_id
+                "document_id": file_id,
+                "filename": filename
             }
             
         except Exception as e:
-            print(f"Error processing document: {str(e)}")
+            print(f"\n{'='*50}")
+            print("DOCUMENT PROCESSING FAILED")
+            print(f"Error: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
-            logger.error(f"Error processing document: {str(e)}")
+            print(f"{'='*50}")
+            
             return {
                 "status": "error",
                 "error": str(e),
                 "data_store_id": None,
-                "document_id": None
+                "document_id": None,
+                "filename": filename if 'filename' in locals() else 'Unknown Document'
             }
 
     async def query_documents(self, question: str, data_store_id: str) -> Dict:
