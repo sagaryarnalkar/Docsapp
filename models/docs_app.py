@@ -177,6 +177,38 @@ class DocsApp:
                     logger.error(f"Failed to delete file from Drive after DB error: {str(del_err)}")
                 return False
 
+            # Process document with RAG
+            print("\nProcessing document with RAG...")
+            try:
+                if self.rag_processor and self.rag_processor.is_available:
+                    rag_result = await self.rag_processor.process_document_async(
+                        file['id'],
+                        file.get('mimeType'),
+                        user_phone
+                    )
+                    print(f"RAG processing result: {rag_result}")
+                    
+                    if rag_result.get('status') == 'success':
+                        # Update document with RAG processing results
+                        with Session() as session:
+                            doc = session.query(Document).filter(
+                                Document.file_id == file['id']
+                            ).first()
+                            if doc:
+                                doc.data_store_id = rag_result.get('data_store_id')
+                                doc.document_id = rag_result.get('document_id')
+                                session.commit()
+                                print("Updated document with RAG processing results")
+                    else:
+                        print(f"RAG processing failed: {rag_result.get('error')}")
+                else:
+                    print("RAG processor not available")
+            except Exception as e:
+                print(f"Error in RAG processing: {str(e)}")
+                import traceback
+                print(f"RAG processing traceback:\n{traceback.format_exc()}")
+                # Don't return False here - the document is still stored
+
             return {
                 'status': 'success',
                 'file_id': file['id'],

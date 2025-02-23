@@ -141,6 +141,122 @@ class RAGProcessor:
             time.sleep(self.min_delay - time_since_last_call)
         self.last_api_call = time.time()
 
+    async def _extract_text(self, gcs_uri: str, mime_type: str) -> str:
+        """Extract text from document using Document AI or direct methods"""
+        try:
+            print(f"\n=== Extracting Text ===")
+            print(f"GCS URI: {gcs_uri}")
+            print(f"MIME Type: {mime_type}")
+            
+            # Get content from GCS
+            bucket_name = self.temp_bucket_name
+            blob_path = gcs_uri.replace(f"gs://{bucket_name}/", "")
+            bucket = self.storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_path)
+            content = blob.download_as_bytes()
+            print(f"Downloaded content size: {len(content)} bytes")
+
+            # For PDF files, use Document AI
+            if mime_type == 'application/pdf':
+                try:
+                    print("Using Document AI for PDF extraction")
+                    client = documentai.DocumentProcessorServiceClient()
+                    name = client.processor_path(self.project_id, self.location, "general-processor")
+                    
+                    document = documentai.Document(
+                        content=content,
+                        mime_type='application/pdf'
+                    )
+                    
+                    request = documentai.ProcessRequest(
+                        name=name,
+                        document=document
+                    )
+                    
+                    result = client.process_document(request=request)
+                    text_content = result.document.text
+                    print(f"Document AI extracted {len(text_content)} characters")
+                    return text_content
+                    
+                except Exception as doc_ai_error:
+                    print(f"Document AI error: {str(doc_ai_error)}")
+                    print("Falling back to PyPDF2")
+                    
+                    # Fallback to PyPDF2
+                    from PyPDF2 import PdfReader
+                    reader = PdfReader(io.BytesIO(content))
+                    text_content = ""
+                    for page in reader.pages:
+                        text_content += page.extract_text() + "\n"
+                    print(f"PyPDF2 extracted {len(text_content)} characters")
+                    return text_content
+            
+            # For text-based files
+            else:
+                print("Processing as text file")
+                # Try different encodings
+                encodings = ['utf-8', 'latin-1', 'cp1252']
+                for encoding in encodings:
+                    try:
+                        text_content = content.decode(encoding)
+                        print(f"Successfully decoded using {encoding}")
+                        return text_content
+                    except UnicodeDecodeError:
+                        continue
+                
+                raise Exception("Could not decode file with any supported encoding")
+            
+        except Exception as e:
+            print(f"Error extracting text: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
+            raise
+
+    async def _copy_drive_to_gcs(self, file_id: str, user_phone: str = None) -> str:
+        """Copy file from Google Drive to GCS and return the GCS URI"""
+        try:
+            print(f"\n=== Copying File to GCS ===")
+            print(f"File ID: {file_id}")
+            
+            # Get file metadata and content from Google Drive
+            try:
+                print("Fetching file from Drive")
+                file_metadata = self.drive_service.files().get(fileId=file_id).execute()
+                request = self.drive_service.files().get_media(fileId=file_id)
+                file_content = io.BytesIO()
+                downloader = MediaIoBaseDownload(file_content, request)
+                done = False
+                while done is False:
+                    status, done = downloader.next_chunk()
+                file_content.seek(0)
+                print(f"Downloaded file: {file_metadata.get('name')}")
+            except Exception as e:
+                print(f"Drive access error: {str(e)}")
+                raise Exception(f"Could not access file in Drive: {str(e)}")
+            
+            # Ensure temp bucket exists
+            self.ensure_temp_bucket_exists()
+            
+            # Upload to GCS
+            try:
+                print(f"Uploading to GCS bucket: {self.temp_bucket_name}")
+                bucket = self.storage_client.bucket(self.temp_bucket_name)
+                blob = bucket.blob(f"temp/{file_id}/{file_metadata['name']}")
+                blob.upload_from_string(file_content.read())
+                
+                gcs_uri = f"gs://{self.temp_bucket_name}/{blob.name}"
+                print(f"File copied to GCS: {gcs_uri}")
+                return gcs_uri
+            except Exception as e:
+                print(f"GCS upload error: {str(e)}")
+                raise Exception(f"Could not upload to GCS: {str(e)}")
+            
+        except Exception as e:
+            print(f"Error copying file to GCS: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
+            raise
+
     def _chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 100) -> List[Dict]:
         """Split text into overlapping chunks with metadata"""
         chunks = []
@@ -283,6 +399,7 @@ Answer:"""
     async def process_document_async(self, file_id: str, mime_type: str, user_phone: str = None) -> Dict:
         """Process a document asynchronously using Vertex AI."""
         if not self.is_available:
+            print("RAG processing not available")
             return {
                 "status": "error",
                 "error": "RAG processing not available",
@@ -299,25 +416,73 @@ Answer:"""
             self._rate_limit()
             
             # 1. Copy file to GCS for processing
-            gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
-            print(f"File copied to GCS: {gcs_uri}")
+            try:
+                gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
+                print(f"File copied to GCS: {gcs_uri}")
+            except Exception as e:
+                print(f"Error copying to GCS: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": f"Failed to copy to GCS: {str(e)}",
+                    "data_store_id": None,
+                    "document_id": None
+                }
             
             # 2. Extract text from document
-            text_content = await self._extract_text(gcs_uri, mime_type)
-            print("Text extracted successfully")
+            try:
+                text_content = await self._extract_text(gcs_uri, mime_type)
+                print("Text extracted successfully")
+                print(f"Extracted text length: {len(text_content)}")
+            except Exception as e:
+                print(f"Error extracting text: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": f"Failed to extract text: {str(e)}",
+                    "data_store_id": None,
+                    "document_id": None
+                }
             
             # 3. Split text into chunks
-            chunks = self._chunk_text(text_content)
-            print(f"Split into {len(chunks)} chunks")
+            try:
+                chunks = self._chunk_text(text_content)
+                print(f"Split into {len(chunks)} chunks")
+                print(f"First chunk preview: {chunks[0]['text'][:100]}...")
+            except Exception as e:
+                print(f"Error chunking text: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": f"Failed to chunk text: {str(e)}",
+                    "data_store_id": None,
+                    "document_id": None
+                }
             
             # 4. Generate embeddings
-            chunk_texts = [chunk['text'] for chunk in chunks]
-            embeddings = await self._generate_embeddings(chunk_texts)
-            print("Generated embeddings successfully")
+            try:
+                chunk_texts = [chunk['text'] for chunk in chunks]
+                embeddings = await self._generate_embeddings(chunk_texts)
+                print(f"Generated {len(embeddings)} embeddings")
+                print(f"Embedding dimension: {len(embeddings[0])}")
+            except Exception as e:
+                print(f"Error generating embeddings: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": f"Failed to generate embeddings: {str(e)}",
+                    "data_store_id": None,
+                    "document_id": None
+                }
             
             # 5. Store embeddings in Vector Search
-            index_id = await self._store_embeddings(embeddings, chunks)
-            print(f"Stored embeddings with index ID: {index_id}")
+            try:
+                index_id = await self._store_embeddings(embeddings, chunks)
+                print(f"Stored embeddings with index ID: {index_id}")
+            except Exception as e:
+                print(f"Error storing embeddings: {str(e)}")
+                return {
+                    "status": "error",
+                    "error": f"Failed to store embeddings: {str(e)}",
+                    "data_store_id": None,
+                    "document_id": None
+                }
             
             return {
                 "status": "success",
