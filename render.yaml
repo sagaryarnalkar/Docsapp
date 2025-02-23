@@ -3,7 +3,7 @@ services:
     name: docs-app
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: hypercorn --bind 0.0.0.0:8080 --workers 2 --keep-alive 120 --graceful-timeout 60 --access-log - --error-log - --log-level DEBUG app:app
+    startCommand: hypercorn --bind 0.0.0.0:$PORT --workers 2 --keep-alive 120 --graceful-timeout 60 --access-log - --error-log - --log-level DEBUG app:app
     healthCheckPath: /health
     healthCheckTimeout: 100
     autoDeploy: true
@@ -84,7 +84,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: WHATSAPP_API_VERSION
-        value: v22.0
+        sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID
         sync: false
       - key: WHATSAPP_ACCESS_TOKEN
