@@ -15,6 +15,7 @@ from googleapiclient.http import MediaIoBaseDownload
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, SCOPES
 from .database import Document
 from .user_state import UserState
+from google.cloud import aiplatform
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,145 @@ class RAGProcessor:
             time.sleep(self.min_delay - time_since_last_call)
         self.last_api_call = time.time()
 
+    def _chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 100) -> List[Dict]:
+        """Split text into overlapping chunks with metadata"""
+        chunks = []
+        start = 0
+        
+        while start < len(text):
+            # Get chunk with overlap
+            end = start + chunk_size
+            chunk_text = text[start:end]
+            
+            # Add some context by not breaking mid-sentence
+            if end < len(text):
+                last_period = chunk_text.rfind('.')
+                if last_period != -1:
+                    end = start + last_period + 1
+                    chunk_text = text[start:end]
+            
+            # Create chunk with metadata
+            chunk = {
+                'text': chunk_text,
+                'metadata': {
+                    'start_char': start,
+                    'end_char': end,
+                    'chunk_index': len(chunks)
+                }
+            }
+            chunks.append(chunk)
+            
+            # Move start position, accounting for overlap
+            start = end - overlap
+            
+        return chunks
+
+    async def _generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings using Vertex AI's text embedding model"""
+        try:
+            # Initialize the embedding model
+            model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
+            
+            # Generate embeddings in batches
+            embeddings = []
+            batch_size = 5  # Adjust based on rate limits
+            
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i:i + batch_size]
+                batch_embeddings = model.get_embeddings(batch)
+                embeddings.extend([emb.values for emb in batch_embeddings])
+            
+            return embeddings
+            
+        except Exception as e:
+            logger.error(f"Error generating embeddings: {str(e)}")
+            raise
+
+    async def _store_embeddings(self, embeddings: List[List[float]], chunks: List[Dict], index_id: str = None) -> str:
+        """Store embeddings in Vertex AI Vector Search"""
+        try:
+            # Initialize Vertex AI Vector Search client
+            client = aiplatform.MatchingEngineIndexEndpoint(
+                index_endpoint_name=f"projects/{self.numeric_project_id}/locations/{self.location}/indexEndpoints/{index_id}"
+            )
+            
+            # Prepare documents with embeddings and metadata
+            documents = []
+            for embedding, chunk in zip(embeddings, chunks):
+                doc = {
+                    'embedding': embedding,
+                    'metadata': {
+                        'text': chunk['text'],
+                        **chunk['metadata']
+                    }
+                }
+                documents.append(doc)
+            
+            # Store in vector index
+            response = client.upsert_datapoints(
+                embeddings=[doc['embedding'] for doc in documents],
+                metadata=[doc['metadata'] for doc in documents]
+            )
+            
+            return response.index_id
+            
+        except Exception as e:
+            logger.error(f"Error storing embeddings: {str(e)}")
+            raise
+
+    async def _search_similar_chunks(self, query_embedding: List[float], index_id: str, top_k: int = 5) -> List[Dict]:
+        """Search for similar chunks in Vector Search"""
+        try:
+            # Initialize Vector Search client
+            client = aiplatform.MatchingEngineIndexEndpoint(
+                index_endpoint_name=f"projects/{self.numeric_project_id}/locations/{self.location}/indexEndpoints/{index_id}"
+            )
+            
+            # Search for similar chunks
+            response = client.find_neighbors(
+                deployed_index_id=index_id,
+                queries=[query_embedding],
+                num_neighbors=top_k
+            )
+            
+            # Get matching chunks with scores
+            matches = []
+            for neighbor in response.nearest_neighbors[0]:
+                matches.append({
+                    'text': neighbor.metadata['text'],
+                    'score': neighbor.distance,
+                    'metadata': neighbor.metadata
+                })
+            
+            return matches
+            
+        except Exception as e:
+            logger.error(f"Error searching similar chunks: {str(e)}")
+            raise
+
+    def _create_rag_prompt(self, question: str, relevant_chunks: List[Dict]) -> str:
+        """Create a prompt for RAG using relevant chunks"""
+        # Combine relevant chunks into context
+        context = "\n\n".join([
+            f"Chunk {i+1}:\n{chunk['text']}"
+            for i, chunk in enumerate(relevant_chunks)
+        ])
+        
+        return f"""Answer the following question using only the provided context. If the answer cannot be found in the context, say so explicitly.
+
+Context:
+{context}
+
+Question: {question}
+
+Instructions:
+1. Answer based only on the provided context
+2. If information is missing or unclear, say so
+3. Cite specific parts of the context
+4. Be concise but complete
+
+Answer:"""
+
     async def process_document_async(self, file_id: str, mime_type: str, user_phone: str = None) -> Dict:
         """Process a document asynchronously using Vertex AI."""
         if not self.is_available:
@@ -158,203 +298,88 @@ class RAGProcessor:
             
             self._rate_limit()
             
-            # Download file from Google Drive to GCS
-            print("Copying file to GCS...")
+            # 1. Copy file to GCS for processing
             gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
             print(f"File copied to GCS: {gcs_uri}")
             
-            # For now, store the GCS URI as the data store ID
-            # This will be used to retrieve the document content later
-            print("Document processing complete")
+            # 2. Extract text from document
+            text_content = await self._extract_text(gcs_uri, mime_type)
+            print("Text extracted successfully")
+            
+            # 3. Split text into chunks
+            chunks = self._chunk_text(text_content)
+            print(f"Split into {len(chunks)} chunks")
+            
+            # 4. Generate embeddings
+            chunk_texts = [chunk['text'] for chunk in chunks]
+            embeddings = await self._generate_embeddings(chunk_texts)
+            print("Generated embeddings successfully")
+            
+            # 5. Store embeddings in Vector Search
+            index_id = await self._store_embeddings(embeddings, chunks)
+            print(f"Stored embeddings with index ID: {index_id}")
+            
             return {
                 "status": "success",
-                "data_store_id": gcs_uri,
+                "data_store_id": index_id,
                 "document_id": file_id
             }
             
-        except RAGProcessorError as e:
-            print(f"RAG processing error: {str(e)}")
-            logger.error(f"RAG processing error: {str(e)}")
+        except Exception as e:
+            print(f"Error processing document: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
+            logger.error(f"Error processing document: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e),
                 "data_store_id": None,
                 "document_id": None
             }
-        except Exception as e:
-            print(f"Unexpected error processing document: {str(e)}")
-            import traceback
-            print(f"Traceback:\n{traceback.format_exc()}")
-            logger.error(f"Unexpected error processing document: {str(e)}", exc_info=True)
+
+    async def query_documents(self, question: str, data_store_id: str) -> Dict:
+        """Query documents using Vertex AI Vector Search and LLM."""
+        if not self.is_available:
             return {
                 "status": "error",
-                "error": "An unexpected error occurred",
-                "data_store_id": None,
-                "document_id": None
-            }
-
-    async def _copy_drive_to_gcs(self, file_id: str, user_phone: str = None) -> str:
-        """Copy file from Google Drive to GCS and return the GCS URI"""
-        try:
-            # Get file metadata and content from Google Drive
-            try:
-                logger.info(f"Fetching file metadata for {file_id}")
-                file_metadata = self.drive_service.files().get(fileId=file_id).execute()
-                logger.info(f"Fetching file content for {file_id}")
-                request = self.drive_service.files().get_media(fileId=file_id)
-                file_content = io.BytesIO()
-                downloader = MediaIoBaseDownload(file_content, request)
-                done = False
-                while done is False:
-                    status, done = downloader.next_chunk()
-                file_content.seek(0)
-            except Exception as e:
-                raise RAGProcessorError(f"Could not access file in Drive: {str(e)}")
-            
-            # Upload to GCS
-            try:
-                logger.info(f"Uploading file to GCS bucket: {self.temp_bucket_name}")
-                bucket = self.storage_client.bucket(self.temp_bucket_name)
-                blob = bucket.blob(f"temp/{file_id}/{file_metadata['name']}")
-                blob.upload_from_string(file_content.read())
-                
-                gcs_uri = f"gs://{self.temp_bucket_name}/{blob.name}"
-                logger.info(f"File copied to GCS: {gcs_uri}")
-                return gcs_uri
-            except Exception as e:
-                raise RAGProcessorError(f"Could not upload to GCS: {str(e)}")
-            
-        except RAGProcessorError:
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error copying file to GCS: {str(e)}", exc_info=True)
-            raise RAGProcessorError(f"Failed to copy file: {str(e)}")
-
-    async def query_documents(self, user_query: str, data_store_id: str) -> Dict:
-        """Query documents using Vertex AI."""
-        if not self.is_available or not self.language_model:
-            return {
-                "status": "error",
-                "error": "RAG processing or language model not available"
+                "error": "RAG processing not available"
             }
 
         try:
-            print(f"\n=== Querying Document ===")
-            print(f"Query: {user_query}")
+            print(f"\n=== Processing Question ===")
+            print(f"Question: {question}")
             print(f"Data Store ID: {data_store_id}")
             
-            self._rate_limit()
+            # 1. Generate embedding for question
+            question_embeddings = await self._generate_embeddings([question])
+            question_embedding = question_embeddings[0]
+            print("Generated question embedding")
             
-            # Get document content from GCS
-            print("Getting document content...")
-            try:
-                bucket_name = self.temp_bucket_name
-                blob_path = data_store_id.replace(f"gs://{bucket_name}/", "")
-                bucket = self.storage_client.bucket(bucket_name)
-                blob = bucket.blob(blob_path)
-                content = blob.download_as_bytes()
-                print("Successfully retrieved document content")
-
-                # For PDF files, we need to extract text
-                if blob_path.lower().endswith('.pdf'):
-                    try:
-                        # Initialize Document AI
-                        client = documentai.DocumentProcessorServiceClient()
-                        name = client.processor_path(self.project_id, self.location, "general-processor")
-                        
-                        # Process the document content
-                        document = documentai.Document(
-                            content=content,
-                            mime_type='application/pdf'
-                        )
-                        
-                        request = documentai.ProcessRequest(
-                            name=name,
-                            document=document
-                        )
-                        
-                        result = client.process_document(request=request)
-                        text_content = result.document.text
-                        print("Successfully extracted text using Document AI")
-                    except Exception as doc_ai_error:
-                        print(f"Document AI error: {str(doc_ai_error)}")
-                        # Fallback to simple text extraction if Document AI fails
-                        try:
-                            import io
-                            from PyPDF2 import PdfReader
-                            reader = PdfReader(io.BytesIO(content))
-                            text_content = ""
-                            for page in reader.pages:
-                                text_content += page.extract_text() + "\n"
-                            print("Successfully extracted text using PyPDF2 fallback")
-                        except Exception as pdf_error:
-                            print(f"PDF extraction error: {str(pdf_error)}")
-                            return {
-                                "status": "error",
-                                "error": "Could not extract text from PDF document"
-                            }
-                else:
-                    # For text files, try different encodings
-                    encodings = ['utf-8', 'latin-1', 'cp1252']
-                    text_content = None
-                    for encoding in encodings:
-                        try:
-                            text_content = content.decode(encoding)
-                            print(f"Successfully decoded content using {encoding}")
-                            break
-                        except UnicodeDecodeError:
-                            continue
-                    
-                    if text_content is None:
-                        print("Could not decode document content with any encoding")
-                        return {
-                            "status": "error",
-                            "error": "Could not decode document content"
-                        }
-                
-                # Create prompt with document content
-                prompt = f"""Using the following document content, answer this question: {user_query}
-
-Document Content:
-{text_content}
-
-Instructions:
-1. Answer the question based only on the information in the document
-2. If the answer cannot be found in the document, explicitly say so
-3. If you find partial information, explain what is known and what is missing
-4. Be specific and cite relevant details from the document
-
-Question: {user_query}"""
-                
-                print("Generating answer...")
-                try:
-                    response = self.language_model.generate_content(prompt)
-                    print("Answer generated successfully")
-                    
-                    return {
-                        "status": "success",
-                        "answer": response.text,
-                        "sources": []
-                    }
-                except Exception as model_error:
-                    print(f"Error generating answer: {str(model_error)}")
-                    return {
-                        "status": "error",
-                        "error": f"Could not generate answer: {str(model_error)}"
-                    }
-                
-            except Exception as e:
-                print(f"Error getting document content: {str(e)}")
-                return {
-                    "status": "error",
-                    "error": f"Could not retrieve document content: {str(e)}"
-                }
+            # 2. Search for similar chunks
+            relevant_chunks = await self._search_similar_chunks(
+                question_embedding, 
+                data_store_id
+            )
+            print(f"Found {len(relevant_chunks)} relevant chunks")
+            
+            # 3. Create RAG prompt
+            prompt = self._create_rag_prompt(question, relevant_chunks)
+            
+            # 4. Generate answer using Gemini Pro
+            response = self.language_model.generate_content(prompt)
+            print("Generated answer successfully")
+            
+            return {
+                "status": "success",
+                "answer": response.text,
+                "sources": [chunk['metadata'] for chunk in relevant_chunks]
+            }
             
         except Exception as e:
             print(f"Error querying documents: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
-            logger.error(f"Error querying documents: {str(e)}", exc_info=True)
+            logger.error(f"Error querying documents: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e)

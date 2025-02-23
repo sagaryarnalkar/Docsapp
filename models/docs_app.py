@@ -21,7 +21,7 @@ user_state = UserState()
 class DocsApp:
     def __init__(self):
         self.db_pool = DatabasePool('documents.db')
-        self.folder_name = 'DocsApp Files'
+        self.folder_name = 'DocsApp Files'  # Exact match for the folder name in Google Drive
         self.drive_service = None
         try:
             self.rag_processor = RAGProcessor()
@@ -113,7 +113,7 @@ class DocsApp:
                 logger.error(f"File not found at path: {file_path}")
                 return False
                 
-            # Get Drive service
+            # Get Drive service using user's OAuth credentials
             service = self._get_drive_service(user_phone)
             if not service:
                 logger.error("Failed to get Drive service")
@@ -130,7 +130,11 @@ class DocsApp:
                 # Upload file to Drive
                 file_metadata = {
                     'name': filename,
-                    'parents': [folder_id]
+                    'parents': [folder_id],
+                    'appProperties': {
+                        'docsapp_owner': user_phone,  # Tag file with owner info
+                        'docsapp_created': 'true'     # Mark as created by our app
+                    }
                 }
                 
                 media = MediaFileUpload(
@@ -489,3 +493,31 @@ class DocsApp:
         except Exception as e:
             logger.error(f"Error getting user credentials: {str(e)}")
             return None
+
+    async def get_user_documents(self, user_phone):
+        """Get all documents created by our app for a specific user"""
+        try:
+            # Get Drive service using user's OAuth credentials
+            service = self._get_drive_service(user_phone)
+            if not service:
+                logger.error("Failed to get Drive service")
+                return []
+
+            # Search for files created by our app for this user
+            query = (
+                "appProperties has { key='docsapp_created' and value='true' } and "
+                f"appProperties has {{ key='docsapp_owner' and value='{user_phone}' }}"
+            )
+            
+            results = service.files().list(
+                q=query,
+                spaces='drive',
+                fields='files(id, name, mimeType, createdTime)',
+                orderBy='createdTime desc'
+            ).execute()
+
+            return results.get('files', [])
+
+        except Exception as e:
+            logger.error(f"Error retrieving user documents: {str(e)}")
+            return []
