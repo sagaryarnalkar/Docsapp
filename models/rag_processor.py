@@ -6,6 +6,7 @@ import json
 from typing import Dict, List, Optional
 import vertexai
 from vertexai.generative_models import GenerativeModel
+from vertexai.language_models import TextEmbeddingModel
 from google.cloud import storage
 from google.cloud import documentai
 from google.api_core import retry
