@@ -242,11 +242,55 @@ class RAGProcessor:
                 try:
                     # Get file metadata with more detailed logging
                     print(f"Attempt {attempt+1}/{max_retries}: Getting file metadata")
-                    file_metadata = drive_service.files().get(
-                        fileId=file_id,
-                        supportsAllDrives=True,
-                        fields='name,mimeType,size,modifiedTime'
-                    ).execute()
+                    
+                    # First check if the file exists and is accessible
+                    try:
+                        file_metadata = drive_service.files().get(
+                            fileId=file_id,
+                            supportsAllDrives=True,
+                            fields='name,mimeType,size,modifiedTime'
+                        ).execute()
+                    except HttpError as e:
+                        if e.resp.status == 404:
+                            # File not found - check if it's in the user's DocsApp folder
+                            print("File not found with direct ID. Checking in user's DocsApp folder...")
+                            
+                            # Try to find the DocsApp folder
+                            folder_name = "DocsApp Files"
+                            folder_query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+                            folders = drive_service.files().list(q=folder_query, spaces='drive').execute()
+                            
+                            if not folders.get('files', []):
+                                print(f"DocsApp folder not found for user {user_phone}")
+                                raise Exception(f"Document not found. Please make sure you've shared the document with DocsApp or uploaded it to your DocsApp Files folder.")
+                            
+                            # Check files in the DocsApp folder
+                            folder_id = folders['files'][0]['id']
+                            print(f"Found DocsApp folder with ID: {folder_id}")
+                            
+                            # List files in the folder
+                            files_query = f"'{folder_id}' in parents and trashed=false"
+                            files = drive_service.files().list(q=files_query, spaces='drive').execute()
+                            
+                            if not files.get('files', []):
+                                print(f"No files found in DocsApp folder for user {user_phone}")
+                                raise Exception(f"No documents found in your DocsApp Files folder. Please upload a document first.")
+                            
+                            print(f"Found {len(files.get('files', []))} files in DocsApp folder")
+                            
+                            # Check if our file_id is in the list or if it's a partial match
+                            for file in files.get('files', []):
+                                if file['id'] == file_id or file_id in file['id']:
+                                    print(f"Found matching file: {file['name']} (ID: {file['id']})")
+                                    file_id = file['id']  # Update to the correct ID if it was partial
+                                    file_metadata = file
+                                    break
+                            else:
+                                print(f"File with ID {file_id} not found in DocsApp folder")
+                                raise Exception(f"Document not found. Please check the document ID or upload the document again.")
+                        else:
+                            # Other API error
+                            raise
                     
                     print(f"File metadata retrieved:")
                     print(f"  Name: {file_metadata.get('name')}")
@@ -343,8 +387,12 @@ class RAGProcessor:
                         await asyncio.sleep(retry_delay)
                         retry_delay = min(retry_delay * 2, 30)  # Exponential backoff, max 30 seconds
                     else:
-                        print(f"Unrecoverable Drive API error: {str(e)}")
-                        raise
+                        if e.resp.status == 404:
+                            print(f"File not found after {max_retries} attempts")
+                            raise Exception(f"Document not found. Please check if the document exists and you have permission to access it.")
+                        else:
+                            print(f"Unrecoverable Drive API error: {str(e)}")
+                            raise
                 except Exception as other_e:
                     print(f"Unexpected error during copy attempt {attempt + 1}: {str(other_e)}")
                     import traceback
@@ -848,8 +896,24 @@ Question: {question}
     def _get_drive_service(self, user_phone=None):
         """Get Google Drive service instance"""
         try:
-            # Always use the service account credentials
+            if user_phone:
+                # Try to get user-specific credentials first
+                from models.user_state import UserState
+                user_state = UserState()
+                user_creds = user_state.get_credentials(user_phone)
+                
+                if user_creds and user_creds.valid:
+                    print(f"Using user credentials for {user_phone}")
+                    return build('drive', 'v3', credentials=user_creds)
+                else:
+                    print(f"No valid user credentials found for {user_phone}, falling back to service account")
+            
+            # Fall back to service account credentials
+            print("Using service account credentials for Drive access")
             return build('drive', 'v3', credentials=self.credentials)
         except Exception as e:
+            print(f"Error getting Drive service: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             logger.error(f"Error getting Drive service: {str(e)}")
             raise RAGProcessorError(f"Failed to get Drive service: {str(e)}") 
