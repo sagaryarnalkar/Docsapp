@@ -3,18 +3,21 @@ import json
 import logging
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from config import DB_DIR, SCOPES
-from models.database import DatabasePool
+from config import SCOPES
+from models.database import DatabasePool, PERSISTENT_DB_DIR
 
 logger = logging.getLogger(__name__)
 
 class UserState:
     def __init__(self):
+        print(f"\n=== Initializing UserState ===")
+        print(f"Using persistent database directory: {PERSISTENT_DB_DIR}")
         self.db_pool = DatabasePool('users.db')
         self.init_database()
         self._credentials_cache = {}  # In-memory cache for credentials
 
     def init_database(self):
+        print("Initializing users database...")
         with self.db_pool.get_cursor() as cursor:
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
@@ -25,6 +28,7 @@ class UserState:
                 )
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_phone ON users(phone)')
+        print("Users database initialized successfully")
 
     def store_tokens(self, phone, tokens):
         try:

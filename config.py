@@ -6,10 +6,11 @@ load_dotenv()
 
 # Directory Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMP_DIR = os.getenv('TEMP_DIR', '/tmp/docsapp')
-LOGS_DIR = os.getenv('LOGS_DIR', '/tmp/docsapp/logs')
-DATA_DIR = os.getenv('DATA_DIR', '/tmp/docsapp/data')
-DB_DIR = os.getenv('DB_DIR', '/tmp/docsapp/db')
+PERSISTENT_ROOT = "/data/docsapp"
+TEMP_DIR = os.path.join(PERSISTENT_ROOT, 'temp')
+LOGS_DIR = os.path.join(PERSISTENT_ROOT, 'logs')
+DATA_DIR = os.path.join(PERSISTENT_ROOT, 'data')
+DB_DIR = os.path.join(PERSISTENT_ROOT, 'db')
 
 # WhatsApp Configuration
 WHATSAPP_API_VERSION = os.getenv('WHATSAPP_API_VERSION', 'v17.0')
@@ -32,12 +33,23 @@ SCOPES = [
 ]
 
 # Create necessary directories
+print("\n=== Creating Persistent Directories ===")
 for directory in [TEMP_DIR, LOGS_DIR, DATA_DIR, DB_DIR]:
-    os.makedirs(directory, exist_ok=True)
+    try:
+        os.makedirs(directory, exist_ok=True)
+        print(f"Created/verified directory: {directory}")
+        print(f"Contents: {os.listdir(directory)}")
+    except Exception as e:
+        print(f"Error with directory {directory}: {str(e)}")
 
 # Debug logging of configuration
 if os.getenv('DEBUG'):
     print("\n=== Configuration Debug ===")
+    print(f"PERSISTENT_ROOT: {PERSISTENT_ROOT}")
+    print(f"TEMP_DIR: {TEMP_DIR}")
+    print(f"LOGS_DIR: {LOGS_DIR}")
+    print(f"DATA_DIR: {DATA_DIR}")
+    print(f"DB_DIR: {DB_DIR}")
     print(f"GOOGLE_CLOUD_PROJECT: {GOOGLE_CLOUD_PROJECT}")
     print(f"GOOGLE_CLOUD_LOCATION: {GOOGLE_CLOUD_LOCATION}")
     print(f"GOOGLE_APPLICATION_CREDENTIALS: {GOOGLE_APPLICATION_CREDENTIALS}")

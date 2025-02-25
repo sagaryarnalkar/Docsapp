@@ -7,10 +7,14 @@ services:
     healthCheckPath: /health
     healthCheckTimeout: 100
     autoDeploy: true
+    disk:
+      name: docsapp-data
+      mountPath: /data/docsapp
+      sizeGB: 1
     prebootCommand: |
       echo "=== Starting Preboot ==="
       echo "Creating directories..."
-      mkdir -p /tmp/docsapp/logs /tmp/docsapp/data /tmp/docsapp/db /etc/secrets
+      mkdir -p /data/docsapp/db /data/docsapp/logs /data/docsapp/data /etc/secrets
       python -c "
       import os
       import json
@@ -19,9 +23,9 @@ services:
       # Create directories
       print('Creating and verifying directories...')
       directories = [
-          '/tmp/docsapp/logs',
-          '/tmp/docsapp/data',
-          '/tmp/docsapp/db',
+          '/data/docsapp/db',
+          '/data/docsapp/logs',
+          '/data/docsapp/data',
           '/etc/secrets',
           '/app'
       ]

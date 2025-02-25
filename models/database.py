@@ -11,13 +11,18 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Ensure the database directory exists and is persistent
+PERSISTENT_DB_DIR = "/data/docsapp/db"
+os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
+
 class DatabasePool:
     _instance = None
     
     def __new__(cls, db_name):
         if cls._instance is None:
             cls._instance = super(DatabasePool, cls).__new__(cls)
-            cls._instance.db_path = f"{DB_DIR}/{db_name}"
+            cls._instance.db_path = f"{PERSISTENT_DB_DIR}/{db_name}"
+            print(f"Using persistent database at: {cls._instance.db_path}")
             cls._instance.init_pool()
         return cls._instance
     
@@ -73,13 +78,15 @@ class Document(Base):
     data_store_id = Column(String)
     document_id = Column(String)
 
-# Create database engine
-db_path = os.path.join(DB_DIR, 'documents.db')
+# Create database engine with persistent storage
+db_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
+print(f"Initializing database at: {db_path}")
 engine = create_engine(f'sqlite:///{db_path}')
 
 # Create all tables
 Base.metadata.create_all(engine)
+print("Database tables created successfully")
 
 # Create session factory
 Session = sessionmaker(bind=engine)
