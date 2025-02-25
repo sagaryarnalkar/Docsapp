@@ -7,13 +7,29 @@ from sqlalchemy import create_engine, Column, String, DateTime, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
+import shutil
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 # Ensure the database directory exists and is persistent
 PERSISTENT_DB_DIR = "/data/docsapp/db"
-os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
+try:
+    os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
+    print(f"Ensuring persistent database directory exists: {PERSISTENT_DB_DIR}")
+    # Check if directory is writable
+    test_file = os.path.join(PERSISTENT_DB_DIR, "test_write.tmp")
+    with open(test_file, 'w') as f:
+        f.write("test")
+    os.remove(test_file)
+    print(f"✅ Persistent directory is writable: {PERSISTENT_DB_DIR}")
+    print(f"Directory contents: {os.listdir(PERSISTENT_DB_DIR)}")
+except Exception as e:
+    print(f"⚠️ Error with persistent directory {PERSISTENT_DB_DIR}: {str(e)}")
+    # Fall back to local directory if persistent storage is not available
+    PERSISTENT_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/db")
+    os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
+    print(f"Falling back to local database directory: {PERSISTENT_DB_DIR}")
 
 class DatabasePool:
     _instance = None
@@ -23,6 +39,19 @@ class DatabasePool:
             cls._instance = super(DatabasePool, cls).__new__(cls)
             cls._instance.db_path = f"{PERSISTENT_DB_DIR}/{db_name}"
             print(f"Using persistent database at: {cls._instance.db_path}")
+            
+            # Check if database exists, if not, try to restore from backup
+            if not os.path.exists(cls._instance.db_path):
+                print(f"Database file not found at {cls._instance.db_path}")
+                backup_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"../backup/{db_name}")
+                if os.path.exists(backup_path):
+                    print(f"Restoring database from backup: {backup_path}")
+                    try:
+                        shutil.copy(backup_path, cls._instance.db_path)
+                        print(f"✅ Database restored from backup")
+                    except Exception as e:
+                        print(f"❌ Failed to restore database: {str(e)}")
+            
             cls._instance.init_pool()
         return cls._instance
     
@@ -47,6 +76,12 @@ class DatabasePool:
             yield conn
         except sqlite3.Error as e:
             logger.error(f"Database error: {str(e)}")
+            print(f"❌ Database connection error: {str(e)}")
+            print(f"Database path: {self.db_path}")
+            print(f"Directory exists: {os.path.exists(os.path.dirname(self.db_path))}")
+            print(f"File exists: {os.path.exists(self.db_path)}")
+            if os.path.exists(self.db_path):
+                print(f"File permissions: {oct(os.stat(self.db_path).st_mode)[-3:]}")
             raise
         finally:
             if conn:
