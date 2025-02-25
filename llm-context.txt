@@ -191,4 +191,166 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
 4. User Experience
    - Better progress indicators
    - More detailed feedback
-   - Improved error messages 
+   - Improved error messages
+
+## Current State and Active Issues
+1. Data Persistence Implementation
+   - Recently implemented persistent storage on Render
+   - Using mounted disk at /data/docsapp (1GB)
+   - Database files now stored in persistent location
+   - Need to verify persistence across multiple deployments
+
+2. Active Issues
+   - Document processing time varies (30s to 2min based on file type)
+   - Users receive two responses for /ask command (processing message + answer)
+   - Need to ensure Google Drive folder persistence across sessions
+
+3. Last Working State
+   - Persistent storage implementation complete
+   - Database migration to persistent storage done
+   - User authentication flow working
+   - Document processing pipeline operational
+
+## Critical Implementation Details
+
+### RAG Processing Flow
+1. Document Upload
+   ```
+   WhatsApp -> Temp Storage -> Google Drive -> Document Processing
+   ```
+
+2. Processing Pipeline
+   ```
+   Document -> Text Extraction (Document AI/PyPDF2) -> Chunking -> 
+   Embedding Generation -> Vector Storage -> Ready for Querying
+   ```
+
+3. Query Processing
+   ```
+   Question -> Embedding -> Vector Search -> 
+   Context Retrieval -> RAG Generation -> Response
+   ```
+
+### Database Schema
+1. Users Table
+   ```sql
+   CREATE TABLE users (
+       phone TEXT PRIMARY KEY,
+       google_authorized BOOLEAN DEFAULT FALSE,
+       tokens TEXT,
+       last_refresh TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   )
+   ```
+
+2. Documents Table
+   ```sql
+   CREATE TABLE documents (
+       id INTEGER PRIMARY KEY,
+       user_phone TEXT,
+       file_id TEXT,
+       filename TEXT,
+       description TEXT,
+       upload_date TIMESTAMP,
+       mime_type TEXT,
+       data_store_id TEXT,
+       document_id TEXT
+   )
+   ```
+
+### Critical Environment Variables
+```
+WHATSAPP_API_VERSION=v22.0
+WHATSAPP_PHONE_NUMBER_ID=[configured]
+WHATSAPP_ACCESS_TOKEN=[configured]
+WHATSAPP_BUSINESS_ACCOUNT_ID=[configured]
+GOOGLE_CLOUD_PROJECT=docsapp-447706
+GOOGLE_CLOUD_LOCATION=us-central1
+OAUTH_REDIRECT_URI=https://docsapp-20br.onrender.com/oauth2callback
+```
+
+### Current File Structure
+```
+/
+├── app.py
+├── config.py
+├── models/
+│   ├── database.py
+│   ├── docs_app.py
+│   ├── rag_processor.py
+│   └── user_state.py
+├── routes/
+│   └── handlers/
+│       ├── auth_handler.py
+│       ├── document_handler.py
+│       ├── rag_handler.py
+│       └── whatsapp_handler.py
+└── render.yaml
+```
+
+### Recent Code Changes
+1. Persistence Implementation
+   ```python
+   PERSISTENT_DB_DIR = "/data/docsapp/db"
+   os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
+   ```
+
+2. Database Connection
+   ```python
+   db_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
+   engine = create_engine(f'sqlite:///{db_path}')
+   ```
+
+3. Render Configuration
+   ```yaml
+   disk:
+     name: docsapp-data
+     mountPath: /data/docsapp
+     sizeGB: 1
+   ```
+
+### Known Limitations
+1. Processing Times
+   - PDF files: 30-60 seconds
+   - Large documents: up to 2 minutes
+   - Text files: 15-30 seconds
+
+2. Rate Limits
+   - Document AI: 1 request/second
+   - WhatsApp API: 80 messages/second
+   - Google Drive API: 1000 requests/100 seconds
+
+3. File Support
+   - PDF (primary support)
+   - Text files (full support)
+   - Other formats (not yet implemented)
+
+## Immediate Tasks
+1. Verify persistence across deployments
+2. Optimize document processing time
+3. Consider combining processing message with final answer
+4. Implement better progress tracking
+
+## Testing Instructions
+1. Document Upload Test
+   ```
+   1. Send document via WhatsApp
+   2. Verify upload confirmation
+   3. Check /list command
+   4. Verify document in Google Drive
+   ```
+
+2. Query Test
+   ```
+   1. Use /ask command
+   2. Verify processing message
+   3. Check final response
+   4. Validate source citations
+   ```
+
+3. Authentication Test
+   ```
+   1. Start new chat
+   2. Complete OAuth flow
+   3. Verify persistent login
+   4. Check document access
+   ``` 
