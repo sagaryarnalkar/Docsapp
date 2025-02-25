@@ -1,0 +1,194 @@
+# DocsApp - WhatsApp-based Document Management System
+
+## Project Overview
+DocsApp is a WhatsApp-based document management system that allows users to store, retrieve, and query documents through WhatsApp. The system integrates with Google Drive for storage and uses advanced RAG (Retrieval Augmented Generation) for document processing and question answering.
+
+## Core Features
+1. Document Management
+   - Upload documents through WhatsApp
+   - Store documents in Google Drive
+   - List stored documents
+   - Delete documents
+   - Retrieve documents by query
+
+2. Document Processing
+   - Text extraction from various file types (PDF, text files)
+   - Document chunking and embedding generation
+   - Vector search for relevant content
+   - RAG-based question answering
+
+3. Authentication & Authorization
+   - Google OAuth integration
+   - Persistent user sessions
+   - Secure token management
+
+## Technical Architecture
+
+### Components
+1. Web Server (Flask/Hypercorn)
+   - Handles WhatsApp webhooks
+   - Manages OAuth callbacks
+   - Serves health checks
+
+2. Document Processing Pipeline
+   - RAGProcessor: Handles document processing
+   - Document AI integration for PDF processing
+   - PyPDF2 as fallback for text extraction
+   - Vector embeddings for semantic search
+
+3. Storage Layer
+   - Google Drive: Document storage
+   - Google Cloud Storage: Temporary storage
+   - SQLite: User data and document metadata
+   - Vector Store: Document embeddings
+
+### Key Files
+1. app.py
+   - Main application entry point
+   - Route handlers
+   - Webhook processing
+
+2. models/
+   - docs_app.py: Core document management logic
+   - rag_processor.py: Document processing and RAG implementation
+   - database.py: Database models and connection management
+   - user_state.py: User session and authentication management
+
+3. routes/handlers/
+   - whatsapp_handler.py: WhatsApp message processing
+   - document_handler.py: Document operations
+   - rag_handler.py: RAG query processing
+   - auth_handler.py: Authentication flow
+
+## Development History
+
+### Major Features Implemented
+1. Basic Document Management
+   - Google Drive integration
+   - File upload/download
+   - Document listing and deletion
+
+2. RAG Implementation
+   - Document processing pipeline
+   - Text extraction and chunking
+   - Embedding generation
+   - Question answering
+
+3. Authentication System
+   - Google OAuth flow
+   - Token persistence
+   - Session management
+
+4. WhatsApp Integration
+   - Webhook handling
+   - Message processing
+   - Command parsing
+   - File handling
+
+### Bug Fixes and Improvements
+
+1. Document Processing
+   - Added fallback to PyPDF2 when Document AI fails
+   - Improved text extraction with multiple encoding attempts
+   - Enhanced error handling in processing pipeline
+   - Added detailed logging for debugging
+
+2. Authentication
+   - Fixed token refresh mechanism
+   - Improved error handling in OAuth flow
+   - Added token validation checks
+
+3. Data Persistence
+   - Implemented persistent storage using mounted disk
+   - Fixed database path issues
+   - Ensured user data persists across deployments
+   - Maintained document records between sessions
+
+4. Error Handling
+   - Added comprehensive error logging
+   - Improved user feedback for failures
+   - Enhanced debugging capabilities
+
+### Recent Conversations and Updates
+
+1. Persistence Issues
+   - Problem: User data and documents were not persisting across deployments
+   - Solution: 
+     - Implemented persistent storage using mounted disk in Render
+     - Updated database paths to use persistent directory
+     - Modified configuration to maintain data across deployments
+
+2. Document Processing
+   - Added detailed logging for processing steps
+   - Improved error handling in RAG pipeline
+   - Enhanced text extraction capabilities
+
+3. Authentication Flow
+   - Streamlined OAuth process
+   - Improved token management
+   - Added better error messages
+
+## Deployment
+
+### Environment
+- Platform: Render
+- Runtime: Python 3.11
+- Web Service: Hypercorn
+
+### Configuration
+1. Persistent Storage
+   - Mounted disk at /data/docsapp
+   - Size: 1GB
+   - Contains:
+     - /db: Database files
+     - /logs: Application logs
+     - /data: Temporary data
+     - /temp: Temporary files
+
+2. Environment Variables
+   - WhatsApp API credentials
+   - Google Cloud credentials
+   - OAuth configuration
+   - Application settings
+
+### Monitoring
+- Health check endpoint
+- Detailed logging
+- Error tracking
+- Performance monitoring
+
+## Command Interface
+
+1. Document Management
+   - /list: Show stored documents
+   - /delete <number>: Delete document
+   - /find <query>: Search documents
+   - /ask <question>: Query documents
+
+2. Authentication
+   - Initial OAuth flow
+   - Automatic token refresh
+   - Session management
+
+## Future Improvements
+
+1. Performance
+   - Optimize document processing
+   - Improve response times
+   - Enhance caching
+
+2. Features
+   - Batch document processing
+   - Advanced search capabilities
+   - Document summarization
+   - Multi-language support
+
+3. Reliability
+   - Enhanced error recovery
+   - Better failure handling
+   - Improved monitoring
+
+4. User Experience
+   - Better progress indicators
+   - More detailed feedback
+   - Improved error messages 
