@@ -3,6 +3,7 @@ from typing import Tuple, Dict, Optional
 from models.rag_processor import RAGProcessor
 from models.database import Session, Document
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_APPLICATION_CREDENTIALS
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,8 @@ class RAGHandler:
                 print(f"Data Store ID: {result.get('data_store_id')}")
             except Exception as e:
                 logger.error(f"RAG processing failed for document {file_id}: {str(e)}")
+                import traceback
+                logger.error(f"RAG processing traceback:\n{traceback.format_exc()}")
                 return None
             
             if not result or result.get("status") != "success":
@@ -115,21 +118,46 @@ class RAGHandler:
                         # Send success notification via WhatsApp
                         try:
                             from routes.handlers.whatsapp_handler import WhatsAppHandler
-                            whatsapp = WhatsAppHandler(self.docs_app, {}, None)
+                            from models.user_state import UserState
+                            
+                            # Get a fresh instance of UserState
+                            user_state = UserState()
+                            
+                            # Create WhatsApp handler with proper initialization
+                            whatsapp = WhatsAppHandler(self.docs_app, {}, user_state)
+                            
                             success_message = (
                                 f"✅ Document '{result.get('filename')}' has been processed and added to your knowledge base.\n\n"
                                 "You can now ask questions about this document using the /ask command!"
                             )
-                            await whatsapp.send_message(user_phone, success_message)
-                            print(f"Sent success notification to {user_phone}")
+                            
+                            # Try sending notification with retries
+                            max_retries = 3
+                            for attempt in range(max_retries):
+                                try:
+                                    print(f"Sending success notification to {user_phone} (attempt {attempt+1}/{max_retries})")
+                                    send_result = await whatsapp.send_message(user_phone, success_message)
+                                    if send_result:
+                                        print(f"Successfully sent notification to {user_phone}")
+                                        break
+                                    else:
+                                        print(f"Failed to send notification (attempt {attempt+1}/{max_retries})")
+                                        await asyncio.sleep(2)  # Wait before retry
+                                except Exception as retry_err:
+                                    print(f"Error during notification retry {attempt+1}: {str(retry_err)}")
+                                    await asyncio.sleep(2)  # Wait before retry
                         except Exception as e:
                             print(f"Error sending success notification: {str(e)}")
+                            import traceback
+                            print(f"Notification error traceback:\n{traceback.format_exc()}")
                             # Don't fail the process if notification fails
                             
                     else:
                         logger.warning(f"Could not find document {file_id} to update RAG results")
             except Exception as e:
                 logger.error(f"Failed to update document {file_id} with RAG results: {str(e)}")
+                import traceback
+                logger.error(f"Database update traceback:\n{traceback.format_exc()}")
                 # Don't return None here - we still want to return the processing results
                 
             return {

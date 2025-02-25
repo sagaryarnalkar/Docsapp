@@ -16,6 +16,8 @@ from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, SCOPES
 from .database import Document
 from .user_state import UserState
 from google.cloud import aiplatform
+import asyncio
+from googleapiclient.errors import HttpError
 
 logger = logging.getLogger(__name__)
 
@@ -213,49 +215,154 @@ class RAGProcessor:
             raise
 
     async def _copy_drive_to_gcs(self, file_id: str, user_phone: str = None) -> str:
-        """Copy file from Google Drive to GCS and return the GCS URI"""
+        """Copy file from Drive to GCS"""
+        print("\n=== Copying File to GCS ===")
+        print(f"File ID: {file_id}")
+        print(f"User phone: {user_phone}")
+        
+        # Get a fresh Drive service with user credentials if provided
+        if user_phone:
+            try:
+                drive_service = self._get_drive_service(user_phone)
+                print(f"Using user-specific Drive service for {user_phone}")
+            except Exception as e:
+                print(f"Error getting user Drive service: {str(e)}")
+                print("Falling back to default service account")
+                drive_service = self.drive_service
+        else:
+            drive_service = self.drive_service
+            print("Using default service account for Drive access")
+        
         try:
-            print(f"\n=== Copying File to GCS ===")
-            print(f"File ID: {file_id}")
+            print("Fetching file from Drive")
+            max_retries = 5
+            retry_delay = 2  # seconds
             
-            # Get file metadata and content from Google Drive
-            try:
-                print("Fetching file from Drive")
-                file_metadata = self.drive_service.files().get(fileId=file_id).execute()
-                request = self.drive_service.files().get_media(fileId=file_id)
-                file_content = io.BytesIO()
-                downloader = MediaIoBaseDownload(file_content, request)
-                done = False
-                while done is False:
-                    status, done = downloader.next_chunk()
-                file_content.seek(0)
-                print(f"Downloaded file: {file_metadata.get('name')}")
-            except Exception as e:
-                print(f"Drive access error: {str(e)}")
-                raise Exception(f"Could not access file in Drive: {str(e)}")
-            
-            # Ensure temp bucket exists
-            self.ensure_temp_bucket_exists()
-            
-            # Upload to GCS
-            try:
-                print(f"Uploading to GCS bucket: {self.temp_bucket_name}")
-                bucket = self.storage_client.bucket(self.temp_bucket_name)
-                blob = bucket.blob(f"temp/{file_id}/{file_metadata['name']}")
-                blob.upload_from_string(file_content.read())
-                
-                gcs_uri = f"gs://{self.temp_bucket_name}/{blob.name}"
-                print(f"File copied to GCS: {gcs_uri}")
-                return gcs_uri
-            except Exception as e:
-                print(f"GCS upload error: {str(e)}")
-                raise Exception(f"Could not upload to GCS: {str(e)}")
-            
+            for attempt in range(max_retries):
+                try:
+                    # Get file metadata with more detailed logging
+                    print(f"Attempt {attempt+1}/{max_retries}: Getting file metadata")
+                    file_metadata = drive_service.files().get(
+                        fileId=file_id,
+                        supportsAllDrives=True,
+                        fields='name,mimeType,size,modifiedTime'
+                    ).execute()
+                    
+                    print(f"File metadata retrieved:")
+                    print(f"  Name: {file_metadata.get('name')}")
+                    print(f"  MIME Type: {file_metadata.get('mimeType')}")
+                    print(f"  Size: {file_metadata.get('size', 'unknown')} bytes")
+                    print(f"  Modified: {file_metadata.get('modifiedTime')}")
+                    
+                    # Ensure temp bucket exists
+                    self.ensure_temp_bucket_exists()
+                    print(f"Confirmed GCS bucket exists: {self.temp_bucket_name}")
+                    
+                    # Generate GCS URI with more unique naming
+                    timestamp = int(time.time())
+                    safe_filename = "".join(c for c in file_metadata.get('name', 'unnamed') 
+                                         if c.isalnum() or c in ('-', '_', '.'))
+                    # Add user identifier to filename if available
+                    user_suffix = f"_{user_phone[-4:]}" if user_phone else ""
+                    gcs_object_name = f"{timestamp}{user_suffix}_{safe_filename}"
+                    gcs_uri = f"gs://{self.temp_bucket_name}/{gcs_object_name}"
+                    
+                    print(f"Will copy to GCS: {gcs_uri}")
+                    
+                    # Download file content with progress tracking
+                    print(f"Downloading file content from Drive")
+                    request = drive_service.files().get_media(
+                        fileId=file_id,
+                        supportsAllDrives=True
+                    )
+                    
+                    file_content = io.BytesIO()
+                    downloader = MediaIoBaseDownload(file_content, request)
+                    
+                    done = False
+                    download_start = time.time()
+                    while not done:
+                        status, done = downloader.next_chunk()
+                        if status:
+                            progress = int(status.progress() * 100)
+                            print(f"Download {progress}% complete")
+                    
+                    download_time = time.time() - download_start
+                    file_content.seek(0)
+                    file_size = file_content.getbuffer().nbytes
+                    print(f"Download completed: {file_size} bytes in {download_time:.2f} seconds")
+                    
+                    # Upload to GCS with retry
+                    print(f"Uploading to GCS bucket: {self.temp_bucket_name}")
+                    upload_start = time.time()
+                    
+                    for upload_attempt in range(3):  # 3 upload retries
+                        try:
+                            bucket = self.storage_client.bucket(self.temp_bucket_name)
+                            blob = bucket.blob(gcs_object_name)
+                            blob.upload_from_file(file_content)
+                            upload_time = time.time() - upload_start
+                            print(f"Upload completed in {upload_time:.2f} seconds")
+                            break
+                        except Exception as upload_err:
+                            print(f"Upload attempt {upload_attempt+1} failed: {str(upload_err)}")
+                            if upload_attempt == 2:  # Last attempt
+                                raise
+                            file_content.seek(0)  # Reset file pointer for retry
+                            await asyncio.sleep(2)
+                    
+                    # Verify the file exists in GCS
+                    try:
+                        print("Verifying file exists in GCS")
+                        bucket = self.storage_client.bucket(self.temp_bucket_name)
+                        blob = bucket.blob(gcs_object_name)
+                        if blob.exists():
+                            print(f"✅ Verified file exists in GCS: {gcs_uri}")
+                        else:
+                            print(f"⚠️ File not found in GCS after upload")
+                            if attempt < max_retries - 1:
+                                print(f"Will retry entire process")
+                                continue
+                            else:
+                                raise Exception("File not found in GCS after upload")
+                    except Exception as verify_err:
+                        print(f"Error verifying file in GCS: {str(verify_err)}")
+                        if attempt < max_retries - 1:
+                            print(f"Will retry entire process")
+                            continue
+                        else:
+                            raise
+                    
+                    print(f"✅ Successfully copied file to GCS: {gcs_uri}")
+                    return gcs_uri
+                    
+                except HttpError as e:
+                    if e.resp.status in [404, 403, 500, 503] and attempt < max_retries - 1:
+                        print(f"Drive API error (status {e.resp.status}), retrying in {retry_delay} seconds... (Attempt {attempt + 1}/{max_retries})")
+                        print(f"Error details: {str(e)}")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay = min(retry_delay * 2, 30)  # Exponential backoff, max 30 seconds
+                    else:
+                        print(f"Unrecoverable Drive API error: {str(e)}")
+                        raise
+                except Exception as other_e:
+                    print(f"Unexpected error during copy attempt {attempt + 1}: {str(other_e)}")
+                    import traceback
+                    print(f"Traceback:\n{traceback.format_exc()}")
+                    if attempt < max_retries - 1:
+                        print(f"Will retry in {retry_delay} seconds")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay = min(retry_delay * 2, 30)
+                    else:
+                        raise
+                    
         except Exception as e:
-            print(f"Error copying file to GCS: {str(e)}")
+            print(f"Drive access error: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
-            raise
+            raise Exception(f"Could not access file in Drive: {str(e)}")
+            
+        raise Exception("Failed to copy file to GCS after maximum retries")
 
     def _chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 100) -> List[Dict]:
         """Split text into overlapping chunks with metadata"""
@@ -404,6 +511,11 @@ Answer:"""
         print(f"File ID: {file_id}")
         print(f"MIME Type: {mime_type}")
         print(f"User: {user_phone}")
+        
+        # Add timestamp for tracking processing time
+        import time
+        start_time = time.time()
+        print(f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         if not self.is_available:
             print("RAG processing not available")
@@ -421,20 +533,39 @@ Answer:"""
             # Get file metadata first
             drive_service = self._get_drive_service(user_phone)
             try:
-                file_metadata = drive_service.files().get(fileId=file_id, fields='name,mimeType').execute()
+                print(f"Getting file metadata for file ID: {file_id}")
+                file_metadata = drive_service.files().get(
+                    fileId=file_id, 
+                    fields='name,mimeType',
+                    supportsAllDrives=True
+                ).execute()
                 filename = file_metadata.get('name', 'Unknown Document')
+                actual_mime_type = file_metadata.get('mimeType')
                 print(f"Processing document: {filename}")
+                print(f"Detected MIME type: {actual_mime_type}")
+                
+                # Use detected mime type if none was provided
+                if not mime_type:
+                    mime_type = actual_mime_type
+                    print(f"Using detected MIME type: {mime_type}")
             except Exception as e:
                 print(f"Error getting file metadata: {str(e)}")
+                import traceback
+                print(f"Metadata error traceback:\n{traceback.format_exc()}")
                 filename = 'Unknown Document'
             
             # 1. Copy file to GCS for processing
             print("\n=== Step 1: Copying to GCS ===")
             try:
+                print(f"Starting copy to GCS at {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 gcs_uri = await self._copy_drive_to_gcs(file_id, user_phone)
                 print(f"✅ File copied to GCS: {gcs_uri}")
+                print(f"Copy completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Copy took {time.time() - start_time:.2f} seconds")
             except Exception as e:
                 print(f"❌ Error copying to GCS: {str(e)}")
+                import traceback
+                print(f"GCS copy error traceback:\n{traceback.format_exc()}")
                 return {
                     "status": "error",
                     "error": f"Failed to copy to GCS: {str(e)}",
@@ -446,10 +577,19 @@ Answer:"""
             # 2. Extract text from document
             print("\n=== Step 2: Extracting Text ===")
             try:
+                print(f"Starting text extraction at {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 text_content = await self._extract_text(gcs_uri, mime_type)
                 print(f"✅ Text extracted successfully ({len(text_content)} characters)")
+                print(f"Extraction completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Extraction took {time.time() - start_time:.2f} seconds total")
+                
+                # Log a sample of the extracted text for debugging
+                text_sample = text_content[:500] + "..." if len(text_content) > 500 else text_content
+                print(f"Text sample: {text_sample}")
             except Exception as e:
                 print(f"❌ Error extracting text: {str(e)}")
+                import traceback
+                print(f"Text extraction error traceback:\n{traceback.format_exc()}")
                 return {
                     "status": "error",
                     "error": f"Failed to extract text: {str(e)}",
@@ -461,10 +601,19 @@ Answer:"""
             # 3. Split text into chunks
             print("\n=== Step 3: Chunking Text ===")
             try:
+                print(f"Starting text chunking at {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 chunks = self._chunk_text(text_content)
                 print(f"✅ Split into {len(chunks)} chunks")
+                print(f"Chunking completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Log a sample chunk for debugging
+                if chunks:
+                    sample_chunk = chunks[0]['text'][:200] + "..." if len(chunks[0]['text']) > 200 else chunks[0]['text']
+                    print(f"Sample chunk: {sample_chunk}")
             except Exception as e:
                 print(f"❌ Error chunking text: {str(e)}")
+                import traceback
+                print(f"Chunking error traceback:\n{traceback.format_exc()}")
                 return {
                     "status": "error",
                     "error": f"Failed to chunk text: {str(e)}",
@@ -476,11 +625,17 @@ Answer:"""
             # 4. Generate embeddings
             print("\n=== Step 4: Generating Embeddings ===")
             try:
+                print(f"Starting embedding generation at {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 chunk_texts = [chunk['text'] for chunk in chunks]
+                print(f"Generating embeddings for {len(chunk_texts)} chunks")
                 embeddings = await self._generate_embeddings(chunk_texts)
                 print(f"✅ Generated {len(embeddings)} embeddings")
+                print(f"Embedding generation completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Embedding generation took {time.time() - start_time:.2f} seconds total")
             except Exception as e:
                 print(f"❌ Error generating embeddings: {str(e)}")
+                import traceback
+                print(f"Embedding error traceback:\n{traceback.format_exc()}")
                 return {
                     "status": "error",
                     "error": f"Failed to generate embeddings: {str(e)}",
@@ -492,10 +647,15 @@ Answer:"""
             # 5. Store embeddings in Vector Search
             print("\n=== Step 5: Storing Embeddings ===")
             try:
+                print(f"Starting embedding storage at {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 index_id = await self._store_embeddings(embeddings, chunks)
                 print(f"✅ Stored embeddings with index ID: {index_id}")
+                print(f"Storage completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Total processing time: {time.time() - start_time:.2f} seconds")
             except Exception as e:
                 print(f"❌ Error storing embeddings: {str(e)}")
+                import traceback
+                print(f"Storage error traceback:\n{traceback.format_exc()}")
                 return {
                     "status": "error",
                     "error": f"Failed to store embeddings: {str(e)}",
@@ -506,6 +666,7 @@ Answer:"""
             
             print(f"\n{'='*50}")
             print("DOCUMENT PROCESSING COMPLETED SUCCESSFULLY")
+            print(f"Total time: {time.time() - start_time:.2f} seconds")
             print(f"{'='*50}")
             
             return {
@@ -521,6 +682,7 @@ Answer:"""
             print(f"Error: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
+            print(f"Total time before failure: {time.time() - start_time:.2f} seconds")
             print(f"{'='*50}")
             
             return {
