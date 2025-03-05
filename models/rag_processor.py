@@ -32,91 +32,66 @@ class RAGProcessorError(Exception):
 
 class RAGProcessor:
     def __init__(self, project_id, location, credentials_path):
+        """Initialize the RAG processor with Google Cloud credentials"""
         # Store both numeric and human-readable project IDs
-        self.project_id = project_id  # Human-readable ID (e.g. docsapp-447706)
-        self.numeric_project_id = "290892119731"  # Numeric ID for model access
+        self.project_id = project_id
         self.location = location
         self.credentials_path = credentials_path
-        self.temp_bucket_name = f"{self.project_id}-temp"
-        self.last_api_call = time.time()
-        self.min_delay = 1.0  # Minimum delay between API calls
-        self.is_available = False
+        
+        print(f"\n=== Initializing RAG Processor ===")
+        print(f"Project ID: {project_id}")
+        print(f"Location: {location}")
+        print(f"Credentials path: {credentials_path}")
         
         try:
-            # Load service account credentials explicitly
-            print(f"Loading credentials from: {self.credentials_path}")
-            service_info = json.load(open(self.credentials_path))
-            creds_project_id = service_info.get('project_id')
-            service_account_email = service_info.get('client_email')
-            print(f"Credentials project ID: {creds_project_id}")
-            print(f"Service Account Email: {service_account_email}")
+            # Load credentials
+            self.credentials = service_account.Credentials.from_service_account_file(
+                credentials_path, scopes=SCOPES
+            )
+            print("✅ Successfully loaded service account credentials")
             
-            # Verify project ID matches
-            if creds_project_id != self.project_id:
-                error_msg = f"Credentials project ID ({creds_project_id}) does not match target project ID ({self.project_id})"
-                print(f"Error: {error_msg}")
-                print(f"Please ensure you are using the service account from project {self.project_id}")
-                raise RAGProcessorError(error_msg)
-            
-            # Load credentials with explicit project and scopes
-            self.credentials = service_account.Credentials.from_service_account_info(
-                service_info,
-                scopes=[
-                    'https://www.googleapis.com/auth/cloud-platform',
-                    'https://www.googleapis.com/auth/drive',
-                    'https://www.googleapis.com/auth/drive.file',
-                    'https://www.googleapis.com/auth/drive.readonly'
-                ]
-            ).with_quota_project(self.project_id)
-            
-            print("Successfully loaded service account credentials")
-            
-            # Initialize storage client with explicit project
+            # Initialize storage client
             self.storage_client = storage.Client(
-                project=self.project_id,
+                project=project_id, 
                 credentials=self.credentials
             )
-            print(f"Storage client initialized with project: {self.project_id}")
+            print("✅ Successfully initialized storage client")
             
-            # Initialize Vertex AI with explicit project
-            vertexai.init(
-                project=self.numeric_project_id,  # Use numeric ID for Vertex AI
-                location=self.location,
-                credentials=self.credentials
-            )
-            print(f"Vertex AI initialized successfully with project: {self.numeric_project_id}")
+            # Initialize Vertex AI
+            try:
+                print("Initializing Vertex AI...")
+                vertexai.init(
+                    project=project_id,
+                    location=location,
+                    credentials=self.credentials
+                )
+                print("✅ Successfully initialized Vertex AI")
+                self.is_available = True
+            except Exception as vertex_err:
+                print(f"⚠️ Warning: Could not initialize Vertex AI: {str(vertex_err)}")
+                print("RAG processing will use fallback methods")
+                self.is_available = True  # Still mark as available since we have fallbacks
             
             # Initialize Drive service
             self.drive_service = build('drive', 'v3', credentials=self.credentials)
-            print("Drive service initialized successfully")
+            print("✅ Successfully initialized Drive service")
             
-            # Initialize Gemini Pro
-            try:
-                print("Initializing Gemini Pro...")
-                self.language_model = GenerativeModel("gemini-pro")
-                
-                # Test model access
-                print("Testing access to Gemini Pro...")
-                test_response = self.language_model.generate_content(
-                    "Test query to verify model access."
-                )
-                print("Successfully verified access to Gemini Pro")
-                self.is_available = True
-                
-            except Exception as e:
-                print(f"Failed to initialize Gemini Pro: {str(e)}")
-                print(f"Error type: {type(e)}")
-                print(f"Error details: {str(e)}")
-                self.is_available = False
-                raise
-                
+            # Set up temporary bucket for document processing
+            self.temp_bucket_name = f"{project_id}-docsapp-temp"
+            print(f"Temporary bucket name: {self.temp_bucket_name}")
+            
+            # Rate limiting
+            self.last_request_time = 0
+            self.min_request_interval = 1.0  # seconds
+            
         except Exception as e:
-            print(f"Error during initialization: {str(e)}")
-            print(f"Project ID: {self.project_id}")
-            print(f"Location: {self.location}")
-            print(f"Credentials path: {self.credentials_path}")
+            print(f"❌ Error initializing RAG processor: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
             self.is_available = False
-            raise
+            raise RAGProcessorError(f"Failed to initialize RAG processor: {str(e)}")
+        
+        print("=== RAG Processor Initialized ===\n")
 
     def ensure_temp_bucket_exists(self):
         """Ensure temporary storage bucket exists"""
@@ -143,10 +118,10 @@ class RAGProcessor:
     def _rate_limit(self):
         """Implement rate limiting for API calls"""
         current_time = time.time()
-        time_since_last_call = current_time - self.last_api_call
-        if time_since_last_call < self.min_delay:
-            time.sleep(self.min_delay - time_since_last_call)
-        self.last_api_call = time.time()
+        time_since_last_call = current_time - self.last_request_time
+        if time_since_last_call < self.min_request_interval:
+            time.sleep(self.min_request_interval - time_since_last_call)
+        self.last_request_time = time.time()
 
     async def _extract_text(self, gcs_uri: str, mime_type: str) -> str:
         """Extract text from document using Document AI or direct methods"""
@@ -484,23 +459,68 @@ class RAGProcessor:
         """Generate embeddings using Vertex AI's text embedding model"""
         try:
             print("Attempting to use Vertex AI text embedding model...")
-            # Initialize the embedding model
-            model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
+            print(f"Project ID: {self.project_id}")
+            print(f"Location: {self.location}")
+            print(f"Credentials path: {self.credentials_path}")
+            
+            # Print environment information
+            import os
+            print(f"GOOGLE_APPLICATION_CREDENTIALS: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')}")
+            print(f"GOOGLE_CLOUD_PROJECT: {os.environ.get('GOOGLE_CLOUD_PROJECT')}")
+            
+            # Initialize Vertex AI explicitly
+            print("Initializing Vertex AI...")
+            vertexai.init(
+                project=self.project_id,
+                location=self.location,
+                credentials=self.credentials
+            )
+            print("Vertex AI initialized successfully")
+            
+            # Try with a different model version
+            print("Trying to load text embedding model...")
+            model_id = "textembedding-gecko@latest"  # Try using latest instead of 001
+            print(f"Using model: {model_id}")
+            model = TextEmbeddingModel.from_pretrained(model_id)
+            print("Model loaded successfully")
             
             # Generate embeddings in batches
             embeddings = []
             batch_size = 5  # Adjust based on rate limits
             
             for i in range(0, len(texts), batch_size):
+                print(f"Processing batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size}")
                 batch = texts[i:i + batch_size]
                 batch_embeddings = model.get_embeddings(batch)
                 embeddings.extend([emb.values for emb in batch_embeddings])
+                print(f"Batch {i//batch_size + 1} processed successfully")
             
+            print(f"Successfully generated {len(embeddings)} embeddings")
             return embeddings
             
         except Exception as e:
             print(f"Vertex AI embedding failed: {str(e)}")
-            raise
+            import traceback
+            print(f"Detailed error traceback:\n{traceback.format_exc()}")
+            
+            # Try with a different model as a last resort
+            try:
+                print("Trying alternative model textembedding-gecko-multilingual@latest...")
+                model = TextEmbeddingModel.from_pretrained("textembedding-gecko-multilingual@latest")
+                
+                embeddings = []
+                batch_size = 5
+                
+                for i in range(0, len(texts), batch_size):
+                    batch = texts[i:i + batch_size]
+                    batch_embeddings = model.get_embeddings(batch)
+                    embeddings.extend([emb.values for emb in batch_embeddings])
+                
+                print(f"Successfully generated {len(embeddings)} embeddings with alternative model")
+                return embeddings
+            except Exception as alt_e:
+                print(f"Alternative model also failed: {str(alt_e)}")
+                raise e  # Raise the original error
     
     async def _generate_embeddings_tfidf(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings using TF-IDF vectorization"""
@@ -568,7 +588,7 @@ class RAGProcessor:
         try:
             # Initialize Vertex AI Vector Search client
             client = aiplatform.MatchingEngineIndexEndpoint(
-                index_endpoint_name=f"projects/{self.numeric_project_id}/locations/{self.location}/indexEndpoints/{index_id}"
+                index_endpoint_name=f"projects/{self.project_id}/locations/{self.location}/indexEndpoints/{index_id}"
             )
             
             # Prepare documents with embeddings and metadata
@@ -600,7 +620,7 @@ class RAGProcessor:
         try:
             # Initialize Vector Search client
             client = aiplatform.MatchingEngineIndexEndpoint(
-                index_endpoint_name=f"projects/{self.numeric_project_id}/locations/{self.location}/indexEndpoints/{index_id}"
+                index_endpoint_name=f"projects/{self.project_id}/locations/{self.location}/indexEndpoints/{index_id}"
             )
             
             # Search for similar chunks
