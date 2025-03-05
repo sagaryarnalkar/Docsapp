@@ -20,9 +20,6 @@ from google.cloud import aiplatform
 import asyncio
 from googleapiclient.errors import HttpError
 from datetime import datetime
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import normalize
 from PyPDF2 import PdfReader
 
 logger = logging.getLogger(__name__)
@@ -503,34 +500,21 @@ class RAGProcessor:
         return chunks
 
     async def _generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using Vertex AI's text embedding model with fallbacks"""
+        """Generate embeddings using Vertex AI's text embedding model"""
         print("=== Step 4: Generating Embeddings ===")
         print(f"Starting embedding generation at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Generating embeddings for {len(texts)} chunks")
         
-        # Try multiple embedding methods in order of preference
-        embedding_methods = [
-            self._generate_embeddings_vertex_ai,
-            self._generate_embeddings_tfidf,
-            self._generate_embeddings_simple
-        ]
-        
-        last_error = None
-        for method in embedding_methods:
-            try:
-                embeddings = await method(texts)
-                print(f"✅ Successfully generated {len(embeddings)} embeddings using {method.__name__}")
-                return embeddings
-            except Exception as e:
-                print(f"❌ Error with {method.__name__}: {str(e)}")
-                import traceback
-                print(f"Traceback:\n{traceback.format_exc()}")
-                last_error = e
-                print(f"Trying next embedding method...")
-        
-        # If all methods fail, raise the last error
-        print(f"❌ All embedding methods failed")
-        raise last_error
+        # Only use Vertex AI for embeddings
+        try:
+            embeddings = await self._generate_embeddings_vertex_ai(texts)
+            print(f"✅ Successfully generated {len(embeddings)} embeddings")
+            return embeddings
+        except Exception as e:
+            print(f"❌ Error generating embeddings: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
+            raise e
     
     async def _generate_embeddings_vertex_ai(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings using Vertex AI's text embedding model"""
@@ -599,67 +583,6 @@ class RAGProcessor:
                 print(f"Alternative model also failed: {str(alt_e)}")
                 raise e  # Raise the original error
     
-    async def _generate_embeddings_tfidf(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings using TF-IDF vectorization"""
-        try:
-            print("Falling back to TF-IDF vectorization...")
-            # Create and fit the vectorizer
-            vectorizer = TfidfVectorizer(max_features=1536)  # Match dimension of typical embeddings
-            tfidf_matrix = vectorizer.fit_transform(texts)
-            
-            # Convert sparse matrix to list of dense vectors
-            embeddings = tfidf_matrix.toarray().tolist()
-            
-            # Normalize the vectors
-            embeddings = normalize(embeddings).tolist()
-            
-            return embeddings
-            
-        except Exception as e:
-            print(f"TF-IDF embedding failed: {str(e)}")
-            raise
-    
-    async def _generate_embeddings_simple(self, texts: List[str]) -> List[List[float]]:
-        """Generate simple embeddings using character frequency as a last resort"""
-        try:
-            print("Falling back to simple character frequency embedding...")
-            # Define a simple embedding function based on character frequencies
-            def simple_embed(text, dim=1536):
-                # Create a frequency vector for common ASCII characters
-                vec = np.zeros(128)
-                for char in text:
-                    code = ord(char)
-                    if 0 <= code < 128:
-                        vec[code] += 1
-                
-                # Normalize
-                if np.sum(vec) > 0:
-                    vec = vec / np.sum(vec)
-                
-                # Expand to desired dimension by repeating and adding noise
-                repeats = dim // 128 + 1
-                expanded = np.tile(vec, repeats)[:dim]
-                
-                # Add some random noise for uniqueness
-                np.random.seed(hash(text) % 10000)
-                noise = np.random.normal(0, 0.01, dim)
-                result = expanded + noise
-                
-                # Final normalization
-                if np.linalg.norm(result) > 0:
-                    result = result / np.linalg.norm(result)
-                
-                return result.tolist()
-            
-            # Generate embeddings for each text
-            embeddings = [simple_embed(text) for text in texts]
-            
-            return embeddings
-            
-        except Exception as e:
-            print(f"Simple embedding failed: {str(e)}")
-            raise
-
     async def _store_embeddings(self, embeddings: List[List[float]], chunks: List[Dict], index_id: str = None) -> str:
         """Store embeddings in Vertex AI Vector Search"""
         try:
