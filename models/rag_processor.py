@@ -23,6 +23,7 @@ from datetime import datetime
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import normalize
+from PyPDF2 import PdfReader
 
 logger = logging.getLogger(__name__)
 
@@ -124,54 +125,49 @@ class RAGProcessor:
         self.last_request_time = time.time()
 
     async def _extract_text(self, gcs_uri: str, mime_type: str) -> str:
-        """Extract text from document using Document AI or direct methods"""
+        """Extract text from document in GCS"""
+        print(f"\n=== Extracting Text from Document ===")
+        print(f"Source: {gcs_uri}")
+        print(f"MIME Type: {mime_type}")
+        
         try:
-            print(f"\n=== Extracting Text ===")
-            print(f"GCS URI: {gcs_uri}")
-            print(f"MIME Type: {mime_type}")
+            # Check if this is a local file
+            if gcs_uri.startswith("local://"):
+                local_file_path = gcs_uri.replace("local://", "")
+                print(f"Reading from local file: {local_file_path}")
+                
+                with open(local_file_path, 'rb') as f:
+                    content = f.read()
+                
+                print(f"Read {len(content)} bytes from local file")
+            else:
+                # Download from GCS
+                bucket_name = gcs_uri.split('/')[2]
+                blob_name = '/'.join(gcs_uri.split('/')[3:])
+                
+                print(f"Downloading from GCS bucket: {bucket_name}, blob: {blob_name}")
+                
+                bucket = self.storage_client.bucket(bucket_name)
+                blob = bucket.blob(blob_name)
+                content = blob.download_as_bytes()
+                
+                print(f"Downloaded {len(content)} bytes from GCS")
             
-            # Get content from GCS
-            bucket_name = self.temp_bucket_name
-            blob_path = gcs_uri.replace(f"gs://{bucket_name}/", "")
-            bucket = self.storage_client.bucket(bucket_name)
-            blob = bucket.blob(blob_path)
-            content = blob.download_as_bytes()
-            print(f"Downloaded content size: {len(content)} bytes")
-
-            # For PDF files, use Document AI
+            # For PDF files
             if mime_type == 'application/pdf':
+                print("Processing as PDF")
+                # Try using PyPDF2
                 try:
-                    print("Using Document AI for PDF extraction")
-                    client = documentai.DocumentProcessorServiceClient()
-                    name = client.processor_path(self.project_id, self.location, "general-processor")
-                    
-                    document = documentai.Document(
-                        content=content,
-                        mime_type='application/pdf'
-                    )
-                    
-                    request = documentai.ProcessRequest(
-                        name=name,
-                        document=document
-                    )
-                    
-                    result = client.process_document(request=request)
-                    text_content = result.document.text
-                    print(f"Document AI extracted {len(text_content)} characters")
-                    return text_content
-                    
-                except Exception as doc_ai_error:
-                    print(f"Document AI error: {str(doc_ai_error)}")
-                    print("Falling back to PyPDF2")
-                    
-                    # Fallback to PyPDF2
-                    from PyPDF2 import PdfReader
+                    print("Using PyPDF2")
                     reader = PdfReader(io.BytesIO(content))
                     text_content = ""
                     for page in reader.pages:
                         text_content += page.extract_text() + "\n"
                     print(f"PyPDF2 extracted {len(text_content)} characters")
                     return text_content
+                except Exception as pdf_err:
+                    print(f"PyPDF2 extraction failed: {str(pdf_err)}")
+                    raise
             
             # For text-based files
             else:
@@ -212,6 +208,13 @@ class RAGProcessor:
         else:
             drive_service = self.drive_service
             print("Using default service account for Drive access")
+        
+        # Create local temp directory if it doesn't exist
+        local_temp_dir = os.path.join(os.getcwd(), "data", "docsapp", "temp")
+        print(f"=== Creating Persistent Directories ===")
+        os.makedirs(local_temp_dir, exist_ok=True)
+        print(f"Created/verified directory: {local_temp_dir}")
+        print(f"Contents: {os.listdir(local_temp_dir)}")
         
         try:
             print("Fetching file from Drive")
@@ -278,20 +281,29 @@ class RAGProcessor:
                     print(f"  Size: {file_metadata.get('size', 'unknown')} bytes")
                     print(f"  Modified: {file_metadata.get('modifiedTime')}")
                     
-                    # Ensure temp bucket exists
-                    self.ensure_temp_bucket_exists()
-                    print(f"Confirmed GCS bucket exists: {self.temp_bucket_name}")
+                    # Try to use GCS if available, otherwise use local storage
+                    use_local_storage = False
+                    gcs_uri = None
                     
-                    # Generate GCS URI with more unique naming
-                    timestamp = int(time.time())
-                    safe_filename = "".join(c for c in file_metadata.get('name', 'unnamed') 
-                                         if c.isalnum() or c in ('-', '_', '.'))
-                    # Add user identifier to filename if available
-                    user_suffix = f"_{user_phone[-4:]}" if user_phone else ""
-                    gcs_object_name = f"{timestamp}{user_suffix}_{safe_filename}"
-                    gcs_uri = f"gs://{self.temp_bucket_name}/{gcs_object_name}"
-                    
-                    print(f"Will copy to GCS: {gcs_uri}")
+                    try:
+                        # Ensure temp bucket exists
+                        self.ensure_temp_bucket_exists()
+                        print(f"Confirmed GCS bucket exists: {self.temp_bucket_name}")
+                        
+                        # Generate GCS URI with more unique naming
+                        timestamp = int(time.time())
+                        safe_filename = "".join(c for c in file_metadata.get('name', 'unnamed') 
+                                             if c.isalnum() or c in ('-', '_', '.'))
+                        # Add user identifier to filename if available
+                        user_suffix = f"_{user_phone[-4:]}" if user_phone else ""
+                        gcs_object_name = f"{timestamp}{user_suffix}_{safe_filename}"
+                        gcs_uri = f"gs://{self.temp_bucket_name}/{gcs_object_name}"
+                        
+                        print(f"Will copy to GCS: {gcs_uri}")
+                    except Exception as gcs_err:
+                        print(f"GCS access error: {str(gcs_err)}")
+                        print("Falling back to local file storage")
+                        use_local_storage = True
                     
                     # Download file content with progress tracking
                     print(f"Downloading file content from Drive")
@@ -316,49 +328,114 @@ class RAGProcessor:
                     file_size = file_content.getbuffer().nbytes
                     print(f"Download completed: {file_size} bytes in {download_time:.2f} seconds")
                     
-                    # Upload to GCS with retry
-                    print(f"Uploading to GCS bucket: {self.temp_bucket_name}")
-                    upload_start = time.time()
-                    
-                    for upload_attempt in range(3):  # 3 upload retries
+                    # Use local storage if GCS is not available
+                    if use_local_storage:
+                        # Generate local file path
+                        timestamp = int(time.time())
+                        safe_filename = "".join(c for c in file_metadata.get('name', 'unnamed') 
+                                             if c.isalnum() or c in ('-', '_', '.'))
+                        user_suffix = f"_{user_phone[-4:]}" if user_phone else ""
+                        local_filename = f"{timestamp}{user_suffix}_{safe_filename}"
+                        local_file_path = os.path.join(local_temp_dir, local_filename)
+                        
+                        print(f"Saving to local file: {local_file_path}")
+                        
+                        # Write to local file
+                        with open(local_file_path, 'wb') as f:
+                            f.write(file_content.getbuffer())
+                        
+                        print(f"✅ Successfully saved file locally: {local_file_path}")
+                        # Return a special URI format for local files
+                        return f"local://{local_file_path}"
+                    else:
+                        # Upload to GCS with retry
+                        print(f"Uploading to GCS bucket: {self.temp_bucket_name}")
+                        upload_start = time.time()
+                        
+                        for upload_attempt in range(3):  # 3 upload retries
+                            try:
+                                bucket = self.storage_client.bucket(self.temp_bucket_name)
+                                blob = bucket.blob(gcs_object_name)
+                                blob.upload_from_file(file_content)
+                                upload_time = time.time() - upload_start
+                                print(f"Upload completed in {upload_time:.2f} seconds")
+                                break
+                            except Exception as upload_err:
+                                print(f"Upload attempt {upload_attempt+1} failed: {str(upload_err)}")
+                                if upload_attempt == 2:  # Last attempt
+                                    print("All GCS upload attempts failed, falling back to local storage")
+                                    file_content.seek(0)
+                                    
+                                    # Generate local file path
+                                    local_filename = f"{timestamp}{user_suffix}_{safe_filename}"
+                                    local_file_path = os.path.join(local_temp_dir, local_filename)
+                                    
+                                    print(f"Saving to local file: {local_file_path}")
+                                    
+                                    # Write to local file
+                                    with open(local_file_path, 'wb') as f:
+                                        f.write(file_content.getbuffer())
+                                    
+                                    print(f"✅ Successfully saved file locally: {local_file_path}")
+                                    # Return a special URI format for local files
+                                    return f"local://{local_file_path}"
+                                file_content.seek(0)  # Reset file pointer for retry
+                                await asyncio.sleep(2)
+                        
+                        # Verify the file exists in GCS
                         try:
+                            print("Verifying file exists in GCS")
                             bucket = self.storage_client.bucket(self.temp_bucket_name)
                             blob = bucket.blob(gcs_object_name)
-                            blob.upload_from_file(file_content)
-                            upload_time = time.time() - upload_start
-                            print(f"Upload completed in {upload_time:.2f} seconds")
-                            break
-                        except Exception as upload_err:
-                            print(f"Upload attempt {upload_attempt+1} failed: {str(upload_err)}")
-                            if upload_attempt == 2:  # Last attempt
-                                raise
-                            file_content.seek(0)  # Reset file pointer for retry
-                            await asyncio.sleep(2)
-                    
-                    # Verify the file exists in GCS
-                    try:
-                        print("Verifying file exists in GCS")
-                        bucket = self.storage_client.bucket(self.temp_bucket_name)
-                        blob = bucket.blob(gcs_object_name)
-                        if blob.exists():
-                            print(f"✅ Verified file exists in GCS: {gcs_uri}")
-                        else:
-                            print(f"⚠️ File not found in GCS after upload")
+                            if blob.exists():
+                                print(f"✅ Verified file exists in GCS: {gcs_uri}")
+                            else:
+                                print(f"⚠️ File not found in GCS after upload")
+                                if attempt < max_retries - 1:
+                                    print(f"Will retry entire process")
+                                    continue
+                                else:
+                                    print("Falling back to local storage")
+                                    file_content.seek(0)
+                                    
+                                    # Generate local file path
+                                    local_filename = f"{timestamp}{user_suffix}_{safe_filename}"
+                                    local_file_path = os.path.join(local_temp_dir, local_filename)
+                                    
+                                    print(f"Saving to local file: {local_file_path}")
+                                    
+                                    # Write to local file
+                                    with open(local_file_path, 'wb') as f:
+                                        f.write(file_content.getbuffer())
+                                    
+                                    print(f"✅ Successfully saved file locally: {local_file_path}")
+                                    # Return a special URI format for local files
+                                    return f"local://{local_file_path}"
+                        except Exception as verify_err:
+                            print(f"Error verifying file in GCS: {str(verify_err)}")
                             if attempt < max_retries - 1:
                                 print(f"Will retry entire process")
                                 continue
                             else:
-                                raise Exception("File not found in GCS after upload")
-                    except Exception as verify_err:
-                        print(f"Error verifying file in GCS: {str(verify_err)}")
-                        if attempt < max_retries - 1:
-                            print(f"Will retry entire process")
-                            continue
-                        else:
-                            raise
-                    
-                    print(f"✅ Successfully copied file to GCS: {gcs_uri}")
-                    return gcs_uri
+                                print("Falling back to local storage")
+                                file_content.seek(0)
+                                
+                                # Generate local file path
+                                local_filename = f"{timestamp}{user_suffix}_{safe_filename}"
+                                local_file_path = os.path.join(local_temp_dir, local_filename)
+                                
+                                print(f"Saving to local file: {local_file_path}")
+                                
+                                # Write to local file
+                                with open(local_file_path, 'wb') as f:
+                                    f.write(file_content.getbuffer())
+                                
+                                print(f"✅ Successfully saved file locally: {local_file_path}")
+                                # Return a special URI format for local files
+                                return f"local://{local_file_path}"
+                        
+                        print(f"✅ Successfully copied file to GCS: {gcs_uri}")
+                        return gcs_uri
                     
                 except HttpError as e:
                     if e.resp.status in [404, 403, 500, 503] and attempt < max_retries - 1:
