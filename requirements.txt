@@ -18,3 +18,5 @@ aiohttp>=3.8.0
 hypercorn>=0.14.3
 PyPDF2>=3.0.0
 vertexai>=0.0.1
+scikit-learn>=1.0.0
+numpy>=1.20.0
