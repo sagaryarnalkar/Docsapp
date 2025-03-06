@@ -538,9 +538,9 @@ class RAGProcessor:
             )
             print("Vertex AI initialized successfully")
             
-            # Try with a different model version
+            # Use the new text-embedding-005 model as recommended by Google
             print("Trying to load text embedding model...")
-            model_id = "textembedding-gecko@latest"  # Try using latest instead of 001
+            model_id = "text-embedding-005"  # Updated from textembedding-gecko@latest
             print(f"Using model: {model_id}")
             model = TextEmbeddingModel.from_pretrained(model_id)
             print("Model loaded successfully")
@@ -564,10 +564,10 @@ class RAGProcessor:
             import traceback
             print(f"Detailed error traceback:\n{traceback.format_exc()}")
             
-            # Try with a different model as a last resort
+            # Try with a fallback model if the primary one fails
             try:
-                print("Trying alternative model textembedding-gecko-multilingual@latest...")
-                model = TextEmbeddingModel.from_pretrained("textembedding-gecko-multilingual@latest")
+                print("Trying fallback model text-embedding-004...")
+                model = TextEmbeddingModel.from_pretrained("text-embedding-004")
                 
                 embeddings = []
                 batch_size = 5
@@ -577,10 +577,10 @@ class RAGProcessor:
                     batch_embeddings = model.get_embeddings(batch)
                     embeddings.extend([emb.values for emb in batch_embeddings])
                 
-                print(f"Successfully generated {len(embeddings)} embeddings with alternative model")
+                print(f"Successfully generated {len(embeddings)} embeddings with fallback model")
                 return embeddings
             except Exception as alt_e:
-                print(f"Alternative model also failed: {str(alt_e)}")
+                print(f"Fallback model also failed: {str(alt_e)}")
                 raise e  # Raise the original error
     
     async def _store_embeddings(self, embeddings: List[List[float]], chunks: List[Dict], index_id: str = None) -> str:
