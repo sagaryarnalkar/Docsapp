@@ -86,12 +86,29 @@ class RAGProcessor:
                     credentials=self.credentials
                 )
                 
+                # Initialize Gemini model for RAG
+                print("Initializing Gemini model...")
+                try:
+                    from vertexai.generative_models import GenerativeModel
+                    self.language_model = GenerativeModel("gemini-1.5-flash-latest")
+                    print("✅ Successfully initialized Gemini 1.5 Flash model")
+                except Exception as model_err:
+                    print(f"Error initializing Gemini 1.5: {str(model_err)}")
+                    try:
+                        self.language_model = GenerativeModel("gemini-1.0-pro")
+                        print("✅ Successfully initialized Gemini 1.0 Pro model (fallback)")
+                    except Exception as fallback_err:
+                        print(f"Error initializing fallback model: {str(fallback_err)}")
+                        self.language_model = None
+                        print("⚠️ No language model available")
+                
                 print("✅ Successfully initialized Vertex AI")
                 self.is_available = True
             except Exception as vertex_err:
                 print(f"⚠️ Warning: Could not initialize Vertex AI: {str(vertex_err)}")
                 print("RAG processing will use fallback methods")
                 self.is_available = False
+                self.language_model = None
             
             # Initialize Drive service
             self.drive_service = build('drive', 'v3', credentials=self.credentials)
@@ -957,7 +974,7 @@ Answer:"""
             }
 
     async def query_documents(self, question: str, data_store_id: str) -> Dict:
-        """Query documents using Vertex AI Vector Search and LLM."""
+        """Query documents using GCS-based embeddings and Gemini."""
         if not self.is_available:
             return {
                 "status": "error",
@@ -969,24 +986,40 @@ Answer:"""
             print(f"Question: {question}")
             print(f"Data Store ID: {data_store_id}")
             
+            # Check if language model is available
+            if self.language_model is None:
+                print("❌ Language model not available")
+                return {
+                    "status": "error",
+                    "error": "Language model not available"
+                }
+            
             # 1. Generate embedding for question
             question_embeddings = await self._generate_embeddings([question])
             question_embedding = question_embeddings[0]
-            print("Generated question embedding")
+            print("✅ Generated question embedding")
             
             # 2. Search for similar chunks
             relevant_chunks = await self._search_similar_chunks(
                 question_embedding, 
                 data_store_id
             )
-            print(f"Found {len(relevant_chunks)} relevant chunks")
+            print(f"✅ Found {len(relevant_chunks)} relevant chunks")
+            
+            if not relevant_chunks:
+                return {
+                    "status": "error",
+                    "error": "No relevant information found"
+                }
             
             # 3. Create RAG prompt
             prompt = self._create_rag_prompt(question, relevant_chunks)
+            print("✅ Created RAG prompt")
             
-            # 4. Generate answer using Gemini Pro
+            # 4. Generate answer using Gemini
+            print("Generating answer with Gemini...")
             response = self.language_model.generate_content(prompt)
-            print("Generated answer successfully")
+            print("✅ Generated answer successfully")
             
             return {
                 "status": "success",
@@ -995,13 +1028,12 @@ Answer:"""
             }
             
         except Exception as e:
-            print(f"Error querying documents: {str(e)}")
+            print(f"❌ Error querying documents: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
-            logger.error(f"Error querying documents: {str(e)}")
             return {
                 "status": "error",
-                "error": str(e)
+                "error": f"Error querying documents: {str(e)}"
             }
 
     async def get_document_summary(self, data_store_id: str, document_id: str) -> Dict:
