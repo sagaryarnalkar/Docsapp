@@ -646,66 +646,102 @@ class RAGProcessor:
                 raise Exception(f"All embedding models failed: {str(e)}") from e
     
     async def _store_embeddings(self, embeddings: List[List[float]], chunks: List[Dict], index_id: str = None) -> str:
-        """Store embeddings in Vertex AI Vector Search"""
+        """Store embeddings in Google Cloud Storage"""
         try:
-            # Initialize Vertex AI Vector Search client
-            client = aiplatform.MatchingEngineIndexEndpoint(
-                index_endpoint_name=f"projects/{self.project_id}/locations/{self.location}/indexEndpoints/{index_id}"
-            )
+            print(f"Storing {len(embeddings)} embeddings with {len(chunks)} chunks")
+            
+            # Generate a unique ID for this document's embeddings
+            import uuid
+            import json
+            
+            # If index_id is provided, use it; otherwise generate a new one
+            if not index_id:
+                index_id = str(uuid.uuid4())
+            
+            print(f"Using index ID: {index_id}")
+            
+            # Ensure temp bucket exists
+            self.ensure_temp_bucket_exists()
             
             # Prepare documents with embeddings and metadata
             documents = []
-            for embedding, chunk in zip(embeddings, chunks):
+            for i, (embedding, chunk) in enumerate(zip(embeddings, chunks)):
                 doc = {
+                    'id': f"{index_id}_{i}",
                     'embedding': embedding,
-                    'metadata': {
-                        'text': chunk['text'],
-                        **chunk['metadata']
-                    }
+                    'text': chunk['text'],
+                    'metadata': chunk['metadata']
                 }
                 documents.append(doc)
             
-            # Store in vector index
-            response = client.upsert_datapoints(
-                embeddings=[doc['embedding'] for doc in documents],
-                metadata=[doc['metadata'] for doc in documents]
-            )
+            # Store as JSON in GCS
+            bucket = self.storage_client.bucket(self.temp_bucket_name)
+            blob = bucket.blob(f"embeddings/{index_id}.json")
             
-            return response.index_id
+            # Convert to JSON and upload
+            json_data = json.dumps(documents)
+            blob.upload_from_string(json_data, content_type='application/json')
+            
+            print(f"✅ Successfully stored {len(documents)} embeddings to GCS: gs://{self.temp_bucket_name}/embeddings/{index_id}.json")
+            return index_id
             
         except Exception as e:
-            logger.error(f"Error storing embeddings: {str(e)}")
+            print(f"❌ Error storing embeddings: {str(e)}")
+            import traceback
+            print(f"Storage error traceback:\n{traceback.format_exc()}")
             raise
 
     async def _search_similar_chunks(self, query_embedding: List[float], index_id: str, top_k: int = 5) -> List[Dict]:
-        """Search for similar chunks in Vector Search"""
+        """Search for similar chunks using dot product similarity"""
         try:
-            # Initialize Vector Search client
-            client = aiplatform.MatchingEngineIndexEndpoint(
-                index_endpoint_name=f"projects/{self.project_id}/locations/{self.location}/indexEndpoints/{index_id}"
-            )
+            import json
             
-            # Search for similar chunks
-            response = client.find_neighbors(
-                deployed_index_id=index_id,
-                queries=[query_embedding],
-                num_neighbors=top_k
-            )
+            print(f"Searching for similar chunks in index: {index_id}")
             
-            # Get matching chunks with scores
-            matches = []
-            for neighbor in response.nearest_neighbors[0]:
-                matches.append({
-                    'text': neighbor.metadata['text'],
-                    'score': neighbor.distance,
-                    'metadata': neighbor.metadata
+            # Load the embeddings from GCS
+            bucket = self.storage_client.bucket(self.temp_bucket_name)
+            blob = bucket.blob(f"embeddings/{index_id}.json")
+            
+            if not blob.exists():
+                print(f"❌ Embedding file not found in GCS: gs://{self.temp_bucket_name}/embeddings/{index_id}.json")
+                return []
+            
+            # Download and parse JSON
+            json_data = blob.download_as_string()
+            documents = json.loads(json_data)
+            
+            print(f"Loaded {len(documents)} documents from GCS")
+            
+            # Calculate dot product similarity (simplified version of cosine similarity)
+            def dot_product(a, b):
+                return sum(x * y for x, y in zip(a, b))
+            
+            # Calculate similarity scores
+            scores = []
+            for doc in documents:
+                score = dot_product(query_embedding, doc['embedding'])
+                scores.append((doc, score))
+            
+            # Sort by similarity score (descending)
+            scores.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return top_k results
+            results = []
+            for doc, score in scores[:top_k]:
+                results.append({
+                    'text': doc['text'],
+                    'metadata': doc['metadata'],
+                    'score': float(score)
                 })
             
-            return matches
+            print(f"✅ Found {len(results)} similar chunks")
+            return results
             
         except Exception as e:
-            logger.error(f"Error searching similar chunks: {str(e)}")
-            raise
+            print(f"❌ Error searching similar chunks: {str(e)}")
+            import traceback
+            print(f"Search error traceback:\n{traceback.format_exc()}")
+            return []
 
     def _create_rag_prompt(self, question: str, relevant_chunks: List[Dict]) -> str:
         """Create a prompt for RAG using relevant chunks"""
