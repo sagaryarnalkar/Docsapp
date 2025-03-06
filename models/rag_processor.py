@@ -42,9 +42,23 @@ class RAGProcessor:
         print(f"Credentials path: {credentials_path}")
         
         try:
-            # Load credentials
+            # Check if credentials file exists
+            if not os.path.exists(credentials_path):
+                print(f"⚠️ Warning: Credentials file not found at {credentials_path}")
+                # Try to use the environment variable path
+                env_creds = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+                if env_creds and os.path.exists(env_creds):
+                    print(f"Using credentials from environment: {env_creds}")
+                    self.credentials_path = env_creds
+                    credentials_path = env_creds
+                else:
+                    print("❌ No valid credentials file found")
+                    raise Exception("No valid credentials file found for authentication")
+            
+            # Load credentials with broader scope for Vertex AI
             self.credentials = service_account.Credentials.from_service_account_file(
-                credentials_path, scopes=SCOPES
+                credentials_path, 
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
             )
             print("✅ Successfully loaded service account credentials")
             
@@ -63,12 +77,21 @@ class RAGProcessor:
                     location=location,
                     credentials=self.credentials
                 )
+                
+                # Also initialize aiplatform directly
+                from google.cloud import aiplatform
+                aiplatform.init(
+                    project=project_id,
+                    location=location,
+                    credentials=self.credentials
+                )
+                
                 print("✅ Successfully initialized Vertex AI")
                 self.is_available = True
             except Exception as vertex_err:
                 print(f"⚠️ Warning: Could not initialize Vertex AI: {str(vertex_err)}")
                 print("RAG processing will use fallback methods")
-                self.is_available = True  # Still mark as available since we have fallbacks
+                self.is_available = False
             
             # Initialize Drive service
             self.drive_service = build('drive', 'v3', credentials=self.credentials)
@@ -529,21 +552,52 @@ class RAGProcessor:
             print(f"GOOGLE_APPLICATION_CREDENTIALS: {os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')}")
             print(f"GOOGLE_CLOUD_PROJECT: {os.environ.get('GOOGLE_CLOUD_PROJECT')}")
             
-            # Initialize Vertex AI explicitly
-            print("Initializing Vertex AI...")
+            # Ensure we have valid credentials
+            if not os.path.exists(self.credentials_path):
+                print(f"⚠️ Warning: Credentials file not found at {self.credentials_path}")
+                # Try to use the environment variable path
+                env_creds = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+                if env_creds and os.path.exists(env_creds):
+                    print(f"Using credentials from environment: {env_creds}")
+                    self.credentials_path = env_creds
+                else:
+                    print("❌ No valid credentials file found")
+                    raise Exception("No valid credentials file found for Vertex AI authentication")
+            
+            # Load credentials explicitly
+            print(f"Loading credentials from: {self.credentials_path}")
+            self.credentials = service_account.Credentials.from_service_account_file(
+                self.credentials_path,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            print("✅ Credentials loaded successfully")
+            
+            # Initialize Vertex AI with explicit credentials
+            print("Initializing Vertex AI with explicit credentials...")
             vertexai.init(
                 project=self.project_id,
                 location=self.location,
                 credentials=self.credentials
             )
-            print("Vertex AI initialized successfully")
+            print("✅ Vertex AI initialized successfully")
+            
+            # Use the aiplatform client directly with explicit credentials
+            from google.cloud import aiplatform
+            aiplatform.init(
+                project=self.project_id,
+                location=self.location,
+                credentials=self.credentials
+            )
+            print("✅ AI Platform initialized successfully")
             
             # Use the new text-embedding-005 model as recommended by Google
             print("Trying to load text embedding model...")
             model_id = "text-embedding-005"  # Updated from textembedding-gecko@latest
             print(f"Using model: {model_id}")
+            
+            # Create the model with explicit credentials
             model = TextEmbeddingModel.from_pretrained(model_id)
-            print("Model loaded successfully")
+            print("✅ Model loaded successfully")
             
             # Generate embeddings in batches
             embeddings = []
@@ -556,17 +610,25 @@ class RAGProcessor:
                 embeddings.extend([emb.values for emb in batch_embeddings])
                 print(f"Batch {i//batch_size + 1} processed successfully")
             
-            print(f"Successfully generated {len(embeddings)} embeddings")
+            print(f"✅ Successfully generated {len(embeddings)} embeddings")
             return embeddings
             
         except Exception as e:
-            print(f"Vertex AI embedding failed: {str(e)}")
+            print(f"❌ Vertex AI embedding failed: {str(e)}")
             import traceback
-            print(f"Detailed error traceback:\n{traceback.format_exc()}")
+            print(f"Embedding error traceback:\n{traceback.format_exc()}")
             
             # Try with a fallback model if the primary one fails
             try:
                 print("Trying fallback model text-embedding-004...")
+                
+                # Reinitialize with explicit credentials
+                vertexai.init(
+                    project=self.project_id,
+                    location=self.location,
+                    credentials=self.credentials
+                )
+                
                 model = TextEmbeddingModel.from_pretrained("text-embedding-004")
                 
                 embeddings = []
@@ -577,11 +639,11 @@ class RAGProcessor:
                     batch_embeddings = model.get_embeddings(batch)
                     embeddings.extend([emb.values for emb in batch_embeddings])
                 
-                print(f"Successfully generated {len(embeddings)} embeddings with fallback model")
+                print(f"✅ Successfully generated {len(embeddings)} embeddings with fallback model")
                 return embeddings
             except Exception as alt_e:
-                print(f"Fallback model also failed: {str(alt_e)}")
-                raise e  # Raise the original error
+                print(f"❌ Fallback model also failed: {str(alt_e)}")
+                raise Exception(f"All embedding models failed: {str(e)}") from e
     
     async def _store_embeddings(self, embeddings: List[List[float]], chunks: List[Dict], index_id: str = None) -> str:
         """Store embeddings in Vertex AI Vector Search"""
