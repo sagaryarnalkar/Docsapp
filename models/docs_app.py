@@ -9,27 +9,41 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from config import DB_DIR, SCOPES
+from config import DB_DIR, SCOPES, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_APPLICATION_CREDENTIALS
 from models.user_state import UserState
 from models.database import DatabasePool
 from .database import Session, Document
 from .rag_processor import RAGProcessor
+import asyncio
 
 logger = logging.getLogger(__name__)
 user_state = UserState()
 
 class DocsApp:
     def __init__(self):
+        """Initialize the DocsApp with necessary services"""
+        try:
+            # Initialize RAG processor
+            print("\n=== Initializing DocsApp ===")
+            print(f"Project ID: {GOOGLE_CLOUD_PROJECT}")
+            print(f"Location: {GOOGLE_CLOUD_LOCATION}")
+            print(f"Credentials path: {GOOGLE_APPLICATION_CREDENTIALS}")
+            
+            self.rag_processor = RAGProcessor(
+                project_id=GOOGLE_CLOUD_PROJECT,
+                location=GOOGLE_CLOUD_LOCATION,
+                credentials_path=GOOGLE_APPLICATION_CREDENTIALS
+            )
+            print("✅ RAG processor initialized successfully")
+            
+        except Exception as e:
+            print(f"❌ Error initializing DocsApp: {str(e)}")
+            import traceback
+            print(f"Traceback:\n{traceback.format_exc()}")
+            self.rag_processor = None
         self.db_pool = DatabasePool('documents.db')
         self.folder_name = 'DocsApp Files'  # Exact match for the folder name in Google Drive
         self.drive_service = None
-        try:
-            self.rag_processor = RAGProcessor()
-            if not self.rag_processor.is_available:
-                logger.warning("RAG processor not available. Document Q&A features will be disabled.")
-        except Exception as e:
-            logger.error(f"Failed to initialize RAG processor: {str(e)}")
-            self.rag_processor = None
 
     def calculate_similarity(self, text1, text2):
         """Calculate similarity between two texts"""
@@ -127,7 +141,7 @@ class DocsApp:
 
             print("Uploading file to Drive...")
             try:
-                # Upload file to Drive
+                # Upload file to Drive with specific permissions
                 file_metadata = {
                     'name': filename,
                     'parents': [folder_id],
@@ -145,11 +159,43 @@ class DocsApp:
                 file = service.files().create(
                     body=file_metadata,
                     media_body=media,
-                    fields='id, mimeType'
+                    fields='id, mimeType',
+                    supportsAllDrives=True
                 ).execute()
                 
                 print(f"File uploaded to Drive with ID: {file['id']}")
                 print(f"MIME Type: {file.get('mimeType')}")
+                
+                # Verify file exists and is accessible
+                try:
+                    verification = service.files().get(
+                        fileId=file['id'],
+                        fields='id, name, mimeType',
+                        supportsAllDrives=True
+                    ).execute()
+                    print(f"✅ File verification successful: {verification.get('name')}")
+                except Exception as ve:
+                    print(f"❌ File verification failed: {str(ve)}")
+                    return False
+                
+                # Set file permissions to ensure access
+                try:
+                    permission = {
+                        'type': 'user',
+                        'role': 'writer',
+                        'emailAddress': self.rag_processor.credentials.service_account_email
+                    }
+                    service.permissions().create(
+                        fileId=file['id'],
+                        body=permission,
+                        fields='id',
+                        supportsAllDrives=True
+                    ).execute()
+                    print("✅ File permissions set successfully")
+                except Exception as pe:
+                    print(f"❌ Error setting file permissions: {str(pe)}")
+                    return False
+                
             except Exception as e:
                 logger.error(f"Drive upload failed: {str(e)}")
                 return False
@@ -181,6 +227,8 @@ class DocsApp:
             print("\nProcessing document with RAG...")
             try:
                 if self.rag_processor and self.rag_processor.is_available:
+                    # Add delay to ensure file is fully available
+                    await asyncio.sleep(2)
                     rag_result = await self.rag_processor.process_document_async(
                         file['id'],
                         file.get('mimeType'),
@@ -231,6 +279,24 @@ class DocsApp:
             print(f"Question: {question}")
             print(f"{'='*50}\n")
             
+            # Check if RAG processor is initialized
+            if self.rag_processor is None:
+                print("❌ RAG processor is not initialized")
+                return {
+                    "status": "error",
+                    "message": "Document Q&A feature is not available at the moment. Please try again later."
+                }
+            
+            # Verify that query_documents method exists
+            if not hasattr(self.rag_processor, 'query_documents'):
+                print("❌ RAG processor does not have query_documents method")
+                print(f"RAG processor type: {type(self.rag_processor)}")
+                print(f"RAG processor attributes: {dir(self.rag_processor)}")
+                return {
+                    "status": "error",
+                    "message": "Document Q&A feature is not properly configured. Please contact support."
+                }
+            
             # Get all data store IDs for the user's documents
             with Session() as session:
                 print("\n=== Checking Available Documents ===")
@@ -270,6 +336,11 @@ class DocsApp:
                 for doc in docs:
                     print(f"\nQuerying document: {doc.filename}")
                     try:
+                        # Debug info
+                        print(f"RAG processor type: {type(self.rag_processor)}")
+                        print(f"Data store ID: {doc.data_store_id}")
+                        print(f"Question: {question}")
+                        
                         result = await self.rag_processor.query_documents(
                             question,
                             doc.data_store_id
@@ -286,6 +357,8 @@ class DocsApp:
                             print(f"Query failed: {result.get('error')}")
                     except Exception as e:
                         print(f"Error querying document {doc.filename}: {str(e)}")
+                        import traceback
+                        print(f"Query error traceback:\n{traceback.format_exc()}")
                         continue
 
                 if not all_answers:

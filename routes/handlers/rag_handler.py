@@ -4,17 +4,17 @@ from models.rag_processor import RAGProcessor
 from models.database import Session, Document
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_APPLICATION_CREDENTIALS
 import asyncio
+from routes.handlers.whatsapp_handler import WhatsAppHandler
+from models.user_state import UserState
 
 logger = logging.getLogger(__name__)
 
 class RAGHandler:
     def __init__(self, docs_app):
         self.docs_app = docs_app
-        self.rag_processor = RAGProcessor(
-            project_id="docsapp-447706",
-            location=GOOGLE_CLOUD_LOCATION,
-            credentials_path=GOOGLE_APPLICATION_CREDENTIALS
-        )
+        # Use the RAG processor from docs_app instead of creating a new instance
+        self.rag_processor = docs_app.rag_processor
+        print(f"RAG Handler initialized with processor: {type(self.rag_processor)}")
 
     async def handle_question(self, from_number: str, question: str) -> Tuple[bool, str]:
         """
@@ -22,9 +22,12 @@ class RAGHandler:
         Returns a tuple of (success, message)
         """
         try:
-            if not self.rag_processor.is_available:
+            # Check if RAG processor is available
+            if self.rag_processor is None or not hasattr(self.rag_processor, 'is_available') or not self.rag_processor.is_available:
+                print("❌ RAG processor not available in RAG handler")
                 return False, "⚠️ Document Q&A feature is not available at the moment. Your other commands will still work normally!"
 
+            # Use docs_app to process the question
             result = await self.docs_app.ask_question(from_number, question)
             
             if result["status"] == "success" and result.get("answers"):
@@ -59,149 +62,83 @@ class RAGHandler:
                 return False, result.get("message", "No relevant information found in your documents.")
 
         except Exception as e:
-            logger.error(f"Error in RAG processing: {str(e)}", exc_info=True)
-            return False, "⚠️ Unable to process your question at the moment. Your other commands will still work normally!"
+            logger.error(f"Error handling question: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False, f"⚠️ Error processing your question: {str(e)}"
 
     async def process_document_async(self, file_id: str, mime_type: str, user_phone: str = None) -> Optional[Dict]:
-        """
-        Process document with RAG in the background
-        Returns None if processing fails, to ensure main document storage continues
-        """
-        print(f"\n{'='*50}")
-        print("RAG HANDLER: STARTING DOCUMENT PROCESSING")
-        print(f"File ID: {file_id}")
-        print(f"MIME Type: {mime_type}")
-        print(f"User: {user_phone}")
-        print(f"{'='*50}\n")
-
-        if not file_id:
-            logger.error("No file ID provided for RAG processing")
-            return None
-
-        if not self.rag_processor.is_available:
-            logger.warning("RAG processing not available, skipping document processing")
-            return None
-
+        """Process a document asynchronously using RAG"""
         try:
-            logger.info(f"Starting background RAG processing for document {file_id}")
-            
-            # Process document with RAG
-            try:
-                result = await self.rag_processor.process_document_async(file_id, mime_type, user_phone)
-                print("\n=== RAG Processing Result ===")
-                print(f"Status: {result.get('status')}")
-                print(f"Document: {result.get('filename')}")
-                print(f"Data Store ID: {result.get('data_store_id')}")
-            except Exception as e:
-                logger.error(f"RAG processing failed for document {file_id}: {str(e)}")
-                import traceback
-                logger.error(f"RAG processing traceback:\n{traceback.format_exc()}")
+            # Check if RAG processor is available
+            if self.rag_processor is None:
+                print("❌ RAG processor not available for document processing")
                 return None
-            
-            if not result or result.get("status") != "success":
-                error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
-                logger.error(f"RAG processing failed for document {file_id}: {error_msg}")
-                return None
-
-            logger.info(f"Successfully processed document {file_id} with RAG")
-            
-            # Update document record with RAG processing results
-            try:
-                with Session() as session:
-                    doc = session.query(Document).filter(Document.file_id == file_id).first()
-                    if doc:
-                        doc.data_store_id = result.get("data_store_id")
-                        doc.document_id = result.get("document_id")
-                        session.commit()
-                        logger.info(f"Updated document {file_id} with RAG processing results")
-                        
-                        # Send success notification via WhatsApp
-                        try:
-                            from routes.handlers.whatsapp_handler import WhatsAppHandler
-                            from models.user_state import UserState
-                            
-                            # Get a fresh instance of UserState
-                            user_state = UserState()
-                            
-                            # Create WhatsApp handler with proper initialization
-                            whatsapp = WhatsAppHandler(self.docs_app, {}, user_state)
-                            
-                            success_message = (
-                                f"✅ Document '{result.get('filename')}' has been processed and added to your knowledge base.\n\n"
-                                "You can now ask questions about this document using the /ask command!"
-                            )
-                            
-                            # Try sending notification with retries
-                            max_retries = 3
-                            for attempt in range(max_retries):
-                                try:
-                                    print(f"Sending success notification to {user_phone} (attempt {attempt+1}/{max_retries})")
-                                    send_result = await whatsapp.send_message(user_phone, success_message)
-                                    if send_result:
-                                        print(f"Successfully sent notification to {user_phone}")
-                                        break
-                                    else:
-                                        print(f"Failed to send notification (attempt {attempt+1}/{max_retries})")
-                                        await asyncio.sleep(2)  # Wait before retry
-                                except Exception as retry_err:
-                                    print(f"Error during notification retry {attempt+1}: {str(retry_err)}")
-                                    await asyncio.sleep(2)  # Wait before retry
-                        except Exception as e:
-                            print(f"Error sending success notification: {str(e)}")
-                            import traceback
-                            print(f"Notification error traceback:\n{traceback.format_exc()}")
-                            # Don't fail the process if notification fails
-                            
-                    else:
-                        logger.warning(f"Could not find document {file_id} to update RAG results")
-            except Exception as e:
-                logger.error(f"Failed to update document {file_id} with RAG results: {str(e)}")
-                import traceback
-                logger.error(f"Database update traceback:\n{traceback.format_exc()}")
-                # Don't return None here - we still want to return the processing results
                 
-            return {
-                "data_store_id": result.get("data_store_id"),
-                "document_id": result.get("document_id"),
-                "filename": result.get("filename")
-            }
-
+            # Process the document
+            result = await self.rag_processor.process_document_async(file_id, mime_type, user_phone)
+            
+            # If processing was successful, send a notification
+            if result["status"] == "success":
+                # Send a WhatsApp message to notify the user
+                try:
+                    # Create a fresh WhatsApp handler with user state
+                    user_state = UserState()
+                    whatsapp_handler = WhatsAppHandler(self.docs_app, {}, user_state)
+                    
+                    # Send success notification
+                    message = "✅ Your document has been processed successfully and is now ready for Q&A! You can ask questions about it using the /ask command."
+                    
+                    # Try up to 3 times to send the notification
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            await whatsapp_handler.send_message(user_phone, message)
+                            print(f"✅ Successfully sent processing completion notification to {user_phone}")
+                            break
+                        except Exception as send_err:
+                            print(f"❌ Error sending notification (attempt {attempt+1}/{max_retries}): {str(send_err)}")
+                            if attempt < max_retries - 1:
+                                print(f"Retrying in 2 seconds...")
+                                await asyncio.sleep(2)
+                            else:
+                                print(f"Failed to send notification after {max_retries} attempts")
+                    
+                except Exception as notify_err:
+                    print(f"❌ Error sending notification: {str(notify_err)}")
+                    import traceback
+                    print(f"Notification error traceback:\n{traceback.format_exc()}")
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Unexpected error in RAG document processing: {str(e)}", exc_info=True)
+            logger.error(f"Error processing document: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
     async def get_document_summary(self, from_number: str, file_id: str) -> Tuple[bool, str]:
-        """
-        Get a summary of a document using RAG
-        Returns a tuple of (success, message)
-        """
+        """Get a summary of a document"""
         try:
-            # Get document details from docs_app
-            doc = self.docs_app.get_document_details(from_number, file_id)
-            if not doc or not doc.get('data_store_id') or not doc.get('document_id'):
-                return False, "❌ Document not found or not yet processed for summarization."
-
-            result = self.rag_processor.get_document_summary(
-                doc['data_store_id'],
-                doc['document_id']
-            )
-
+            if not self.rag_processor:
+                return False, "⚠️ Document summary feature is not available at the moment."
+                
+            # Get document from database
+            document = self.docs_app.get_document(file_id, from_number)
+            if not document:
+                return False, "⚠️ Document not found. Please check the document ID and try again."
+                
+            if not document.data_store_id:
+                return False, "⚠️ This document has not been processed yet. Please wait a moment and try again."
+                
+            # Get summary from RAG processor
+            result = await self.rag_processor.get_document_summary(document.data_store_id, document.document_id)
+            
             if result["status"] == "success":
-                summary = result["summary"]
-                metadata = result.get("metadata", {})
-                
-                # Format response with metadata if available
-                response_parts = ["📑 Document Summary:\n"]
-                if metadata.get('filename'):
-                    response_parts.append(f"📄 Document: {metadata['filename']}")
-                if metadata.get('page_count'):
-                    response_parts.append(f"📚 Pages: {metadata['page_count']}")
-                response_parts.append(f"\n{summary}")
-                
-                return True, "\n".join(response_parts)
+                return True, f"📄 Document Summary: {document.filename}\n\n{result['summary']}"
             else:
-                return False, "❌ Unable to generate summary at this time."
-
+                return False, result.get("message", "⚠️ Could not generate summary for this document.")
+                
         except Exception as e:
-            logger.error(f"Error getting document summary: {str(e)}", exc_info=True)
-            return False, "❌ An error occurred while generating the summary." 
+            logger.error(f"Error getting document summary: {str(e)}")
+            return False, f"⚠️ Error generating document summary: {str(e)}" 
