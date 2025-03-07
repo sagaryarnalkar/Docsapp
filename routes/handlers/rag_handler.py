@@ -4,7 +4,6 @@ from models.rag_processor import RAGProcessor
 from models.database import Session, Document
 from config import GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_APPLICATION_CREDENTIALS
 import asyncio
-from routes.handlers.whatsapp_handler import WhatsAppHandler
 from models.user_state import UserState
 
 logger = logging.getLogger(__name__)
@@ -82,6 +81,9 @@ class RAGHandler:
             if result["status"] == "success":
                 # Send a WhatsApp message to notify the user
                 try:
+                    # Import WhatsAppHandler here to avoid circular import
+                    from routes.handlers.whatsapp_handler import WhatsAppHandler
+                    
                     # Create a fresh WhatsApp handler with user state
                     user_state = UserState()
                     whatsapp_handler = WhatsAppHandler(self.docs_app, {}, user_state)

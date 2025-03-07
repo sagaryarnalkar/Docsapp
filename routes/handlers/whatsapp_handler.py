@@ -14,8 +14,6 @@ from config import (
     GOOGLE_CLOUD_LOCATION,
     GOOGLE_APPLICATION_CREDENTIALS
 )
-from models.rag_processor import RAGProcessor
-from .rag_handler import RAGHandler
 import aiohttp
 
 logger = logging.getLogger(__name__)
@@ -29,28 +27,18 @@ class WhatsAppHandler:
         self.docs_app = docs_app
         self.pending_descriptions = pending_descriptions
         self.user_state = user_state
-        self.base_url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}'
+        self.api_version = WHATSAPP_API_VERSION
+        self.phone_number_id = WHATSAPP_PHONE_NUMBER_ID
+        self.access_token = WHATSAPP_ACCESS_TOKEN
+        self.base_url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
         self.headers = {
-            'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.access_token}"
         }
         self.auth_handler = AuthHandler(self.user_state)
-        self.rag_handler = RAGHandler(self.docs_app)
+        self.rag_processor = docs_app.rag_processor if docs_app else None
+        self.rag_available = self.rag_processor is not None and hasattr(self.rag_processor, 'is_available') and self.rag_processor.is_available
         self.sent_messages = {}  # Track sent messages
-        
-        # Initialize RAG processor
-        try:
-            self.rag_processor = RAGProcessor(
-                project_id="docsapp-447706",
-                location=GOOGLE_CLOUD_LOCATION,
-                credentials_path=GOOGLE_APPLICATION_CREDENTIALS
-            )
-            self.rag_available = hasattr(self.rag_processor, 'language_model')
-            logger.info("RAG processor initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize RAG processor: {str(e)}")
-            self.rag_available = False
-            self.rag_processor = None
 
     async def send_message(self, to_number, message):
         """Send WhatsApp message using Meta API"""
@@ -354,19 +342,25 @@ class WhatsAppHandler:
                                                 "to make the document easier to find later!"
                                             )
                                             
-                                            # Try RAG processing in the background, but don't wait for it
-                                            try:
-                                                # Fire and forget RAG processing
-                                                import asyncio
-                                                asyncio.create_task(self.rag_handler.process_document_async(
-                                                    store_result.get('file_id'), 
-                                                    store_result.get('mime_type'),
-                                                    from_number  # Pass the user's phone number
-                                                ))
-                                                response_message += "\n\nℹ️ Document is being processed for Q&A functionality in the background."
-                                            except Exception as e:
-                                                logger.error(f"RAG processing setup failed but document was stored: {str(e)}")
-                                                # Don't affect the user response if RAG fails
+                                            # Process document with RAG in the background
+                                            if store_result.get('file_id'):
+                                                try:
+                                                    # Use the docs_app.rag_processor directly
+                                                    if self.docs_app and hasattr(self.docs_app, 'rag_processor') and self.docs_app.rag_processor:
+                                                        # Fire and forget RAG processing
+                                                        import asyncio
+                                                        asyncio.create_task(self.docs_app.rag_processor.process_document_async(
+                                                            store_result.get('file_id'), 
+                                                            store_result.get('mime_type'),
+                                                            from_number
+                                                        ))
+                                                        print(f"Started background RAG processing for document {store_result.get('file_id')}")
+                                                    else:
+                                                        print("RAG processor not available for document processing")
+                                                except Exception as rag_err:
+                                                    print(f"Error starting RAG processing: {str(rag_err)}")
+                                                    import traceback
+                                                    print(f"RAG processing error traceback:\n{traceback.format_exc()}")
                                             
                                             await self.send_message(from_number, response_message)
                                             
@@ -464,10 +458,42 @@ class WhatsAppHandler:
                 question = command[5:].strip()
                 await self.send_message(from_number, "🔄 Processing your question... This might take a moment.")
                 
-                # Use the RAG handler which safely handles failures
-                success, message = await self.rag_handler.handle_question(from_number, question)
-                await self.send_message(from_number, message)
-                return "Question processed", 200 if success else 500
+                # Use the docs_app to process the question
+                result = await self.docs_app.ask_question(from_number, question)
+                
+                if result["status"] == "success" and result.get("answers"):
+                    # Format answers from all relevant documents
+                    response_parts = ["📝 Here are the answers from your documents:\n"]
+                    
+                    for idx, answer in enumerate(result["answers"], 1):
+                        # Format the answer section
+                        response_parts.append(f"📄 Document {idx}: {answer['document']}")
+                        response_parts.append(f"Answer: {answer['answer']}")
+                        
+                        # Add source information if available
+                        if answer.get('sources'):
+                            source_info = []
+                            for source in answer['sources']:
+                                metadata = source.get('metadata', {})
+                                if metadata.get('page_number'):
+                                    source_info.append(f"Page {metadata['page_number']}")
+                                if metadata.get('section'):
+                                    source_info.append(metadata['section'])
+                            if source_info:
+                                response_parts.append(f"Source: {', '.join(source_info)}")
+                        
+                        response_parts.append("")  # Add blank line between answers
+                    
+                    # Add a note about confidence if available
+                    if any(a.get('confidence') for a in result["answers"]):
+                        response_parts.append("\nℹ️ Note: Answers are provided based on the relevant content found in your documents.")
+                    
+                    message = "\n".join(response_parts)
+                    await self.send_message(from_number, message)
+                    return "Question processed", 200
+                else:
+                    await self.send_message(from_number, result.get("message", "No relevant information found in your documents."))
+                    return "Question processed", 500
 
             else:
                 print(f"Unknown command: {command}")
