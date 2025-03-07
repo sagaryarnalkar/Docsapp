@@ -90,11 +90,13 @@ class RAGProcessor:
                 print("Initializing Gemini model...")
                 try:
                     from vertexai.generative_models import GenerativeModel
-                    self.language_model = GenerativeModel("gemini-1.5-flash-latest")
-                    print("✅ Successfully initialized Gemini 1.5 Flash model")
+                    # Use Gemini 2.0 as requested
+                    self.language_model = GenerativeModel("gemini-2.0-pro")
+                    print("✅ Successfully initialized Gemini 2.0 Pro model")
                 except Exception as model_err:
-                    print(f"Error initializing Gemini 1.5: {str(model_err)}")
+                    print(f"Error initializing Gemini 2.0: {str(model_err)}")
                     try:
+                        # Try Gemini 1.0 Pro as fallback
                         self.language_model = GenerativeModel("gemini-1.0-pro")
                         print("✅ Successfully initialized Gemini 1.0 Pro model (fallback)")
                     except Exception as fallback_err:
