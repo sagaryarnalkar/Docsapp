@@ -183,52 +183,66 @@ class UserState:
             self.last_cache_cleanup = now
 
     def is_authorized(self, phone):
+        """Check if a user is authorized with Google"""
         try:
             print(f"\n=== Checking Authorization for {phone} ===")
             
-            # Try cache first
+            # First check if we have valid credentials in memory
             if phone in self.credentials_cache:
                 creds = self.credentials_cache[phone]
-                if not creds.expired:
-                    print("Using cached credentials")
+                if creds and not creds.expired:
+                    print(f"✅ User {phone} has valid cached credentials")
                     return True
+                else:
+                    print(f"⚠️ User {phone} has expired cached credentials, will try to refresh")
             
-            # Get fresh credentials from database
-            creds = self.get_credentials(phone)
-            
-            if not creds:
-                print(f"No credentials found for {phone}")
+            # Check database
+            with self.db_pool.get_connection() as conn:
+                cursor = conn.execute(
+                    "SELECT google_authorized, tokens FROM users WHERE phone_number = ?", 
+                    (phone,)
+                )
+                user = cursor.fetchone()
+                
+                if user:
+                    is_authorized = user[0]
+                    tokens_json = user[1]
+                    
+                    if is_authorized and tokens_json:
+                        print(f"✅ User {phone} is authorized in database")
+                        
+                        # Try to create credentials and check if they're valid
+                        try:
+                            tokens = json.loads(tokens_json)
+                            creds = self._create_credentials(tokens)
+                            
+                            # Store in cache for future use
+                            self.credentials_cache[phone] = creds
+                            
+                            if creds.expired and creds.refresh_token:
+                                print(f"⚠️ Credentials expired for {phone}, attempting to refresh")
+                                try:
+                                    creds.refresh(Request())
+                                    # Update tokens in database
+                                    self.store_tokens(phone, json.loads(creds.to_json()))
+                                    print(f"✅ Successfully refreshed tokens for {phone}")
+                                    return True
+                                except Exception as refresh_error:
+                                    print(f"❌ Failed to refresh tokens: {str(refresh_error)}")
+                                    return False
+                            
+                            return True
+                        except Exception as e:
+                            print(f"❌ Error validating credentials: {str(e)}")
+                            return False
+                
+                print(f"⚠️ User {phone} not found in database or not authorized")
                 return False
                 
-            print(f"Credentials found:")
-            print(f"Valid: {creds.valid}")
-            print(f"Expired: {creds.expired if creds else None}")
-            print(f"Has refresh token: {bool(creds.refresh_token) if creds else None}")
-            
-            if creds.expired and creds.refresh_token:
-                print("Attempting to refresh expired credentials")
-                try:
-                    creds.refresh(Request())
-                    # Store refreshed tokens
-                    self.store_tokens(phone, json.loads(creds.to_json()))
-                    print("Successfully refreshed credentials")
-                    return True
-                except Exception as e:
-                    print(f"Error refreshing token: {str(e)}")
-                    return False
-            
-            is_valid = creds is not None and creds.valid
-            if is_valid:
-                # Update cache
-                self.credentials_cache[phone] = creds
-            
-            print(f"Final authorization status: {is_valid}")
-            return is_valid
-            
         except Exception as e:
-            print(f"Error checking authorization: {str(e)}")
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            print(f"❌ Error checking authorization: {str(e)}")
+            logger.error(f"Failed to check authorization for {phone}: {str(e)}")
+            traceback.print_exc()
             return False
 
     def get_credentials_from_database(self, phone):

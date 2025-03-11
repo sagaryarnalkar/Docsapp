@@ -91,11 +91,24 @@ class AuthHandler:
             print(f"Full Auth URL: {auth_url}")
             print(f"State parameter: {state}")
             
-            # Store user phone for callback
-            temp_file_path = os.path.join(TEMP_DIR, 'temp_user.txt')
-            print(f"\nStoring user data at: {temp_file_path}")
-            with open(temp_file_path, 'w') as f:
-                f.write(user_phone)
+            # Store user phone for callback in multiple locations for reliability
+            temp_locations = [
+                os.path.join(TEMP_DIR, 'temp_user.txt'),
+                os.path.join('/tmp/docsapp', 'temp_user.txt'),
+                os.path.join('/data/docsapp', 'temp_user.txt'),
+                os.path.join('/app', 'temp_user.txt')
+            ]
+            
+            print("\n=== Storing user data ===")
+            for temp_file_path in temp_locations:
+                try:
+                    # Ensure directory exists
+                    os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+                    with open(temp_file_path, 'w') as f:
+                        f.write(user_phone)
+                    print(f"Stored user data at: {temp_file_path}")
+                except Exception as e:
+                    print(f"Failed to store at {temp_file_path}: {str(e)}")
             
             print("\n=== OAuth Flow Setup Complete ===")
             return auth_url
@@ -237,6 +250,21 @@ class AuthHandler:
             
             # Get user phone from temp file
             temp_user_file = os.path.join(TEMP_DIR, 'temp_user.txt')
+            
+            # Try alternative locations if the primary one doesn't exist
+            if not os.path.exists(temp_user_file):
+                alternative_paths = [
+                    os.path.join('/tmp/docsapp', 'temp_user.txt'),
+                    os.path.join('/data/docsapp', 'temp_user.txt'),
+                    os.path.join('/app', 'temp_user.txt')
+                ]
+                
+                for alt_path in alternative_paths:
+                    if os.path.exists(alt_path):
+                        print(f"Found temp user file at alternative location: {alt_path}")
+                        temp_user_file = alt_path
+                        break
+            
             print(f"Looking for temp user file at: {temp_user_file}")
             if os.path.exists(temp_user_file):
                 with open(temp_user_file, 'r') as f:
@@ -246,80 +274,72 @@ class AuthHandler:
                 os.remove(temp_user_file)
                 print("Successfully stored tokens and cleaned up temp file")
                 
-                # Get user info to personalize welcome message
+                # Send welcome message without depending on userinfo API
                 try:
-                    credentials = self.user_state.get_credentials(phone)
-                    if credentials:
-                        # Build the service
-                        service = build('oauth2', 'v2', credentials=credentials)
-                        # Get user info
-                        user_info = service.userinfo().get().execute()
-                        email = user_info.get('email', 'your Google account')
-                        
-                        # Check if this is a new user or returning user
-                        is_new_user = False
-                        with self.user_state.db_pool.get_connection() as conn:
-                            cursor = conn.execute(
-                                "SELECT login_count FROM users WHERE phone_number = ?", 
+                    # Check if this is a new user or returning user
+                    is_new_user = False
+                    with self.user_state.db_pool.get_connection() as conn:
+                        cursor = conn.execute(
+                            "SELECT login_count FROM users WHERE phone_number = ?", 
+                            (phone,)
+                        )
+                        result = cursor.fetchone()
+                        if result is None or result[0] <= 1:
+                            is_new_user = True
+                            # Update login count
+                            conn.execute(
+                                "UPDATE users SET login_count = COALESCE(login_count, 0) + 1 WHERE phone_number = ?",
                                 (phone,)
                             )
-                            result = cursor.fetchone()
-                            if result is None or result[0] <= 1:
-                                is_new_user = True
-                                # Update login count
-                                conn.execute(
-                                    "UPDATE users SET login_count = COALESCE(login_count, 0) + 1 WHERE phone_number = ?",
-                                    (phone,)
+                        else:
+                            # Update login count for returning user
+                            conn.execute(
+                                "UPDATE users SET login_count = login_count + 1 WHERE phone_number = ?",
+                                (phone,)
+                            )
+                    
+                    # Send welcome message
+                    from routes.handlers.whatsapp_handler import WhatsAppHandler
+                    import asyncio
+                    
+                    # Create a function to send the welcome message
+                    async def send_welcome_message():
+                        try:
+                            # Create a temporary WhatsApp handler
+                            from config import WHATSAPP_API_VERSION, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN
+                            handler = WhatsAppHandler(None, {}, self.user_state)
+                            
+                            if is_new_user:
+                                welcome_msg = (
+                                    f"🎉 Welcome to DocsApp! 🎉\n\n"
+                                    f"You've successfully logged in to your Google account.\n\n"
+                                    f"You can now:\n"
+                                    f"• Send documents to store them\n"
+                                    f"• Type 'list' to see your documents\n"
+                                    f"• Type 'help' for more commands"
                                 )
                             else:
-                                # Update login count for returning user
-                                conn.execute(
-                                    "UPDATE users SET login_count = login_count + 1 WHERE phone_number = ?",
-                                    (phone,)
+                                welcome_msg = (
+                                    f"👋 Welcome back to DocsApp!\n\n"
+                                    f"You've successfully logged in to your Google account.\n\n"
+                                    f"Type 'list' to see your stored documents or 'help' for available commands."
                                 )
-                        
-                        # Send welcome message
-                        from routes.handlers.whatsapp_handler import WhatsAppHandler
-                        import asyncio
-                        
-                        # Create a function to send the welcome message
-                        async def send_welcome_message():
-                            try:
-                                # Create a temporary WhatsApp handler
-                                from config import WHATSAPP_API_VERSION, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN
-                                handler = WhatsAppHandler(None, {}, self.user_state)
-                                
-                                if is_new_user:
-                                    welcome_msg = (
-                                        f"🎉 Welcome to DocsApp! 🎉\n\n"
-                                        f"You've successfully logged in with {email}.\n\n"
-                                        f"You can now:\n"
-                                        f"• Send documents to store them\n"
-                                        f"• Type 'list' to see your documents\n"
-                                        f"• Type 'help' for more commands"
-                                    )
-                                else:
-                                    welcome_msg = (
-                                        f"👋 Welcome back to DocsApp!\n\n"
-                                        f"You've successfully logged in with {email}.\n\n"
-                                        f"Type 'list' to see your stored documents or 'help' for available commands."
-                                    )
-                                
-                                await handler.send_message(phone, welcome_msg)
-                                print(f"Sent welcome message to {phone}")
-                            except Exception as e:
-                                print(f"Error sending welcome message: {str(e)}")
-                                import traceback
-                                print(f"Traceback:\n{traceback.format_exc()}")
-                        
-                        # Schedule the welcome message to be sent
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(send_welcome_message())
-                        loop.close()
-                        
+                            
+                            await handler.send_message(phone, welcome_msg)
+                            print(f"Sent welcome message to {phone}")
+                        except Exception as e:
+                            print(f"Error sending welcome message: {str(e)}")
+                            import traceback
+                            print(f"Traceback:\n{traceback.format_exc()}")
+                    
+                    # Schedule the welcome message to be sent
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(send_welcome_message())
+                    loop.close()
+                    
                 except Exception as e:
-                    print(f"Error getting user info: {str(e)}")
+                    print(f"Error sending welcome message: {str(e)}")
                     import traceback
                     print(f"Traceback:\n{traceback.format_exc()}")
                 

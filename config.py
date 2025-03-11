@@ -29,7 +29,9 @@ OAUTH_REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 'https://docsapp-20br.onren
 # Google OAuth Configuration
 SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/drive.metadata.readonly'
+    'https://www.googleapis.com/auth/drive.metadata.readonly',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile'
 ]
 
 # Create necessary directories
