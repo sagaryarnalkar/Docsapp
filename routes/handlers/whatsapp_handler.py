@@ -143,18 +143,28 @@ class WhatsAppHandler:
 
             message = messages[0]
             message_id = message.get('id')
+            from_number = message.get('from')
+            
+            # Create a more robust message key that includes the from_number
+            message_key = f"{from_number}:{message_id}"
             
             # Check for duplicate message processing
             current_time = int(time.time())
-            if message_id in self.processed_documents:
-                time_since_processed = current_time - self.processed_documents[message_id]
-                print(f"Skipping duplicate message processing for message ID {message_id} (processed {time_since_processed}s ago)")
+            
+            # Clean up old processed messages (older than 10 minutes)
+            cutoff_time = current_time - 600  # 10 minutes
+            self.processed_documents = {k:v for k,v in self.processed_documents.items() if v > cutoff_time}
+            
+            # Check both the combined key and the message_id for backward compatibility
+            if message_key in self.processed_documents or message_id in self.processed_documents:
+                time_since_processed = current_time - (self.processed_documents.get(message_key) or self.processed_documents.get(message_id))
+                print(f"Skipping duplicate message processing for message ID {message_id} from {from_number} (processed {time_since_processed}s ago)")
                 return "Duplicate message processing prevented", 200
             
-            # Mark this message as being processed
+            # Mark this message as being processed with both keys
+            self.processed_documents[message_key] = current_time
             self.processed_documents[message_id] = current_time
-
-            from_number = message.get('from')
+            print(f"Processing new message {message_id} from {from_number}")
 
             print(f"\n=== Message Details ===")
             print(f"From: {from_number}")
@@ -254,8 +264,8 @@ class WhatsAppHandler:
             doc_id = document.get('id') if document else None
             current_time = int(time.time())
             
-            # Clean up old processed documents (older than 5 minutes)
-            cutoff_time = current_time - 300  # 5 minutes
+            # Clean up old processed documents (older than 10 minutes)
+            cutoff_time = current_time - 600  # 10 minutes
             self.processed_documents = {k:v for k,v in self.processed_documents.items() if v > cutoff_time}
             
             # Check if we've processed this document recently
@@ -263,6 +273,17 @@ class WhatsAppHandler:
                 time_since_processed = current_time - self.processed_documents[doc_id]
                 print(f"Skipping duplicate document processing for {doc_id} (processed {time_since_processed}s ago)")
                 return "Duplicate document processing prevented", 200
+                
+            # Create a unique key for this document and user
+            doc_user_key = f"{from_number}:{doc_id}"
+            if doc_user_key in self.processed_documents:
+                time_since_processed = current_time - self.processed_documents[doc_user_key]
+                print(f"Skipping duplicate document processing for user {from_number} and doc {doc_id} (processed {time_since_processed}s ago)")
+                return "Duplicate document processing prevented", 200
+                
+            # Mark this document as being processed for this user
+            self.processed_documents[doc_user_key] = current_time
+            self.processed_documents[doc_id] = current_time
 
             # Handle replies to documents (for adding descriptions)
             if message and 'context' in message:
@@ -383,18 +404,27 @@ class WhatsAppHandler:
                                             # Mark this document as processed to prevent duplicates
                                             if doc_id:
                                                 self.processed_documents[doc_id] = int(time.time())
-                                                print(f"Marked document {doc_id} as processed")
+                                                doc_user_key = f"{from_number}:{doc_id}"
+                                                self.processed_documents[doc_user_key] = int(time.time())
+                                                print(f"Marked document {doc_id} as processed for user {from_number}")
                                             
-                                            # First send immediate confirmation of storage
-                                            folder_name = self.docs_app.folder_name
-                                            immediate_response = (
-                                                f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
-                                                f"Initial description: {description}\n\n"
-                                                "You can reply to this message with additional descriptions "
-                                                "to make the document easier to find later!"
-                                            )
-                                            
-                                            await self.send_message(from_number, immediate_response)
+                                            # Create a unique confirmation key for this document
+                                            confirmation_key = f"confirmation:{from_number}:{store_result.get('file_id', 'unknown')}"
+                                            if confirmation_key in self.sent_messages:
+                                                print(f"Skipping duplicate confirmation for {store_result.get('file_id')} - already sent")
+                                            else:
+                                                # First send immediate confirmation of storage
+                                                folder_name = self.docs_app.folder_name
+                                                immediate_response = (
+                                                    f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
+                                                    f"Initial description: {description}\n\n"
+                                                    "You can reply to this message with additional descriptions "
+                                                    "to make the document easier to find later!"
+                                                )
+                                                
+                                                await self.send_message(from_number, immediate_response)
+                                                # Mark this confirmation as sent
+                                                self.sent_messages[confirmation_key] = int(time.time())
                                             
                                             # Process document with RAG in the background
                                             if store_result.get('file_id'):
@@ -404,8 +434,16 @@ class WhatsAppHandler:
                                                         # Track processing to avoid duplicates
                                                         processing_key = f"rag_processing:{store_result.get('file_id')}"
                                                         if processing_key not in self.sent_messages:
-                                                            # Send processing started message
-                                                            await self.send_message(from_number, "🔄 Document processing started. I'll notify you when it's complete...")
+                                                            # Create a unique processing notification key
+                                                            processing_notification_key = f"processing_notification:{from_number}:{store_result.get('file_id')}"
+                                                            
+                                                            if processing_notification_key in self.sent_messages:
+                                                                print(f"Skipping duplicate processing notification for {store_result.get('file_id')} - already sent")
+                                                            else:
+                                                                # Send processing started message
+                                                                await self.send_message(from_number, "🔄 Document processing started. I'll notify you when it's complete...")
+                                                                # Mark this notification as sent
+                                                                self.sent_messages[processing_notification_key] = int(time.time())
                                                             
                                                             # Create a task to process the document and notify when done
                                                             async def process_and_notify():
@@ -417,27 +455,38 @@ class WhatsAppHandler:
                                                                         from_number
                                                                     )
                                                                     
-                                                                    # Notify user of completion
-                                                                    if result and result.get("status") == "success":
-                                                                        await self.send_message(from_number, 
-                                                                            f"✅ Document '{filename}' has been processed successfully!\n\n"
-                                                                            f"You can now ask questions about it using:\n"
-                                                                            f"/ask <your question>"
-                                                                        )
-                                                                    else:
-                                                                        error = result.get("error", "Unknown error")
-                                                                        await self.send_message(from_number,
-                                                                            f"⚠️ Document processing completed with issues: {error}\n\n"
-                                                                            f"You can still try asking questions about it."
-                                                                        )
+                                                                    # Create a unique completion notification key
+                                                                    completion_notification_key = f"completion_notification:{from_number}:{store_result.get('file_id')}"
+                                                                    
+                                                                    if completion_notification_key not in self.sent_messages:
+                                                                        # Notify user of completion
+                                                                        if result and result.get("status") == "success":
+                                                                            await self.send_message(from_number, 
+                                                                                f"✅ Document '{filename}' has been processed successfully!\n\n"
+                                                                                f"You can now ask questions about it using:\n"
+                                                                                f"/ask <your question>"
+                                                                            )
+                                                                        else:
+                                                                            error = result.get("error", "Unknown error")
+                                                                            await self.send_message(from_number,
+                                                                                f"⚠️ Document processing completed with issues: {error}\n\n"
+                                                                                f"You can still try asking questions about it."
+                                                                            )
+                                                                        # Mark completion notification as sent
+                                                                        self.sent_messages[completion_notification_key] = int(time.time())
                                                                 except Exception as e:
                                                                     print(f"Error in process_and_notify: {str(e)}")
                                                                     import traceback
                                                                     print(f"Traceback:\n{traceback.format_exc()}")
-                                                                    await self.send_message(from_number, 
-                                                                        f"❌ There was an error processing your document: {str(e)}\n\n"
-                                                                        f"You can still try asking questions about it, but results may be limited."
-                                                                    )
+                                                                    
+                                                                    # Only send error message if we haven't sent one for this document
+                                                                    error_notification_key = f"error_notification:{from_number}:{store_result.get('file_id')}"
+                                                                    if error_notification_key not in self.sent_messages:
+                                                                        await self.send_message(from_number, 
+                                                                            f"❌ There was an error processing your document: {str(e)}\n\n"
+                                                                            f"You can still try asking questions about it, but results may be limited."
+                                                                        )
+                                                                        self.sent_messages[error_notification_key] = int(time.time())
                                                             
                                                             # Fire and forget the processing task
                                                             import asyncio
@@ -445,10 +494,6 @@ class WhatsAppHandler:
                                                             
                                                             # Mark as processing to avoid duplicate processing
                                                             self.sent_messages[processing_key] = int(time.time())
-                                                        else:
-                                                            print(f"Skipping duplicate RAG processing for {store_result.get('file_id')}")
-                                                    else:
-                                                        print("RAG processor not available for document processing")
                                                 except Exception as rag_err:
                                                     print(f"Error starting RAG processing: {str(rag_err)}")
                                                     import traceback
