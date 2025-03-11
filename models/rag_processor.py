@@ -90,19 +90,38 @@ class RAGProcessor:
                 print("Initializing Gemini model...")
                 try:
                     from vertexai.generative_models import GenerativeModel
-                    # Use Gemini 2.0 as requested
-                    self.language_model = GenerativeModel("gemini-2.0-pro")
-                    print("✅ Successfully initialized Gemini 2.0 Pro model")
-                except Exception as model_err:
-                    print(f"Error initializing Gemini 2.0: {str(model_err)}")
-                    try:
-                        # Try Gemini 1.0 Pro as fallback
-                        self.language_model = GenerativeModel("gemini-1.0-pro")
-                        print("✅ Successfully initialized Gemini 1.0 Pro model (fallback)")
-                    except Exception as fallback_err:
-                        print(f"Error initializing fallback model: {str(fallback_err)}")
+                    # Try multiple models in order of preference
+                    available_models = [
+                        "gemini-1.0-pro",  # Most widely available
+                        "gemini-pro",      # Alternative name
+                        "text-bison@002",  # Older but reliable
+                        "text-bison@001"   # Most basic
+                    ]
+                    
+                    model_initialized = False
+                    for model_name in available_models:
+                        try:
+                            print(f"Attempting to initialize model: {model_name}")
+                            if "gemini" in model_name:
+                                self.language_model = GenerativeModel(model_name)
+                            else:
+                                # For older models like text-bison
+                                from vertexai.language_models import TextGenerationModel
+                                self.language_model = TextGenerationModel.from_pretrained(model_name)
+                            
+                            print(f"✅ Successfully initialized {model_name} model")
+                            model_initialized = True
+                            break
+                        except Exception as model_err:
+                            print(f"Error initializing {model_name}: {str(model_err)}")
+                    
+                    if not model_initialized:
+                        print("⚠️ Failed to initialize any language model")
                         self.language_model = None
-                        print("⚠️ No language model available")
+                except Exception as model_err:
+                    print(f"Error in model initialization process: {str(model_err)}")
+                    self.language_model = None
+                    print("⚠️ No language model available")
                 
                 print("✅ Successfully initialized Vertex AI")
                 self.is_available = True
@@ -1018,14 +1037,43 @@ Answer:"""
             prompt = self._create_rag_prompt(question, relevant_chunks)
             print("✅ Created RAG prompt")
             
-            # 4. Generate answer using Gemini
-            print("Generating answer with Gemini...")
-            response = self.language_model.generate_content(prompt)
-            print("✅ Generated answer successfully")
+            # 4. Generate response using RAG
+            prompt = self._create_rag_prompt(question, relevant_chunks)
+            print(f"Prompt length: {len(prompt)} characters")
+            
+            # Generate response with the language model
+            print("Generating response with language model...")
+            try:
+                # Handle different model types
+                if hasattr(self.language_model, 'generate_content'):
+                    # For Gemini models (GenerativeModel)
+                    response = self.language_model.generate_content(prompt)
+                    answer = response.text
+                elif hasattr(self.language_model, 'predict'):
+                    # For older models like text-bison (TextGenerationModel)
+                    response = self.language_model.predict(prompt, temperature=0.2, max_output_tokens=1024)
+                    answer = response.text
+                else:
+                    # Unknown model type
+                    print("❌ Unknown model type")
+                    return {
+                        "status": "error",
+                        "error": "Unknown model type"
+                    }
+                
+                print(f"Generated response: {answer[:100]}...")
+            except Exception as e:
+                print(f"❌ Error generating response: {str(e)}")
+                import traceback
+                print(f"Traceback:\n{traceback.format_exc()}")
+                return {
+                    "status": "error",
+                    "error": f"Error generating response: {str(e)}"
+                }
             
             return {
                 "status": "success",
-                "answer": response.text,
+                "answer": answer,
                 "sources": [chunk['metadata'] for chunk in relevant_chunks]
             }
             
@@ -1057,11 +1105,39 @@ Answer:"""
             3. Any significant dates, numbers, or statistics
             4. Document structure and organization"""
             
-            response = self.language_model.generate_content(prompt)
+            # Generate summary using the language model
+            print("Generating summary...")
+            try:
+                # Handle different model types
+                if hasattr(self.language_model, 'generate_content'):
+                    # For Gemini models (GenerativeModel)
+                    response = self.language_model.generate_content(prompt)
+                    summary = response.text
+                elif hasattr(self.language_model, 'predict'):
+                    # For older models like text-bison (TextGenerationModel)
+                    response = self.language_model.predict(prompt, temperature=0.2, max_output_tokens=1024)
+                    summary = response.text
+                else:
+                    # Unknown model type
+                    print("❌ Unknown model type")
+                    return {
+                        "status": "error",
+                        "error": "Unknown model type"
+                    }
+                
+                print(f"Generated summary: {summary[:100]}...")
+            except Exception as e:
+                print(f"❌ Error generating summary: {str(e)}")
+                import traceback
+                print(f"Traceback:\n{traceback.format_exc()}")
+                return {
+                    "status": "error",
+                    "error": f"Error generating summary: {str(e)}"
+                }
             
             return {
                 "status": "success",
-                "summary": response.text,
+                "summary": summary,
                 "metadata": {}
             }
             
@@ -1131,10 +1207,31 @@ Instructions:
 Question: {question}
 """
             
-            # Generate response with controlled parameters
-            response = self.language_model.generate_content(prompt)
+            # Generate answer using the language model
+            print("Generating answer...")
+            try:
+                # Handle different model types
+                if hasattr(self.language_model, 'generate_content'):
+                    # For Gemini models (GenerativeModel)
+                    response = self.language_model.generate_content(prompt)
+                    answer = response.text
+                elif hasattr(self.language_model, 'predict'):
+                    # For older models like text-bison (TextGenerationModel)
+                    response = self.language_model.predict(prompt, temperature=0.2, max_output_tokens=1024)
+                    answer = response.text
+                else:
+                    # Unknown model type
+                    print("❌ Unknown model type")
+                    return "I'm sorry, but I couldn't process your question due to a technical issue with the language model."
+                
+                print(f"Generated answer: {answer[:100]}...")
+            except Exception as e:
+                print(f"❌ Error generating answer: {str(e)}")
+                import traceback
+                print(f"Traceback:\n{traceback.format_exc()}")
+                return f"I'm sorry, but I encountered an error while processing your question: {str(e)}"
             
-            return response.text
+            return answer
             
         except RAGProcessorError:
             raise
