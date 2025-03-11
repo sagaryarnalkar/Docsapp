@@ -32,10 +32,20 @@ class UserState:
                         phone_number TEXT PRIMARY KEY,
                         google_authorized INTEGER DEFAULT 0,
                         tokens TEXT,
-                        last_refresh TIMESTAMP
+                        last_refresh TIMESTAMP,
+                        login_count INTEGER DEFAULT 0
                     )
                 ''')
                 print(f"✅ Users database initialized successfully")
+                
+                # Check if login_count column exists, add it if not
+                try:
+                    conn.execute("SELECT login_count FROM users LIMIT 1")
+                    print("login_count column already exists")
+                except Exception:
+                    print("Adding login_count column to users table")
+                    conn.execute("ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0")
+                    print("✅ Added login_count column to users table")
                 
                 # Check if the table exists and has data
                 cursor = conn.execute("SELECT COUNT(*) FROM users")

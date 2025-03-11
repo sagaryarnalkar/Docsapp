@@ -335,12 +335,17 @@ class WhatsAppHandler:
                                                 raise WhatsAppHandlerError("Failed to store document")
 
                                             debug_info.append("Document stored successfully")
-                                            response_message = (
-                                                f"✅ Document '{filename}' stored successfully!\n\n"
+                                            
+                                            # First send immediate confirmation of storage
+                                            folder_name = self.docs_app.folder_name
+                                            immediate_response = (
+                                                f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
                                                 f"Initial description: {description}\n\n"
                                                 "You can reply to this message with additional descriptions "
                                                 "to make the document easier to find later!"
                                             )
+                                            
+                                            await self.send_message(from_number, immediate_response)
                                             
                                             # Process document with RAG in the background
                                             if store_result.get('file_id'):
@@ -350,16 +355,47 @@ class WhatsAppHandler:
                                                         # Track processing to avoid duplicates
                                                         processing_key = f"rag_processing:{store_result.get('file_id')}"
                                                         if processing_key not in self.sent_messages:
-                                                            # Fire and forget RAG processing
+                                                            # Send processing started message
+                                                            await self.send_message(from_number, "🔄 Document processing started. I'll notify you when it's complete...")
+                                                            
+                                                            # Create a task to process the document and notify when done
+                                                            async def process_and_notify():
+                                                                try:
+                                                                    print(f"Starting background RAG processing for document {store_result.get('file_id')}")
+                                                                    result = await self.docs_app.rag_processor.process_document_async(
+                                                                        store_result.get('file_id'), 
+                                                                        store_result.get('mime_type'),
+                                                                        from_number
+                                                                    )
+                                                                    
+                                                                    # Notify user of completion
+                                                                    if result and result.get("status") == "success":
+                                                                        await self.send_message(from_number, 
+                                                                            f"✅ Document '{filename}' has been processed successfully!\n\n"
+                                                                            f"You can now ask questions about it using:\n"
+                                                                            f"/ask <your question>"
+                                                                        )
+                                                                    else:
+                                                                        error = result.get("error", "Unknown error")
+                                                                        await self.send_message(from_number,
+                                                                            f"⚠️ Document processing completed with issues: {error}\n\n"
+                                                                            f"You can still try asking questions about it."
+                                                                        )
+                                                                except Exception as e:
+                                                                    print(f"Error in process_and_notify: {str(e)}")
+                                                                    import traceback
+                                                                    print(f"Traceback:\n{traceback.format_exc()}")
+                                                                    await self.send_message(from_number, 
+                                                                        f"❌ There was an error processing your document: {str(e)}\n\n"
+                                                                        f"You can still try asking questions about it, but results may be limited."
+                                                                    )
+                                                            
+                                                            # Fire and forget the processing task
                                                             import asyncio
-                                                            asyncio.create_task(self.docs_app.rag_processor.process_document_async(
-                                                                store_result.get('file_id'), 
-                                                                store_result.get('mime_type'),
-                                                                from_number
-                                                            ))
+                                                            asyncio.create_task(process_and_notify())
+                                                            
                                                             # Mark as processing to avoid duplicate processing
                                                             self.sent_messages[processing_key] = int(time.time())
-                                                            print(f"Started background RAG processing for document {store_result.get('file_id')}")
                                                         else:
                                                             print(f"Skipping duplicate RAG processing for {store_result.get('file_id')}")
                                                     else:
@@ -368,8 +404,6 @@ class WhatsAppHandler:
                                                     print(f"Error starting RAG processing: {str(rag_err)}")
                                                     import traceback
                                                     print(f"RAG processing error traceback:\n{traceback.format_exc()}")
-                                            
-                                            await self.send_message(from_number, response_message)
                                             
                                         finally:
                                             # Always clean up temp file
