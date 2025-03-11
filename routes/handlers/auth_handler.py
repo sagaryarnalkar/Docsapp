@@ -87,6 +87,20 @@ class AuthHandler:
                 prompt='consent'
             )
             
+            # Ensure 'openid' is in the auth URL
+            if 'openid' not in auth_url and 'scope=' in auth_url:
+                print("Adding openid scope to auth URL")
+                scope_index = auth_url.find('scope=')
+                if scope_index != -1:
+                    # Find the end of the scope parameter
+                    next_param = auth_url.find('&', scope_index)
+                    if next_param != -1:
+                        # Insert openid in the middle
+                        auth_url = auth_url[:next_param] + '%20openid' + auth_url[next_param:]
+                    else:
+                        # Append to the end
+                        auth_url = auth_url + '%20openid'
+            
             print("\n=== Generated Auth URL ===")
             print(f"Full Auth URL: {auth_url}")
             print(f"State parameter: {state}")
@@ -239,9 +253,45 @@ class AuthHandler:
             )
             print("Successfully created OAuth flow")
             
-            # Fetch token using the callback URL
-            flow.fetch_token(authorization_response=request_url)
-            print("Successfully fetched token")
+            try:
+                # Fetch token using the callback URL
+                flow.fetch_token(authorization_response=request_url)
+                print("Successfully fetched token")
+            except Exception as token_error:
+                # Check if it's a scope mismatch error
+                error_str = str(token_error)
+                if "Scope has changed" in error_str:
+                    print("Detected scope mismatch error, attempting to fix...")
+                    try:
+                        # Extract the scopes from the error message
+                        import re
+                        scope_match = re.search(r'to "(.*?)"', error_str)
+                        if scope_match:
+                            actual_scopes = scope_match.group(1).split()
+                            print(f"Actual scopes from response: {actual_scopes}")
+                            
+                            # Create a new flow with the actual scopes
+                            new_flow = Flow.from_client_config(
+                                client_config,
+                                scopes=actual_scopes,
+                                redirect_uri=OAUTH_REDIRECT_URI
+                            )
+                            
+                            # Try again with the correct scopes
+                            new_flow.fetch_token(authorization_response=request_url)
+                            print("Successfully fetched token with corrected scopes")
+                            
+                            # Use the new flow instead
+                            flow = new_flow
+                        else:
+                            # If we can't extract the scopes, re-raise the error
+                            raise
+                    except Exception as retry_error:
+                        print(f"Failed to fix scope mismatch: {str(retry_error)}")
+                        return self._get_error_html(f"Authorization failed: {str(token_error)}<br><br>Please try again and make sure to approve all requested permissions.")
+                else:
+                    # If it's not a scope mismatch error, re-raise
+                    return self._get_error_html(f"Authorization failed: {str(token_error)}")
             
             # Get credentials and store them
             creds = flow.credentials
