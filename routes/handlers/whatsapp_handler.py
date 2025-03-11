@@ -51,9 +51,9 @@ class WhatsAppHandler:
             cutoff_time = current_time - 3600
             self.sent_messages = {k:v for k,v in self.sent_messages.items() if v > cutoff_time}
             
-            # Check if we've sent this exact message recently
-            if message_key in self.sent_messages:
-                print(f"Skipping duplicate message to {to_number}: {message[:50]}...")
+            # Check if we've sent this exact message recently (within 30 seconds)
+            if message_key in self.sent_messages and (current_time - self.sent_messages[message_key]) < 30:
+                print(f"Skipping duplicate message to {to_number}: {message[:50]}... (sent {current_time - self.sent_messages[message_key]}s ago)")
                 return True
             
             url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
@@ -347,14 +347,21 @@ class WhatsAppHandler:
                                                 try:
                                                     # Use the docs_app.rag_processor directly
                                                     if self.docs_app and hasattr(self.docs_app, 'rag_processor') and self.docs_app.rag_processor:
-                                                        # Fire and forget RAG processing
-                                                        import asyncio
-                                                        asyncio.create_task(self.docs_app.rag_processor.process_document_async(
-                                                            store_result.get('file_id'), 
-                                                            store_result.get('mime_type'),
-                                                            from_number
-                                                        ))
-                                                        print(f"Started background RAG processing for document {store_result.get('file_id')}")
+                                                        # Track processing to avoid duplicates
+                                                        processing_key = f"rag_processing:{store_result.get('file_id')}"
+                                                        if processing_key not in self.sent_messages:
+                                                            # Fire and forget RAG processing
+                                                            import asyncio
+                                                            asyncio.create_task(self.docs_app.rag_processor.process_document_async(
+                                                                store_result.get('file_id'), 
+                                                                store_result.get('mime_type'),
+                                                                from_number
+                                                            ))
+                                                            # Mark as processing to avoid duplicate processing
+                                                            self.sent_messages[processing_key] = int(time.time())
+                                                            print(f"Started background RAG processing for document {store_result.get('file_id')}")
+                                                        else:
+                                                            print(f"Skipping duplicate RAG processing for {store_result.get('file_id')}")
                                                     else:
                                                         print("RAG processor not available for document processing")
                                                 except Exception as rag_err:

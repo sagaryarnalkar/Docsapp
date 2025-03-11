@@ -13,23 +13,37 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # Ensure the database directory exists and is persistent
-PERSISTENT_DB_DIR = "/data/docsapp/db"
+# Try multiple locations for persistence
+PERSISTENT_DB_DIR = os.environ.get("PERSISTENT_DB_PATH", "/data/docsapp/db")
+if not os.path.exists(PERSISTENT_DB_DIR):
+    # Try alternative locations
+    alt_locations = [
+        "/tmp/docsapp/db",  # Render tmp directory
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data/db"),  # Local project directory
+        DB_DIR  # From config
+    ]
+    
+    for location in alt_locations:
+        try:
+            os.makedirs(location, exist_ok=True)
+            print(f"Trying alternative persistent directory: {location}")
+            # Check if directory is writable
+            test_file = os.path.join(location, "test_write.tmp")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            print(f"✅ Alternative directory is writable: {location}")
+            PERSISTENT_DB_DIR = location
+            break
+        except Exception as e:
+            print(f"⚠️ Error with alternative directory {location}: {str(e)}")
+
+print(f"Using database directory: {PERSISTENT_DB_DIR}")
+print(f"Directory exists: {os.path.exists(PERSISTENT_DB_DIR)}")
 try:
-    os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
-    print(f"Ensuring persistent database directory exists: {PERSISTENT_DB_DIR}")
-    # Check if directory is writable
-    test_file = os.path.join(PERSISTENT_DB_DIR, "test_write.tmp")
-    with open(test_file, 'w') as f:
-        f.write("test")
-    os.remove(test_file)
-    print(f"✅ Persistent directory is writable: {PERSISTENT_DB_DIR}")
     print(f"Directory contents: {os.listdir(PERSISTENT_DB_DIR)}")
 except Exception as e:
-    print(f"⚠️ Error with persistent directory {PERSISTENT_DB_DIR}: {str(e)}")
-    # Fall back to local directory if persistent storage is not available
-    PERSISTENT_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/db")
-    os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
-    print(f"Falling back to local database directory: {PERSISTENT_DB_DIR}")
+    print(f"Could not list directory contents: {str(e)}")
 
 class DatabasePool:
     _instance = None
