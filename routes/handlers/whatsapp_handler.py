@@ -39,6 +39,7 @@ class WhatsAppHandler:
         self.rag_processor = docs_app.rag_processor if docs_app else None
         self.rag_available = self.rag_processor is not None and hasattr(self.rag_processor, 'is_available') and self.rag_processor.is_available
         self.sent_messages = {}  # Track sent messages
+        self.processed_documents = {}  # Track processed documents to prevent duplicates
 
     async def send_message(self, to_number, message):
         """Send WhatsApp message using Meta API"""
@@ -51,10 +52,26 @@ class WhatsAppHandler:
             cutoff_time = current_time - 3600
             self.sent_messages = {k:v for k,v in self.sent_messages.items() if v > cutoff_time}
             
-            # Check if we've sent this exact message recently (within 30 seconds)
-            if message_key in self.sent_messages and (current_time - self.sent_messages[message_key]) < 30:
-                print(f"Skipping duplicate message to {to_number}: {message[:50]}... (sent {current_time - self.sent_messages[message_key]}s ago)")
-                return True
+            # Check if we've sent this exact message recently (within 60 seconds)
+            if message_key in self.sent_messages:
+                time_since_sent = current_time - self.sent_messages[message_key]
+                if time_since_sent < 60:  # Increased from 30 to 60 seconds
+                    print(f"Skipping duplicate message to {to_number}: {message[:50]}... (sent {time_since_sent}s ago)")
+                    return True
+                else:
+                    print(f"Message was sent before, but {time_since_sent}s ago, so sending again")
+            
+            # For document confirmations, use a more aggressive deduplication
+            if "Document" in message and "stored successfully" in message:
+                # Create a simplified key that ignores the exact filename
+                simplified_key = f"{to_number}:document_stored"
+                if simplified_key in self.sent_messages:
+                    time_since_sent = current_time - self.sent_messages[simplified_key]
+                    if time_since_sent < 300:  # 5 minutes for document confirmations
+                        print(f"Skipping duplicate document confirmation to {to_number} (sent {time_since_sent}s ago)")
+                        return True
+                # Store both the exact message and the simplified version
+                self.sent_messages[simplified_key] = current_time
             
             url = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages'
             
@@ -118,12 +135,25 @@ class WhatsAppHandler:
                 print("Status update received - ignoring")
                 return "Status update processed", 200
 
+            # Extract message data
             messages = value.get('messages', [])
             if not messages:
-                print("No messages in payload")
-                return "No messages found", 200
+                print("No messages found in payload")
+                return "No messages to process", 200
 
             message = messages[0]
+            message_id = message.get('id')
+            
+            # Check for duplicate message processing
+            current_time = int(time.time())
+            if message_id in self.processed_documents:
+                time_since_processed = current_time - self.processed_documents[message_id]
+                print(f"Skipping duplicate message processing for message ID {message_id} (processed {time_since_processed}s ago)")
+                return "Duplicate message processing prevented", 200
+            
+            # Mark this message as being processed
+            self.processed_documents[message_id] = current_time
+
             from_number = message.get('from')
 
             print(f"\n=== Message Details ===")
@@ -219,6 +249,20 @@ class WhatsAppHandler:
         try:
             debug_info.append("=== Document Processing Started ===")
             debug_info.append(f"Document details: {json.dumps(document, indent=2)}")
+
+            # Check for duplicate document processing
+            doc_id = document.get('id') if document else None
+            current_time = int(time.time())
+            
+            # Clean up old processed documents (older than 5 minutes)
+            cutoff_time = current_time - 300  # 5 minutes
+            self.processed_documents = {k:v for k,v in self.processed_documents.items() if v > cutoff_time}
+            
+            # Check if we've processed this document recently
+            if doc_id and doc_id in self.processed_documents:
+                time_since_processed = current_time - self.processed_documents[doc_id]
+                print(f"Skipping duplicate document processing for {doc_id} (processed {time_since_processed}s ago)")
+                return "Duplicate document processing prevented", 200
 
             # Handle replies to documents (for adding descriptions)
             if message and 'context' in message:
@@ -335,6 +379,11 @@ class WhatsAppHandler:
                                                 raise WhatsAppHandlerError("Failed to store document")
 
                                             debug_info.append("Document stored successfully")
+                                            
+                                            # Mark this document as processed to prevent duplicates
+                                            if doc_id:
+                                                self.processed_documents[doc_id] = int(time.time())
+                                                print(f"Marked document {doc_id} as processed")
                                             
                                             # First send immediate confirmation of storage
                                             folder_name = self.docs_app.folder_name
