@@ -78,7 +78,8 @@ class MessageSender:
             is_error_message = "error processing your document" in message
             
             # Apply more aggressive deduplication for document notifications
-            if is_document_stored or is_processing_started or is_processing_completed or is_error_message:
+            # EXCEPT for completion notifications which should always be sent
+            if (is_document_stored or is_processing_started) and not is_processing_completed and not is_error_message:
                 # Create a simplified key based on the message type
                 simplified_key = None
                 dedup_window = 60  # Default window (60 seconds)
@@ -89,12 +90,6 @@ class MessageSender:
                 elif is_processing_started:
                     simplified_key = f"{to_number}:processing_started"
                     dedup_window = 300  # 5 minutes for processing start notifications
-                elif is_processing_completed:
-                    simplified_key = f"{to_number}:processing_completed"
-                    dedup_window = 600  # 10 minutes for completion notifications
-                elif is_error_message:
-                    simplified_key = f"{to_number}:processing_error"
-                    dedup_window = 600  # 10 minutes for error notifications
                 
                 if simplified_key and simplified_key in self.sent_messages:
                     time_since_sent = current_time - self.sent_messages[simplified_key]
@@ -105,6 +100,17 @@ class MessageSender:
                 # Store both the exact message and the simplified version if we have one
                 if simplified_key:
                     self.sent_messages[simplified_key] = current_time
+            
+            # For completion notifications, we'll still track them but never skip sending them
+            if is_processing_completed:
+                print(f"Sending completion notification to {to_number} (always sent regardless of deduplication)")
+                simplified_key = f"{to_number}:processing_completed"
+                self.sent_messages[simplified_key] = current_time
+            
+            if is_error_message:
+                print(f"Sending error notification to {to_number} (always sent regardless of deduplication)")
+                simplified_key = f"{to_number}:processing_error"
+                self.sent_messages[simplified_key] = current_time
             
             # Prepare the API request
             url = self.base_url

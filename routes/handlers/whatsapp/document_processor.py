@@ -398,41 +398,51 @@ class DocumentProcessor:
             async def process_and_notify():
                 try:
                     print(f"Starting background RAG processing for document {file_id}")
+                    
+                    # IMPORTANT: Reset completion notification tracking to ensure we always send a completion notification
+                    # This ensures the user always gets notified when processing completes
+                    if file_id in GLOBAL_MESSAGE_TRACKING and "completion_notification" in GLOBAL_MESSAGE_TRACKING[file_id]:
+                        del GLOBAL_MESSAGE_TRACKING[file_id]["completion_notification"]
+                    
+                    # Process the document
                     result = await self.docs_app.rag_processor.process_document_async(
                         file_id, 
                         mime_type,
                         from_number
                     )
                     
+                    print(f"RAG processing completed for {file_id}. Result: {result}")
+                    
                     # Mark as processing completed in global tracking
                     self._update_global_tracking(file_id, "processing_completed")
                     
-                    # Only send completion notification if we haven't already
-                    if not self._is_duplicate_by_global_tracking(file_id, "completion_notification"):
-                        # Notify user of completion
-                        if result and result.get("status") == "success":
-                            await self.message_sender.send_message(
-                                from_number, 
-                                f"✅ Document '{filename}' has been processed successfully!\n\n"
-                                f"You can now ask questions about it using:\n"
-                                f"/ask <your question>"
-                            )
-                        else:
-                            error = result.get("error", "Unknown error")
-                            await self.message_sender.send_message(
-                                from_number,
-                                f"⚠️ Document processing completed with issues: {error}\n\n"
-                                f"You can still try asking questions about it."
-                            )
-                        
-                        # Mark completion notification as sent
-                        self._update_global_tracking(file_id, "completion_notification")
-                        
-                        # Update state
-                        if doc_state_key in self.document_states:
-                            doc_state = self.document_states[doc_state_key]
-                            doc_state["processing_completed"] = True
-                            doc_state["last_notification"] = int(time.time())
+                    # Always send a completion notification regardless of previous notifications
+                    # This ensures the user is always informed when processing is done
+                    if result and result.get("status") == "success":
+                        print(f"Sending success notification for {file_id}")
+                        await self.message_sender.send_message(
+                            from_number, 
+                            f"✅ Document '{filename}' has been processed successfully!\n\n"
+                            f"You can now ask questions about it using:\n"
+                            f"/ask <your question>"
+                        )
+                    else:
+                        error = result.get("error", "Unknown error")
+                        print(f"Sending completion with issues notification for {file_id}: {error}")
+                        await self.message_sender.send_message(
+                            from_number,
+                            f"⚠️ Document processing completed with issues: {error}\n\n"
+                            f"You can still try asking questions about it."
+                        )
+                    
+                    # Mark completion notification as sent
+                    self._update_global_tracking(file_id, "completion_notification")
+                    
+                    # Update state
+                    if doc_state_key in self.document_states:
+                        doc_state = self.document_states[doc_state_key]
+                        doc_state["processing_completed"] = True
+                        doc_state["last_notification"] = int(time.time())
                     
                     # Remove from processing documents
                     self.deduplication.mark_document_processed(processing_key)
@@ -448,28 +458,31 @@ class DocumentProcessor:
                     # Mark as processing error in global tracking
                     self._update_global_tracking(file_id, "processing_error")
                     
-                    # Only send error notification if we haven't already
-                    if not self._is_duplicate_by_global_tracking(file_id, "error_notification"):
-                        await self.message_sender.send_message(
-                            from_number, 
-                            f"❌ There was an error processing your document: {str(e)}\n\n"
-                            f"You can still try asking questions about it, but results may be limited."
-                        )
-                        
-                        # Mark error notification as sent
-                        self._update_global_tracking(file_id, "error_notification")
-                        
-                        # Update state
-                        if doc_state_key in self.document_states:
-                            doc_state = self.document_states[doc_state_key]
-                            doc_state["processing_completed"] = True
-                            doc_state["last_notification"] = int(time.time())
+                    # Always send an error notification regardless of previous notifications
+                    # This ensures the user is always informed of processing errors
+                    print(f"Sending error notification for {file_id}")
+                    await self.message_sender.send_message(
+                        from_number, 
+                        f"❌ There was an error processing your document: {str(e)}\n\n"
+                        f"You can still try asking questions about it, but results may be limited."
+                    )
+                    
+                    # Mark error notification as sent
+                    self._update_global_tracking(file_id, "error_notification")
+                    
+                    # Update state
+                    if doc_state_key in self.document_states:
+                        doc_state = self.document_states[doc_state_key]
+                        doc_state["processing_completed"] = True
+                        doc_state["last_notification"] = int(time.time())
                     
                     # Remove from processing documents
                     self.deduplication.mark_document_processed(processing_key)
             
             # Fire and forget the processing task
-            asyncio.create_task(process_and_notify())
+            task = asyncio.create_task(process_and_notify())
+            # Add a name to the task for better debugging
+            task.set_name(f"rag_processing_{file_id}")
             
         except Exception as rag_err:
             print(f"Error starting RAG processing: {str(rag_err)}")
