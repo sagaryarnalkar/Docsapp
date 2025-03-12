@@ -8,6 +8,8 @@ interactions. It delegates specific tasks to specialized modules.
 import json
 import logging
 import time
+import asyncio
+from typing import Dict, Any, Tuple, Optional
 from config import (
     WHATSAPP_ACCESS_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
@@ -20,6 +22,10 @@ from .command_processor import CommandProcessor
 from .deduplication import DeduplicationManager
 
 logger = logging.getLogger(__name__)
+
+# Global message tracking to prevent duplicates across instances
+# Format: {message_key: timestamp}
+GLOBAL_MESSAGE_TRACKING = {}
 
 class WhatsAppHandler:
     """
@@ -74,6 +80,9 @@ class WhatsAppHandler:
             hasattr(self.rag_processor, 'is_available') and 
             self.rag_processor.is_available
         )
+        
+        # Clean up old global message tracking entries
+        self._cleanup_global_tracking()
 
     async def send_message(self, to_number, message):
         """
@@ -113,6 +122,7 @@ class WhatsAppHandler:
 
             # Clean up tracking dictionaries
             self.deduplication.cleanup()
+            self._cleanup_global_tracking()
 
             # Extract message data from the webhook payload
             entry = data.get('entry', [{}])[0]
@@ -134,12 +144,34 @@ class WhatsAppHandler:
             message_id = message.get('id')
             from_number = message.get('from')
             
-            # Check for duplicate message processing
+            if not message_id or not from_number:
+                print("Missing message ID or sender number")
+                return "Invalid message data", 400
+                
+            # Create a more robust message key that combines the sender's number and message ID
+            message_key = f"{from_number}:{message_id}"
+            current_time = int(time.time())
+            
+            # Check global tracking first - this is our first line of defense against duplicates
+            if self._is_duplicate_by_global_tracking(message_key):
+                time_since_processed = current_time - GLOBAL_MESSAGE_TRACKING[message_key]
+                print(f"DUPLICATE MESSAGE DETECTED: {message_key} (processed {time_since_processed}s ago)")
+                logger.info(f"Skipping duplicate message {message_id} from {from_number} "
+                           f"(processed {time_since_processed}s ago)")
+                return "Duplicate message processing prevented", 200
+            
+            # Mark this message as being processed in global tracking
+            self._update_global_tracking(message_key, current_time)
+            
+            # Also check the deduplication manager as a backup
             if self.deduplication.is_duplicate_message(from_number, message_id):
+                print(f"DUPLICATE MESSAGE DETECTED by deduplication manager: {message_key}")
                 return "Duplicate message processing prevented", 200
             
             print(f"\n=== Message Details ===")
             print(f"From: {from_number}")
+            print(f"Message ID: {message_id}")
+            print(f"Message Key: {message_key}")
 
             # Check authentication status first for any message
             is_authorized = self.user_state.is_authorized(from_number)
@@ -151,6 +183,7 @@ class WhatsAppHandler:
 
             # Process the message based on its type
             message_type = message.get('type')
+            print(f"Message Type: {message_type}")
 
             # Handle all file types (document, image, video, audio)
             if message_type in ['document', 'image', 'video', 'audio']:
@@ -199,10 +232,13 @@ class WhatsAppHandler:
             logger.error(f"Error handling WhatsApp message: {str(e)}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
-            await self.send_message(
-                from_number, 
-                "❌ Sorry, there was an error processing your request. Please try again later."
-            )
+            
+            # Only try to send a message if we have a from_number
+            if 'from_number' in locals() and from_number:
+                await self.send_message(
+                    from_number, 
+                    "❌ Sorry, there was an error processing your request. Please try again later."
+                )
             raise WhatsAppHandlerError(str(e))
             
     async def _handle_unauthorized_user(self, from_number):
@@ -267,4 +303,51 @@ class WhatsAppHandler:
         Returns:
             tuple: (response_message, status_code)
         """
-        return await self.command_processor.handle_command(from_number, text) 
+        return await self.command_processor.handle_command(from_number, text)
+
+    def _is_duplicate_by_global_tracking(self, message_key):
+        """
+        Check if a message has already been processed using global tracking.
+        
+        Args:
+            message_key: The message key (from_number:message_id)
+            
+        Returns:
+            bool: True if this message has already been processed
+        """
+        return message_key in GLOBAL_MESSAGE_TRACKING
+        
+    def _update_global_tracking(self, message_key, timestamp):
+        """
+        Update global tracking for a message.
+        
+        Args:
+            message_key: The message key (from_number:message_id)
+            timestamp: The timestamp when the message was processed
+        """
+        GLOBAL_MESSAGE_TRACKING[message_key] = timestamp
+        
+        # Log the update
+        logger.info(f"Updated global tracking for message: {message_key}")
+        
+    def _cleanup_global_tracking(self):
+        """Clean up old global tracking entries to prevent memory leaks."""
+        global GLOBAL_MESSAGE_TRACKING
+        
+        current_time = int(time.time())
+        cutoff_time = current_time - 600  # 10 minutes
+        
+        # Count before cleanup
+        count_before = len(GLOBAL_MESSAGE_TRACKING)
+        
+        # Remove old entries
+        GLOBAL_MESSAGE_TRACKING = {
+            k: v for k, v in GLOBAL_MESSAGE_TRACKING.items()
+            if v > cutoff_time
+        }
+        
+        # Count after cleanup
+        count_after = len(GLOBAL_MESSAGE_TRACKING)
+        
+        if count_before != count_after:
+            logger.info(f"Cleaned up global message tracking. Before: {count_before}, After: {count_after}") 

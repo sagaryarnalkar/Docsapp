@@ -18,6 +18,10 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
+# Global message tracking to prevent duplicates across instances
+# Format: {document_id: {message_type: timestamp}}
+GLOBAL_MESSAGE_TRACKING = {}
+
 # Define the error class here to avoid circular imports
 class WhatsAppHandlerError(Exception):
     """
@@ -57,6 +61,9 @@ class DocumentProcessor:
         # Track document processing states to prevent duplicate notifications
         self.document_states = {}
         
+        # Clean up old global message tracking entries
+        self._cleanup_global_tracking()
+        
     async def handle_document(self, from_number, document, message=None):
         """
         Process a document from WhatsApp.
@@ -87,15 +94,22 @@ class DocumentProcessor:
             filename = document.get('filename', 'Unknown file')
             mime_type = document.get('mime_type', 'application/octet-stream')
             
+            # Check global tracking first
+            if self._is_duplicate_by_global_tracking(doc_id, "document_received"):
+                logger.info(f"Skipping duplicate document processing for {doc_id} based on global tracking")
+                return "Duplicate document processing prevented", 200
+            
+            # Mark as received in global tracking
+            self._update_global_tracking(doc_id, "document_received")
+            
             if self.deduplication.is_duplicate_document(from_number, doc_id):
                 # Still send a confirmation message if we haven't sent one recently
-                confirmation_key = f"confirmation:{from_number}:{doc_id}"
-                if confirmation_key not in self.message_sender.sent_messages:
+                if not self._is_duplicate_by_global_tracking(doc_id, "already_processed_notification"):
                     await self.message_sender.send_message(
                         from_number, 
                         f"✅ Document '{filename}' was already processed. You can ask questions about it using:\n/ask <your question>"
                     )
-                    self.message_sender.sent_messages[confirmation_key] = int(time.time())
+                    self._update_global_tracking(doc_id, "already_processed_notification")
                     
                 return "Duplicate document processing prevented", 200
 
@@ -141,6 +155,15 @@ class DocumentProcessor:
         if quoted_msg_id:
             description = message.get('text', {}).get('body', '')
             debug_info.append(f"Adding description from reply: {description}")
+            
+            # Check for duplicate description update
+            if self._is_duplicate_by_global_tracking(quoted_msg_id, "description_update"):
+                logger.info(f"Skipping duplicate description update for {quoted_msg_id}")
+                return "Duplicate description update prevented", 200
+                
+            # Mark as description update in global tracking
+            self._update_global_tracking(quoted_msg_id, "description_update")
+            
             result = self.docs_app.update_document_description(from_number, quoted_msg_id, description)
             if result:
                 await self.message_sender.send_message(
@@ -171,6 +194,14 @@ class DocumentProcessor:
         Returns:
             tuple: (response_message, status_code)
         """
+        # Check if we've already started downloading this document
+        if self._is_duplicate_by_global_tracking(doc_id, "download_started"):
+            logger.info(f"Skipping duplicate download for {doc_id}")
+            return "Duplicate download prevented", 200
+            
+        # Mark as download started in global tracking
+        self._update_global_tracking(doc_id, "download_started")
+        
         # Get media URL first
         media_request_url = f"https://graph.facebook.com/{self.message_sender.api_version}/{doc_id}"
         headers = {
@@ -208,6 +239,11 @@ class DocumentProcessor:
                                     debug_info.append(f"File saved to: {temp_path}")
 
                                     try:
+                                        # Check if we've already stored this document
+                                        if self._is_duplicate_by_global_tracking(doc_id, "document_stored"):
+                                            logger.info(f"Skipping duplicate storage for {doc_id}")
+                                            return "Duplicate storage prevented", 200
+                                            
                                         # Store in Drive with description
                                         store_result = await self.docs_app.store_document(
                                             from_number, temp_path, description, filename
@@ -225,6 +261,10 @@ class DocumentProcessor:
                                         # Get the file ID for tracking
                                         file_id = store_result.get('file_id', 'unknown')
                                         
+                                        # Mark as stored in global tracking
+                                        self._update_global_tracking(doc_id, "document_stored")
+                                        self._update_global_tracking(file_id, "document_stored")
+                                        
                                         # Create a document state entry for this file
                                         doc_state_key = f"{from_number}:{file_id}"
                                         self.document_states[doc_state_key] = {
@@ -235,16 +275,23 @@ class DocumentProcessor:
                                             "last_notification": int(time.time())
                                         }
                                         
-                                        # Send storage confirmation message
-                                        folder_name = self.docs_app.folder_name
-                                        immediate_response = (
-                                            f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
-                                            f"Initial description: {description}\n\n"
-                                            "You can reply to this message with additional descriptions "
-                                            "to make the document easier to find later!"
-                                        )
-                                        
-                                        await self.message_sender.send_message(from_number, immediate_response)
+                                        # Check if we've already sent a storage confirmation
+                                        if not self._is_duplicate_by_global_tracking(doc_id, "storage_notification") and \
+                                           not self._is_duplicate_by_global_tracking(file_id, "storage_notification"):
+                                            # Send storage confirmation message
+                                            folder_name = self.docs_app.folder_name
+                                            immediate_response = (
+                                                f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
+                                                f"Initial description: {description}\n\n"
+                                                "You can reply to this message with additional descriptions "
+                                                "to make the document easier to find later!"
+                                            )
+                                            
+                                            await self.message_sender.send_message(from_number, immediate_response)
+                                            
+                                            # Mark storage notification as sent
+                                            self._update_global_tracking(doc_id, "storage_notification")
+                                            self._update_global_tracking(file_id, "storage_notification")
                                         
                                         # Process document with RAG in the background
                                         if file_id != 'unknown':
@@ -296,25 +343,30 @@ class DocumentProcessor:
             filename: The document filename
         """
         try:
+            # Check if we've already started processing this document
+            if self._is_duplicate_by_global_tracking(file_id, "processing_started"):
+                logger.info(f"Skipping duplicate RAG processing for {file_id}")
+                return
+                
             # Create a document state key for tracking
             doc_state_key = f"{from_number}:{file_id}"
             
             # Check if this document is already being processed
             if self.deduplication.is_document_processing(from_number, file_id):
                 # Only send a notification if we haven't already notified about processing
-                if doc_state_key in self.document_states:
-                    doc_state = self.document_states[doc_state_key]
-                    if not doc_state.get("processing_started", False):
-                        await self.message_sender.send_message(
-                            from_number, 
-                            "🔄 Document is already being processed. I'll notify you when it's complete..."
-                        )
-                        doc_state["processing_started"] = True
-                        doc_state["last_notification"] = int(time.time())
+                if not self._is_duplicate_by_global_tracking(file_id, "processing_notification"):
+                    await self.message_sender.send_message(
+                        from_number, 
+                        "🔄 Document is already being processed. I'll notify you when it's complete..."
+                    )
+                    self._update_global_tracking(file_id, "processing_notification")
                 return
             
             # Mark as processing to avoid duplicate processing
             processing_key = self.deduplication.mark_document_processing(from_number, file_id)
+            
+            # Mark as processing started in global tracking
+            self._update_global_tracking(file_id, "processing_started")
             
             # Initialize or update document state
             if doc_state_key not in self.document_states:
@@ -327,19 +379,20 @@ class DocumentProcessor:
                 }
             
             # Check if we need to send a processing notification
-            doc_state = self.document_states[doc_state_key]
-            current_time = int(time.time())
-            
-            # Only send processing notification if we haven't already
-            if not doc_state.get("processing_started", False):
+            if not self._is_duplicate_by_global_tracking(file_id, "processing_notification"):
                 # Send processing started message
                 await self.message_sender.send_message(
                     from_number, 
                     "🔄 Document processing started. I'll notify you when it's complete..."
                 )
+                # Mark processing notification as sent
+                self._update_global_tracking(file_id, "processing_notification")
+                
                 # Update state
-                doc_state["processing_started"] = True
-                doc_state["last_notification"] = current_time
+                if doc_state_key in self.document_states:
+                    doc_state = self.document_states[doc_state_key]
+                    doc_state["processing_started"] = True
+                    doc_state["last_notification"] = int(time.time())
             
             # Create a task to process the document and notify when done
             async def process_and_notify():
@@ -351,29 +404,33 @@ class DocumentProcessor:
                         from_number
                     )
                     
-                    # Update document state
-                    if doc_state_key in self.document_states:
-                        doc_state = self.document_states[doc_state_key]
+                    # Mark as processing completed in global tracking
+                    self._update_global_tracking(file_id, "processing_completed")
+                    
+                    # Only send completion notification if we haven't already
+                    if not self._is_duplicate_by_global_tracking(file_id, "completion_notification"):
+                        # Notify user of completion
+                        if result and result.get("status") == "success":
+                            await self.message_sender.send_message(
+                                from_number, 
+                                f"✅ Document '{filename}' has been processed successfully!\n\n"
+                                f"You can now ask questions about it using:\n"
+                                f"/ask <your question>"
+                            )
+                        else:
+                            error = result.get("error", "Unknown error")
+                            await self.message_sender.send_message(
+                                from_number,
+                                f"⚠️ Document processing completed with issues: {error}\n\n"
+                                f"You can still try asking questions about it."
+                            )
                         
-                        # Only send completion notification if we haven't already
-                        if not doc_state.get("processing_completed", False):
-                            # Notify user of completion
-                            if result and result.get("status") == "success":
-                                await self.message_sender.send_message(
-                                    from_number, 
-                                    f"✅ Document '{filename}' has been processed successfully!\n\n"
-                                    f"You can now ask questions about it using:\n"
-                                    f"/ask <your question>"
-                                )
-                            else:
-                                error = result.get("error", "Unknown error")
-                                await self.message_sender.send_message(
-                                    from_number,
-                                    f"⚠️ Document processing completed with issues: {error}\n\n"
-                                    f"You can still try asking questions about it."
-                                )
-                            
-                            # Update state
+                        # Mark completion notification as sent
+                        self._update_global_tracking(file_id, "completion_notification")
+                        
+                        # Update state
+                        if doc_state_key in self.document_states:
+                            doc_state = self.document_states[doc_state_key]
                             doc_state["processing_completed"] = True
                             doc_state["last_notification"] = int(time.time())
                     
@@ -388,19 +445,23 @@ class DocumentProcessor:
                     import traceback
                     print(f"Traceback:\n{traceback.format_exc()}")
                     
-                    # Update document state
-                    if doc_state_key in self.document_states:
-                        doc_state = self.document_states[doc_state_key]
+                    # Mark as processing error in global tracking
+                    self._update_global_tracking(file_id, "processing_error")
+                    
+                    # Only send error notification if we haven't already
+                    if not self._is_duplicate_by_global_tracking(file_id, "error_notification"):
+                        await self.message_sender.send_message(
+                            from_number, 
+                            f"❌ There was an error processing your document: {str(e)}\n\n"
+                            f"You can still try asking questions about it, but results may be limited."
+                        )
                         
-                        # Only send error notification if we haven't already sent a completion notification
-                        if not doc_state.get("processing_completed", False):
-                            await self.message_sender.send_message(
-                                from_number, 
-                                f"❌ There was an error processing your document: {str(e)}\n\n"
-                                f"You can still try asking questions about it, but results may be limited."
-                            )
-                            
-                            # Update state
+                        # Mark error notification as sent
+                        self._update_global_tracking(file_id, "error_notification")
+                        
+                        # Update state
+                        if doc_state_key in self.document_states:
+                            doc_state = self.document_states[doc_state_key]
                             doc_state["processing_completed"] = True
                             doc_state["last_notification"] = int(time.time())
                     
@@ -426,4 +487,70 @@ class DocumentProcessor:
             if v.get("last_notification", 0) > cutoff_time
         }
         
-        print(f"Cleaned up document states. Remaining: {len(self.document_states)}") 
+        # Also clean up global tracking
+        self._cleanup_global_tracking()
+        
+        print(f"Cleaned up document states. Remaining: {len(self.document_states)}")
+    
+    def _is_duplicate_by_global_tracking(self, doc_id, message_type):
+        """
+        Check if a message type for a document has already been sent.
+        
+        Args:
+            doc_id: The document ID
+            message_type: The type of message
+            
+        Returns:
+            bool: True if this message type has already been sent for this document
+        """
+        if not doc_id or doc_id == 'unknown':
+            return False
+            
+        return doc_id in GLOBAL_MESSAGE_TRACKING and message_type in GLOBAL_MESSAGE_TRACKING[doc_id]
+    
+    def _update_global_tracking(self, doc_id, message_type):
+        """
+        Update global tracking for a document and message type.
+        
+        Args:
+            doc_id: The document ID
+            message_type: The type of message
+        """
+        if not doc_id or doc_id == 'unknown':
+            return
+            
+        if doc_id not in GLOBAL_MESSAGE_TRACKING:
+            GLOBAL_MESSAGE_TRACKING[doc_id] = {}
+            
+        GLOBAL_MESSAGE_TRACKING[doc_id][message_type] = int(time.time())
+        
+        # Log the update
+        logger.info(f"Updated global tracking for {doc_id}: {message_type}")
+    
+    def _cleanup_global_tracking(self):
+        """Clean up old global tracking entries to prevent memory leaks."""
+        global GLOBAL_MESSAGE_TRACKING
+        
+        current_time = int(time.time())
+        cutoff_time = current_time - 86400  # 24 hours
+        
+        # Count before cleanup
+        count_before = len(GLOBAL_MESSAGE_TRACKING)
+        
+        # Remove old entries
+        for doc_id in list(GLOBAL_MESSAGE_TRACKING.keys()):
+            # Remove old message types
+            GLOBAL_MESSAGE_TRACKING[doc_id] = {
+                k: v for k, v in GLOBAL_MESSAGE_TRACKING[doc_id].items()
+                if v > cutoff_time
+            }
+            
+            # Remove empty documents
+            if not GLOBAL_MESSAGE_TRACKING[doc_id]:
+                del GLOBAL_MESSAGE_TRACKING[doc_id]
+        
+        # Count after cleanup
+        count_after = len(GLOBAL_MESSAGE_TRACKING)
+        
+        if count_before != count_after:
+            logger.info(f"Cleaned up global tracking. Before: {count_before}, After: {count_after}") 
