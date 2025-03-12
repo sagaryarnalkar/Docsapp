@@ -70,17 +70,41 @@ class MessageSender:
                 else:
                     print(f"Message was sent before, but {time_since_sent}s ago, so sending again")
             
-            # For document confirmations, use a more aggressive deduplication
-            if "Document" in message and "stored successfully" in message:
-                # Create a simplified key that ignores the exact filename
-                simplified_key = f"{to_number}:document_stored"
-                if simplified_key in self.sent_messages:
+            # Enhanced deduplication for document processing messages
+            # Create message type flags for different kinds of notifications
+            is_document_stored = "Document" in message and "stored successfully" in message
+            is_processing_started = "Document processing started" in message
+            is_processing_completed = "has been processed successfully" in message or "processing completed with issues" in message
+            is_error_message = "error processing your document" in message
+            
+            # Apply more aggressive deduplication for document notifications
+            if is_document_stored or is_processing_started or is_processing_completed or is_error_message:
+                # Create a simplified key based on the message type
+                simplified_key = None
+                dedup_window = 60  # Default window (60 seconds)
+                
+                if is_document_stored:
+                    simplified_key = f"{to_number}:document_stored"
+                    dedup_window = 300  # 5 minutes for storage confirmations
+                elif is_processing_started:
+                    simplified_key = f"{to_number}:processing_started"
+                    dedup_window = 300  # 5 minutes for processing start notifications
+                elif is_processing_completed:
+                    simplified_key = f"{to_number}:processing_completed"
+                    dedup_window = 600  # 10 minutes for completion notifications
+                elif is_error_message:
+                    simplified_key = f"{to_number}:processing_error"
+                    dedup_window = 600  # 10 minutes for error notifications
+                
+                if simplified_key and simplified_key in self.sent_messages:
                     time_since_sent = current_time - self.sent_messages[simplified_key]
-                    if time_since_sent < 300:  # 5 minutes for document confirmations
-                        print(f"Skipping duplicate document confirmation to {to_number} (sent {time_since_sent}s ago)")
+                    if time_since_sent < dedup_window:
+                        print(f"Skipping duplicate notification to {to_number} (type: {simplified_key}, sent {time_since_sent}s ago)")
                         return True
-                # Store both the exact message and the simplified version
-                self.sent_messages[simplified_key] = current_time
+                
+                # Store both the exact message and the simplified version if we have one
+                if simplified_key:
+                    self.sent_messages[simplified_key] = current_time
             
             # Prepare the API request
             url = self.base_url

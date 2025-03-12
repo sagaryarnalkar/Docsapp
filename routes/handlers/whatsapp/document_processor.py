@@ -54,6 +54,9 @@ class DocumentProcessor:
         self.message_sender = message_sender
         self.deduplication = deduplication
         
+        # Track document processing states to prevent duplicate notifications
+        self.document_states = {}
+        
     async def handle_document(self, from_number, document, message=None):
         """
         Process a document from WhatsApp.
@@ -219,29 +222,35 @@ class DocumentProcessor:
 
                                         debug_info.append("Document stored successfully")
                                         
-                                        # Create a unique confirmation key for this document
-                                        confirmation_key = f"confirmation:{from_number}:{store_result.get('file_id', 'unknown')}"
-                                        if confirmation_key in self.message_sender.sent_messages:
-                                            print(f"Skipping duplicate confirmation for {store_result.get('file_id')} - already sent")
-                                        else:
-                                            # First send immediate confirmation of storage
-                                            folder_name = self.docs_app.folder_name
-                                            immediate_response = (
-                                                f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
-                                                f"Initial description: {description}\n\n"
-                                                "You can reply to this message with additional descriptions "
-                                                "to make the document easier to find later!"
-                                            )
-                                            
-                                            await self.message_sender.send_message(from_number, immediate_response)
-                                            # Mark this confirmation as sent
-                                            self.message_sender.sent_messages[confirmation_key] = int(time.time())
+                                        # Get the file ID for tracking
+                                        file_id = store_result.get('file_id', 'unknown')
+                                        
+                                        # Create a document state entry for this file
+                                        doc_state_key = f"{from_number}:{file_id}"
+                                        self.document_states[doc_state_key] = {
+                                            "received": True,
+                                            "stored": True,
+                                            "processing_started": False,
+                                            "processing_completed": False,
+                                            "last_notification": int(time.time())
+                                        }
+                                        
+                                        # Send storage confirmation message
+                                        folder_name = self.docs_app.folder_name
+                                        immediate_response = (
+                                            f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
+                                            f"Initial description: {description}\n\n"
+                                            "You can reply to this message with additional descriptions "
+                                            "to make the document easier to find later!"
+                                        )
+                                        
+                                        await self.message_sender.send_message(from_number, immediate_response)
                                         
                                         # Process document with RAG in the background
-                                        if store_result.get('file_id'):
+                                        if file_id != 'unknown':
                                             await self._process_document_with_rag(
                                                 from_number, 
-                                                store_result.get('file_id'),
+                                                file_id,
                                                 store_result.get('mime_type'),
                                                 filename
                                             )
@@ -287,33 +296,50 @@ class DocumentProcessor:
             filename: The document filename
         """
         try:
-            # Create unique keys for tracking this document processing
-            processing_key = f"processing:{from_number}:{file_id}"
-            processing_notification_key = f"processing_notification:{from_number}:{file_id}"
+            # Create a document state key for tracking
+            doc_state_key = f"{from_number}:{file_id}"
             
             # Check if this document is already being processed
             if self.deduplication.is_document_processing(from_number, file_id):
-                # Only send a notification if we haven't sent one recently
-                if processing_notification_key not in self.message_sender.sent_messages:
-                    await self.message_sender.send_message(
-                        from_number, 
-                        "🔄 Document is already being processed. I'll notify you when it's complete..."
-                    )
-                    self.message_sender.sent_messages[processing_notification_key] = int(time.time())
+                # Only send a notification if we haven't already notified about processing
+                if doc_state_key in self.document_states:
+                    doc_state = self.document_states[doc_state_key]
+                    if not doc_state.get("processing_started", False):
+                        await self.message_sender.send_message(
+                            from_number, 
+                            "🔄 Document is already being processed. I'll notify you when it's complete..."
+                        )
+                        doc_state["processing_started"] = True
+                        doc_state["last_notification"] = int(time.time())
                 return
             
             # Mark as processing to avoid duplicate processing
-            self.deduplication.mark_document_processing(from_number, file_id)
+            processing_key = self.deduplication.mark_document_processing(from_number, file_id)
             
-            # Send processing notification if not already sent
-            if processing_notification_key not in self.message_sender.sent_messages:
+            # Initialize or update document state
+            if doc_state_key not in self.document_states:
+                self.document_states[doc_state_key] = {
+                    "received": True,
+                    "stored": True,
+                    "processing_started": False,
+                    "processing_completed": False,
+                    "last_notification": 0
+                }
+            
+            # Check if we need to send a processing notification
+            doc_state = self.document_states[doc_state_key]
+            current_time = int(time.time())
+            
+            # Only send processing notification if we haven't already
+            if not doc_state.get("processing_started", False):
                 # Send processing started message
                 await self.message_sender.send_message(
                     from_number, 
                     "🔄 Document processing started. I'll notify you when it's complete..."
                 )
-                # Mark this notification as sent
-                self.message_sender.sent_messages[processing_notification_key] = int(time.time())
+                # Update state
+                doc_state["processing_started"] = True
+                doc_state["last_notification"] = current_time
             
             # Create a task to process the document and notify when done
             async def process_and_notify():
@@ -325,51 +351,79 @@ class DocumentProcessor:
                         from_number
                     )
                     
-                    # Create a unique completion notification key
-                    completion_notification_key = f"completion_notification:{from_number}:{file_id}"
-                    
-                    if completion_notification_key not in self.message_sender.sent_messages:
-                        # Notify user of completion
-                        if result and result.get("status") == "success":
-                            await self.message_sender.send_message(
-                                from_number, 
-                                f"✅ Document '{filename}' has been processed successfully!\n\n"
-                                f"You can now ask questions about it using:\n"
-                                f"/ask <your question>"
-                            )
-                        else:
-                            error = result.get("error", "Unknown error")
-                            await self.message_sender.send_message(
-                                from_number,
-                                f"⚠️ Document processing completed with issues: {error}\n\n"
-                                f"You can still try asking questions about it."
-                            )
-                        # Mark completion notification as sent
-                        self.message_sender.sent_messages[completion_notification_key] = int(time.time())
+                    # Update document state
+                    if doc_state_key in self.document_states:
+                        doc_state = self.document_states[doc_state_key]
+                        
+                        # Only send completion notification if we haven't already
+                        if not doc_state.get("processing_completed", False):
+                            # Notify user of completion
+                            if result and result.get("status") == "success":
+                                await self.message_sender.send_message(
+                                    from_number, 
+                                    f"✅ Document '{filename}' has been processed successfully!\n\n"
+                                    f"You can now ask questions about it using:\n"
+                                    f"/ask <your question>"
+                                )
+                            else:
+                                error = result.get("error", "Unknown error")
+                                await self.message_sender.send_message(
+                                    from_number,
+                                    f"⚠️ Document processing completed with issues: {error}\n\n"
+                                    f"You can still try asking questions about it."
+                                )
+                            
+                            # Update state
+                            doc_state["processing_completed"] = True
+                            doc_state["last_notification"] = int(time.time())
                     
                     # Remove from processing documents
                     self.deduplication.mark_document_processed(processing_key)
+                    
+                    # Clean up old document states (older than 24 hours)
+                    self._cleanup_document_states()
+                    
                 except Exception as e:
                     print(f"Error in process_and_notify: {str(e)}")
                     import traceback
                     print(f"Traceback:\n{traceback.format_exc()}")
                     
-                    # Only send error message if we haven't sent one for this document
-                    error_notification_key = f"error_notification:{from_number}:{file_id}"
-                    if error_notification_key not in self.message_sender.sent_messages:
-                        await self.message_sender.send_message(
-                            from_number, 
-                            f"❌ There was an error processing your document: {str(e)}\n\n"
-                            f"You can still try asking questions about it, but results may be limited."
-                        )
-                        self.message_sender.sent_messages[error_notification_key] = int(time.time())
+                    # Update document state
+                    if doc_state_key in self.document_states:
+                        doc_state = self.document_states[doc_state_key]
+                        
+                        # Only send error notification if we haven't already sent a completion notification
+                        if not doc_state.get("processing_completed", False):
+                            await self.message_sender.send_message(
+                                from_number, 
+                                f"❌ There was an error processing your document: {str(e)}\n\n"
+                                f"You can still try asking questions about it, but results may be limited."
+                            )
+                            
+                            # Update state
+                            doc_state["processing_completed"] = True
+                            doc_state["last_notification"] = int(time.time())
                     
                     # Remove from processing documents
                     self.deduplication.mark_document_processed(processing_key)
             
             # Fire and forget the processing task
             asyncio.create_task(process_and_notify())
+            
         except Exception as rag_err:
             print(f"Error starting RAG processing: {str(rag_err)}")
             import traceback
-            print(f"RAG processing error traceback:\n{traceback.format_exc()}") 
+            print(f"RAG processing error traceback:\n{traceback.format_exc()}")
+    
+    def _cleanup_document_states(self):
+        """Clean up old document states to prevent memory leaks."""
+        current_time = int(time.time())
+        cutoff_time = current_time - 86400  # 24 hours
+        
+        # Remove old document states
+        self.document_states = {
+            k: v for k, v in self.document_states.items() 
+            if v.get("last_notification", 0) > cutoff_time
+        }
+        
+        print(f"Cleaned up document states. Remaining: {len(self.document_states)}") 
