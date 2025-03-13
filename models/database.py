@@ -151,6 +151,7 @@ def get_database_url():
     """Get the database URL from environment or use SQLite as fallback"""
     # Check for PostgreSQL connection URL from Render
     postgres_url = os.environ.get('DATABASE_URL')
+    
     if postgres_url:
         # Ensure the URL uses the correct driver for SQLAlchemy
         if postgres_url.startswith('postgres:'):
@@ -171,12 +172,18 @@ engine = create_engine(
     pool_size=10 if database_url.startswith('postgresql') else None,
     max_overflow=20 if database_url.startswith('postgresql') else None,
     pool_recycle=300 if database_url.startswith('postgresql') else None,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    connect_args={'connect_timeout': 10} if database_url.startswith('postgresql') else {}
 )
 
 # Create all tables
-Base.metadata.create_all(engine)
-print("Database tables created successfully")
+try:
+    Base.metadata.create_all(engine)
+    print("Database tables created successfully")
+except Exception as e:
+    print(f"Error creating database tables: {str(e)}")
+    import traceback
+    print(traceback.format_exc())
 
 # Create session factory
 Session = sessionmaker(bind=engine)
@@ -233,6 +240,23 @@ def migrate_sqlite_to_postgres():
             )
             pg_session.add(new_doc)
         
+        # Migrate user tokens
+        try:
+            user_tokens = sqlite_session.query(UserToken).all()
+            print(f"Found {len(user_tokens)} user tokens to migrate")
+            
+            for token in user_tokens:
+                new_token = UserToken(
+                    phone_number=token.phone_number,
+                    tokens=token.tokens,
+                    created_at=token.created_at,
+                    updated_at=token.updated_at
+                )
+                pg_session.add(new_token)
+        except Exception as e:
+            print(f"Error migrating user tokens: {str(e)}")
+            # Continue with migration even if user tokens fail
+        
         pg_session.commit()
         pg_session.close()
         sqlite_session.close()
@@ -250,3 +274,5 @@ try:
     migrate_sqlite_to_postgres()
 except Exception as e:
     print(f"Migration attempt failed: {str(e)}")
+    import traceback
+    print(traceback.format_exc())
