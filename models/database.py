@@ -3,12 +3,13 @@ import sqlite3
 from contextlib import contextmanager
 import logging
 from config import DB_DIR
-from sqlalchemy import create_engine, Column, String, DateTime, Integer
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 import shutil
 from datetime import datetime
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -126,12 +127,52 @@ class Document(Base):
     mime_type = Column(String)
     data_store_id = Column(String)
     document_id = Column(String)
+    
+class UserToken(Base):
+    __tablename__ = 'user_tokens'
+    
+    id = Column(Integer, primary_key=True)
+    phone_number = Column(String, nullable=False, unique=True)
+    tokens = Column(Text, nullable=False)  # JSON string of tokens
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+class ProcessedMessage(Base):
+    __tablename__ = 'processed_messages'
+    
+    id = Column(Integer, primary_key=True)
+    message_key = Column(String, nullable=False, unique=True)
+    processed_at = Column(DateTime, default=datetime.utcnow)
+    message_type = Column(String)  # Type of message (document, notification, etc.)
+    expires_at = Column(DateTime)  # When this record should be cleaned up
 
-# Create database engine with persistent storage
-db_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
-os.makedirs(os.path.dirname(db_path), exist_ok=True)
-print(f"Initializing database at: {db_path}")
-engine = create_engine(f'sqlite:///{db_path}')
+# Database connection setup
+def get_database_url():
+    """Get the database URL from environment or use SQLite as fallback"""
+    # Check for PostgreSQL connection URL from Render
+    postgres_url = os.environ.get('DATABASE_URL')
+    if postgres_url:
+        # Ensure the URL uses the correct driver for SQLAlchemy
+        if postgres_url.startswith('postgres:'):
+            postgres_url = postgres_url.replace('postgres:', 'postgresql:')
+        print(f"Using PostgreSQL database: {postgres_url.split('@')[1] if '@' in postgres_url else 'unknown'}")
+        return postgres_url
+    
+    # Fallback to SQLite
+    db_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    print(f"Using SQLite database at: {db_path}")
+    return f'sqlite:///{db_path}'
+
+# Create database engine with the appropriate connection URL
+database_url = get_database_url()
+engine = create_engine(
+    database_url,
+    pool_size=10 if database_url.startswith('postgresql') else None,
+    max_overflow=20 if database_url.startswith('postgresql') else None,
+    pool_recycle=300 if database_url.startswith('postgresql') else None,
+    pool_pre_ping=True
+)
 
 # Create all tables
 Base.metadata.create_all(engine)
@@ -139,3 +180,73 @@ print("Database tables created successfully")
 
 # Create session factory
 Session = sessionmaker(bind=engine)
+
+def get_session():
+    """Get a database session"""
+    return Session()
+
+def migrate_sqlite_to_postgres():
+    """Migrate data from SQLite to PostgreSQL if needed"""
+    # Only run if we're using PostgreSQL and migration hasn't been done
+    if not database_url.startswith('postgresql') or os.environ.get('DB_MIGRATION_COMPLETED'):
+        return
+        
+    try:
+        print("Checking if migration from SQLite to PostgreSQL is needed...")
+        sqlite_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
+        
+        if not os.path.exists(sqlite_path):
+            print("No SQLite database found, skipping migration")
+            return
+            
+        # Check if PostgreSQL already has data
+        session = Session()
+        doc_count = session.query(Document).count()
+        session.close()
+        
+        if doc_count > 0:
+            print(f"PostgreSQL already has {doc_count} documents, skipping migration")
+            return
+            
+        print("Starting migration from SQLite to PostgreSQL...")
+        
+        # Create a temporary SQLite engine
+        sqlite_engine = create_engine(f'sqlite:///{sqlite_path}')
+        SQLiteSession = sessionmaker(bind=sqlite_engine)
+        sqlite_session = SQLiteSession()
+        
+        # Migrate documents
+        documents = sqlite_session.query(Document).all()
+        print(f"Found {len(documents)} documents to migrate")
+        
+        pg_session = Session()
+        for doc in documents:
+            new_doc = Document(
+                user_phone=doc.user_phone,
+                file_id=doc.file_id,
+                filename=doc.filename,
+                description=doc.description,
+                upload_date=doc.upload_date,
+                mime_type=doc.mime_type,
+                data_store_id=doc.data_store_id,
+                document_id=doc.document_id
+            )
+            pg_session.add(new_doc)
+        
+        pg_session.commit()
+        pg_session.close()
+        sqlite_session.close()
+        
+        print("✅ Migration completed successfully")
+        os.environ['DB_MIGRATION_COMPLETED'] = 'true'
+        
+    except Exception as e:
+        print(f"❌ Error during migration: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+
+# Try to run migration if needed
+try:
+    migrate_sqlite_to_postgres()
+except Exception as e:
+    print(f"Migration attempt failed: {str(e)}")

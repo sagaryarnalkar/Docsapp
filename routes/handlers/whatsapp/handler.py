@@ -9,6 +9,7 @@ import json
 import logging
 import time
 import asyncio
+import os
 from typing import Dict, Any, Tuple, Optional
 from config import (
     WHATSAPP_ACCESS_TOKEN,
@@ -62,12 +63,34 @@ class WhatsAppHandler:
             self.phone_number_id, 
             self.access_token
         )
+        
+        # Initialize deduplication manager
         self.deduplication = DeduplicationManager()
+        
+        # Try to initialize Redis deduplication manager if available
+        try:
+            from .redis_deduplication import RedisDeduplicationManager
+            redis_url = os.environ.get('REDIS_URL')
+            if redis_url:
+                self.redis_deduplication = RedisDeduplicationManager(redis_url)
+                logger.info(f"Using Redis for message deduplication: {redis_url.split('@')[1] if '@' in redis_url else 'unknown'}")
+                print(f"Using Redis for message deduplication")
+            else:
+                self.redis_deduplication = None
+                logger.info("Redis URL not available, using in-memory deduplication")
+                print("Redis URL not available, using in-memory deduplication")
+        except ImportError as e:
+            self.redis_deduplication = None
+            logger.warning(f"Redis deduplication not available: {str(e)}")
+            print(f"Redis deduplication not available: {str(e)}")
+        
+        # Initialize document processor with the appropriate deduplication manager
         self.document_processor = DocumentProcessor(
             self.docs_app, 
             self.message_sender,
-            self.deduplication
+            self._get_deduplication()
         )
+        
         self.command_processor = CommandProcessor(
             self.docs_app, 
             self.message_sender
@@ -152,21 +175,13 @@ class WhatsAppHandler:
             message_key = f"{from_number}:{message_id}"
             current_time = int(time.time())
             
-            # Check global tracking first - this is our first line of defense against duplicates
-            if self._is_duplicate_by_global_tracking(message_key):
-                time_since_processed = current_time - GLOBAL_MESSAGE_TRACKING[message_key]
-                print(f"DUPLICATE MESSAGE DETECTED: {message_key} (processed {time_since_processed}s ago)")
-                logger.info(f"Skipping duplicate message {message_id} from {from_number} "
-                           f"(processed {time_since_processed}s ago)")
+            # Check for duplicate message using the appropriate deduplication mechanism
+            if self._is_duplicate_message(from_number, message_id, message_key):
+                print(f"DUPLICATE MESSAGE DETECTED: {message_key}")
                 return "Duplicate message processing prevented", 200
             
-            # Mark this message as being processed in global tracking
-            self._update_global_tracking(message_key, current_time)
-            
-            # Also check the deduplication manager as a backup
-            if self.deduplication.is_duplicate_message(from_number, message_id):
-                print(f"DUPLICATE MESSAGE DETECTED by deduplication manager: {message_key}")
-                return "Duplicate message processing prevented", 200
+            # Mark this message as being processed
+            self._mark_message_processed(from_number, message_id, message_key, current_time)
             
             print(f"\n=== Message Details ===")
             print(f"From: {from_number}")
@@ -305,6 +320,50 @@ class WhatsAppHandler:
         """
         return await self.command_processor.handle_command(from_number, text)
 
+    def _is_duplicate_message(self, from_number, message_id, message_key):
+        """
+        Check if a message is a duplicate using the appropriate deduplication mechanism.
+        
+        Args:
+            from_number: The sender's phone number
+            message_id: The WhatsApp message ID
+            message_key: The combined key (from_number:message_id)
+            
+        Returns:
+            bool: True if the message is a duplicate, False otherwise
+        """
+        # Use Redis if available
+        if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
+            return self.redis_deduplication.is_duplicate_message(from_number, message_id)
+        
+        # Fall back to in-memory tracking
+        is_duplicate = self._is_duplicate_by_global_tracking(message_key)
+        
+        # Also check the deduplication manager as a backup
+        if not is_duplicate:
+            is_duplicate = self.deduplication.is_duplicate_message(from_number, message_id)
+            
+        return is_duplicate
+    
+    def _mark_message_processed(self, from_number, message_id, message_key, timestamp):
+        """
+        Mark a message as processed using the appropriate deduplication mechanism.
+        
+        Args:
+            from_number: The sender's phone number
+            message_id: The WhatsApp message ID
+            message_key: The combined key (from_number:message_id)
+            timestamp: The current timestamp
+        """
+        # Use Redis if available
+        if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
+            # Redis tracking is handled in the is_duplicate_message method
+            # which already marks the message as processed if it's not a duplicate
+            pass
+        else:
+            # Fall back to in-memory tracking
+            self._update_global_tracking(message_key, timestamp)
+
     def _is_duplicate_by_global_tracking(self, message_key):
         """
         Check if a message has already been processed using global tracking.
@@ -332,6 +391,10 @@ class WhatsAppHandler:
         
     def _cleanup_global_tracking(self):
         """Clean up old global tracking entries to prevent memory leaks."""
+        # Skip if using Redis (Redis handles expiration automatically)
+        if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
+            return
+            
         global GLOBAL_MESSAGE_TRACKING
         
         current_time = int(time.time())
@@ -350,4 +413,15 @@ class WhatsAppHandler:
         count_after = len(GLOBAL_MESSAGE_TRACKING)
         
         if count_before != count_after:
-            logger.info(f"Cleaned up global message tracking. Before: {count_before}, After: {count_after}") 
+            logger.info(f"Cleaned up global message tracking. Before: {count_before}, After: {count_after}")
+    
+    def _get_deduplication(self):
+        """
+        Get the appropriate deduplication manager.
+        
+        Returns:
+            The Redis deduplication manager if available, otherwise the in-memory one
+        """
+        if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
+            return self.redis_deduplication
+        return self.deduplication 

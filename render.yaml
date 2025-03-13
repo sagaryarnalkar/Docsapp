@@ -111,8 +111,32 @@ services:
         value: "1"
       - key: OAUTHLIB_INSECURE_TRANSPORT
         value: "1"
+      - key: DATABASE_URL
+        fromService:
+          name: docsapp-postgres
+          type: postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: docsapp-redis
+          type: redis
+          property: connectionString
     secrets:
       - key: GOOGLE_CREDENTIALS
         name: google-credentials
       - key: OAUTH_CREDENTIALS
-        name: oauth-credentials 
+        name: oauth-credentials
+
+  # PostgreSQL Database
+  - type: postgres
+    name: docsapp-postgres
+    plan: starter # $7/month, 1GB storage
+    ipAllowList: [] # Only allow internal connections
+    maxmemoryPolicy: noeviction
+
+  # Redis Cache
+  - type: redis
+    name: docsapp-redis
+    plan: free # Free tier, 25MB storage
+    ipAllowList: [] # Only allow internal connections
+    maxmemoryPolicy: volatile-lru # Evict least recently used keys with expiration 

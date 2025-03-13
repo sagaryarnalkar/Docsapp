@@ -15,12 +15,19 @@ from config import (
     WHATSAPP_ACCESS_TOKEN,
     TEMP_DIR
 )
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # Global message tracking to prevent duplicates across instances
 # Format: {document_id: {message_type: timestamp}}
 GLOBAL_MESSAGE_TRACKING = {}
+
+# Global tracking for document processing across instances
+# This will be replaced by Redis in production
+GLOBAL_DOCUMENT_TRACKING = {}
+GLOBAL_TRACKING_LAST_CLEANUP = time.time()
 
 # Define the error class here to avoid circular imports
 class WhatsAppHandlerError(Exception):
@@ -64,6 +71,20 @@ class DocumentProcessor:
         # Clean up old global message tracking entries
         self._cleanup_global_tracking()
         
+        # Try to import Redis deduplication manager
+        try:
+            from .redis_deduplication import RedisDeduplicationManager
+            # Check if Redis URL is available
+            if os.environ.get('REDIS_URL'):
+                self.redis_deduplication = RedisDeduplicationManager()
+                print("Using Redis for document deduplication")
+            else:
+                self.redis_deduplication = None
+                print("Redis URL not available, using in-memory deduplication")
+        except ImportError:
+            self.redis_deduplication = None
+            print("Redis deduplication not available, using in-memory deduplication")
+        
     async def handle_document(self, from_number, document, message=None):
         """
         Process a document from WhatsApp.
@@ -102,7 +123,7 @@ class DocumentProcessor:
             # Mark as received in global tracking
             self._update_global_tracking(doc_id, "document_received")
             
-            if self.deduplication.is_duplicate_document(from_number, doc_id):
+            if self._get_deduplication().is_duplicate_document(from_number, doc_id):
                 # Still send a confirmation message if we haven't sent one recently
                 if not self._is_duplicate_by_global_tracking(doc_id, "already_processed_notification"):
                     await self.message_sender.send_message(
@@ -352,7 +373,7 @@ class DocumentProcessor:
             doc_state_key = f"{from_number}:{file_id}"
             
             # Check if this document is already being processed
-            if self.deduplication.is_document_processing(from_number, file_id):
+            if self._get_deduplication().is_document_processing(from_number, file_id):
                 # Only send a notification if we haven't already notified about processing
                 if not self._is_duplicate_by_global_tracking(file_id, "processing_notification"):
                     await self.message_sender.send_message(
@@ -363,7 +384,7 @@ class DocumentProcessor:
                 return
             
             # Mark as processing to avoid duplicate processing
-            processing_key = self.deduplication.mark_document_processing(from_number, file_id)
+            processing_key = self._get_deduplication().mark_document_processing(from_number, file_id)
             
             # Mark as processing started in global tracking
             self._update_global_tracking(file_id, "processing_started")
@@ -445,7 +466,7 @@ class DocumentProcessor:
                         doc_state["last_notification"] = int(time.time())
                     
                     # Remove from processing documents
-                    self.deduplication.mark_document_processed(processing_key)
+                    self._get_deduplication().mark_document_processed(processing_key)
                     
                     # Clean up old document states (older than 24 hours)
                     self._cleanup_document_states()
@@ -477,7 +498,7 @@ class DocumentProcessor:
                         doc_state["last_notification"] = int(time.time())
                     
                     # Remove from processing documents
-                    self.deduplication.mark_document_processed(processing_key)
+                    self._get_deduplication().mark_document_processed(processing_key)
             
             # Fire and forget the processing task
             task = asyncio.create_task(process_and_notify())
@@ -567,3 +588,9 @@ class DocumentProcessor:
         
         if count_before != count_after:
             logger.info(f"Cleaned up global tracking. Before: {count_before}, After: {count_after}") 
+    
+    def _get_deduplication(self):
+        """Get the appropriate deduplication manager."""
+        if self.redis_deduplication:
+            return self.redis_deduplication
+        return self.deduplication 
