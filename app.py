@@ -27,8 +27,12 @@ from config import (
     WHATSAPP_BUSINESS_ACCOUNT_ID
 )
 
+# Import database modules for initialization check
+from models.database import get_session, get_database_url, migrate_sqlite_to_postgres
+from sqlalchemy.exc import OperationalError
+
 # At the very top of the file, after imports
-VERSION = "v1.0.1"  # Increment this each time we deploy
+VERSION = "v1.0.2"  # Increment this each time we deploy
 
 # Configure oauthlib to handle HTTPS behind proxy
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -84,6 +88,53 @@ print("=== Application Starting ===")
 print(f"Log file location: {log_file}")
 print(f"Temp directory: {TEMP_DIR}")
 print(f"Base directory: {BASE_DIR}")
+
+# Check database connection
+print("\n=== Checking Database Connection ===")
+database_url = get_database_url()
+print(f"Database URL: {database_url.split('@')[1] if '@' in database_url else database_url}")
+
+try:
+    # Test database connection
+    session = get_session()
+    session.execute("SELECT 1")
+    session.close()
+    print("✅ Database connection successful")
+    
+    # Try to run migration if needed
+    try:
+        migrate_sqlite_to_postgres()
+    except Exception as e:
+        print(f"⚠️ Migration attempt failed: {str(e)}")
+except OperationalError as e:
+    print(f"❌ Database connection failed: {str(e)}")
+    print("Application will continue with fallback to SQLite if available")
+except Exception as e:
+    print(f"❌ Unexpected database error: {str(e)}")
+    import traceback
+    print(traceback.format_exc())
+
+# Check Redis connection
+print("\n=== Checking Redis Connection ===")
+redis_url = os.environ.get('REDIS_URL')
+if redis_url:
+    try:
+        import redis
+        redis_client = redis.Redis.from_url(
+            redis_url,
+            socket_timeout=2,
+            socket_connect_timeout=2,
+            decode_responses=True
+        )
+        redis_client.ping()
+        print(f"✅ Redis connection successful: {redis_url.split('@')[1] if '@' in redis_url else 'redis://localhost'}")
+    except ImportError:
+        print("⚠️ Redis package not installed, will use in-memory deduplication")
+    except Exception as e:
+        print(f"❌ Redis connection failed: {str(e)}")
+        print("Application will continue with in-memory deduplication")
+else:
+    print("⚠️ No Redis URL provided, will use in-memory deduplication")
 
 app = Flask(__name__)
 
@@ -482,6 +533,50 @@ async def test_webhook():
         print(f"Test Error: {str(e)}")
         import traceback
         print(traceback.format_exc())
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+# Add a route to test database connection
+@app.route('/test-database')
+def test_database():
+    """Test database connection"""
+    try:
+        # Test database connection
+        session = get_session()
+        result = session.execute("SELECT 1 as test").fetchone()
+        session.close()
+        
+        # Check Redis connection
+        redis_info = "Redis not configured"
+        redis_url = os.environ.get('REDIS_URL')
+        if redis_url:
+            try:
+                import redis
+                redis_client = redis.Redis.from_url(
+                    redis_url,
+                    socket_timeout=2,
+                    socket_connect_timeout=2,
+                    decode_responses=True
+                )
+                redis_client.ping()
+                redis_info = f"Redis connected: {redis_url.split('@')[1] if '@' in redis_url else 'redis://localhost'}"
+            except Exception as e:
+                redis_info = f"Redis error: {str(e)}"
+        
+        return jsonify({
+            "status": "success",
+            "database": {
+                "type": "PostgreSQL" if database_url.startswith('postgresql') else "SQLite",
+                "url": database_url.split('@')[1] if '@' in database_url and database_url.startswith('postgresql') else database_url,
+                "test_result": dict(result) if result else None
+            },
+            "redis": redis_info
+        })
+    except Exception as e:
+        import traceback
         return jsonify({
             "status": "error",
             "error": str(e),
