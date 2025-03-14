@@ -67,10 +67,15 @@ class CommandProcessor:
                 return await self._handle_ask_command(from_number, command[5:].strip())
             else:
                 print(f"Unknown command: {command}")
-                await self.message_sender.send_message(
-                    from_number, 
-                    "I don't understand that command. Type 'help' to see available commands."
+                help_message = (
+                    "I don't understand that command. Here are some things you can say:\n\n"
+                    "• 'list' or 'show my documents' - See your stored files\n"
+                    "• 'find [text]' - Search for specific documents\n"
+                    "• '/ask [question]' - Ask questions about your documents\n"
+                    "• 'help' - See all available commands\n\n"
+                    "You can also just send me any document to store it!"
                 )
+                await self.message_sender.send_message(from_number, help_message)
                 return "Unknown command", 200
 
         except Exception as e:
@@ -208,6 +213,12 @@ class CommandProcessor:
         Returns:
             str: The detected command, or None if no command was detected
         """
+        # Normalize text for better matching
+        normalized_text = text.lower().strip()
+        
+        # Print debug info
+        print(f"Detecting intent for: '{normalized_text}'")
+        
         # List command phrases
         list_phrases = [
             'show me my files', 'show my files', 'show my documents', 
@@ -215,7 +226,10 @@ class CommandProcessor:
             'what files do i have', 'what documents do i have',
             'view my files', 'view my documents', 'display my files',
             'show all my files', 'show all documents', 'get my files',
-            'see my files', 'see my documents'
+            'see my files', 'see my documents', 'show me a list of my documents',
+            'show me my documents', 'list of my documents', 'list of documents',
+            'what documents have i stored', 'what documents have i saved',
+            'what have i stored', 'show me what i have'
         ]
         
         # Help command phrases
@@ -240,29 +254,42 @@ class CommandProcessor:
             'i want to know', 'explain', 'describe'
         ]
         
+        # Check for exact matches first
+        if normalized_text == 'list':
+            print("Detected exact match for 'list' command")
+            return 'list'
+        elif normalized_text == 'help':
+            print("Detected exact match for 'help' command")
+            return 'help'
+        
         # Check for list command
         for phrase in list_phrases:
-            if phrase in text:
+            if phrase in normalized_text:
+                print(f"Detected list intent from phrase: '{phrase}'")
                 return 'list'
         
         # Check for help command
         for phrase in help_phrases:
-            if phrase in text:
+            if phrase in normalized_text:
+                print(f"Detected help intent from phrase: '{phrase}'")
                 return 'help'
         
         # Check for find command
         for prefix in find_prefixes:
-            if text.startswith(prefix + ' '):
-                query = text[len(prefix) + 1:].strip()
+            if normalized_text.startswith(prefix + ' '):
+                query = normalized_text[len(prefix) + 1:].strip()
                 if query:  # Only if there's something to search for
+                    print(f"Detected find intent with query: '{query}'")
                     return f'find {query}'
         
         # Check for ask command
         for prefix in ask_prefixes:
-            if text.startswith(prefix + ' '):
-                question = text[len(prefix) + 1:].strip()
+            if normalized_text.startswith(prefix + ' '):
+                question = normalized_text[len(prefix) + 1:].strip()
                 if question:  # Only if there's a question
+                    print(f"Detected ask intent with question: '{question}'")
                     return f'/ask {question}'
         
         # No command intent detected
+        print("No intent detected")
         return None 

@@ -61,8 +61,13 @@ class MessageSender:
             cutoff_time = current_time - 3600
             self.sent_messages = {k:v for k,v in self.sent_messages.items() if v > cutoff_time}
             
-            # Check if we've sent this exact message recently (within 60 seconds)
-            if message_key in self.sent_messages:
+            # Special handling for unknown command messages - always send these
+            is_unknown_command = "I don't understand that command" in message
+            if is_unknown_command:
+                print(f"Sending unknown command message to {to_number} (bypassing deduplication)")
+                # Don't return here, continue with sending the message
+            # Regular deduplication for other messages
+            elif message_key in self.sent_messages:
                 time_since_sent = current_time - self.sent_messages[message_key]
                 if time_since_sent < 60:  # 60 seconds deduplication window
                     print(f"Skipping duplicate message to {to_number}: {message[:50]}... (sent {time_since_sent}s ago)")
