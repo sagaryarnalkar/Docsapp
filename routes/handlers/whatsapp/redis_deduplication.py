@@ -40,6 +40,7 @@ class RedisDeduplicationManager:
         self.redis = None
         self.fallback = None
         self.last_cleanup_time = time.time()
+        self.debug_mode = True  # Enable debug mode for detailed logging
         
         # Try to connect to Redis
         self._connect_to_redis()
@@ -48,6 +49,16 @@ class RedisDeduplicationManager:
         if self.redis is None:
             logger.warning("Redis connection failed, using in-memory fallback")
             self.fallback = DeduplicationManager()
+        else:
+            # Log Redis connection details
+            logger.info(f"[DEBUG] Connected to Redis at {self.redis_url}")
+            try:
+                info = self.redis.info()
+                logger.info(f"[DEBUG] Redis version: {info.get('redis_version')}")
+                logger.info(f"[DEBUG] Redis memory used: {info.get('used_memory_human')}")
+                logger.info(f"[DEBUG] Redis connected clients: {info.get('connected_clients')}")
+            except Exception as e:
+                logger.error(f"[DEBUG] Error getting Redis info: {str(e)}")
     
     def _connect_to_redis(self):
         """Attempt to connect to Redis"""
@@ -59,6 +70,7 @@ class RedisDeduplicationManager:
             # Parse Redis URL to extract connection details
             if self.redis_url.startswith('redis://'):
                 # Standard Redis URL
+                logger.info(f"[DEBUG] Connecting to Redis with URL: {self.redis_url}")
                 self.redis = redis.Redis.from_url(
                     self.redis_url,
                     socket_timeout=2,
@@ -68,6 +80,7 @@ class RedisDeduplicationManager:
                 )
             else:
                 # Handle other formats or direct connection details
+                logger.info(f"[DEBUG] Connecting to Redis with host/port configuration")
                 self.redis = redis.Redis(
                     host=os.environ.get('REDIS_HOST', 'localhost'),
                     port=int(os.environ.get('REDIS_PORT', 6379)),
@@ -80,9 +93,9 @@ class RedisDeduplicationManager:
                 
             # Test connection
             self.redis.ping()
-            logger.info("Successfully connected to Redis")
+            logger.info("[DEBUG] Successfully connected to Redis")
         except Exception as e:
-            logger.error(f"Failed to connect to Redis: {str(e)}")
+            logger.error(f"[DEBUG] Failed to connect to Redis: {str(e)}")
             self.redis = None
     
     def is_duplicate_message(self, from_number, message_id):
@@ -98,15 +111,31 @@ class RedisDeduplicationManager:
         """
         # Use fallback if Redis is not available
         if self.redis is None:
-            return self.fallback.is_duplicate_message(from_number, message_id)
+            result = self.fallback.is_duplicate_message(from_number, message_id)
+            logger.info(f"[DEBUG] Using fallback deduplication for message {message_id}: {result}")
+            return result
             
         # Create a more robust message key that includes the from_number
         message_key = f"{from_number}:{message_id}"
         current_time = int(time.time())
         
+        # Debug logging
+        logger.info(f"[DEBUG] Checking if message is duplicate - Key: {message_key}")
+        
         # Check both the combined key and the message_id for backward compatibility
         combined_key_exists = self.redis.exists(f"msg:{message_key}")
         message_id_exists = self.redis.exists(f"msg:{message_id}")
+        
+        # Debug logging for key existence
+        if combined_key_exists:
+            timestamp = int(self.redis.get(f"msg:{message_key}") or 0)
+            time_since_processed = current_time - timestamp
+            logger.info(f"[DEBUG] Combined key exists: msg:{message_key}, processed {time_since_processed}s ago")
+        
+        if message_id_exists:
+            timestamp = int(self.redis.get(f"msg:{message_id}") or 0)
+            time_since_processed = current_time - timestamp
+            logger.info(f"[DEBUG] Message ID key exists: msg:{message_id}, processed {time_since_processed}s ago")
         
         if combined_key_exists or message_id_exists:
             # Get the timestamp when the message was processed
@@ -117,7 +146,7 @@ class RedisDeduplicationManager:
                 timestamp = int(self.redis.get(f"msg:{message_id}") or 0)
                 
             time_since_processed = current_time - timestamp
-            logger.info(f"Skipping duplicate message processing for message ID {message_id} "
+            logger.info(f"[DEBUG] Skipping duplicate message processing for message ID {message_id} "
                       f"from {from_number} (processed {time_since_processed}s ago)")
             return True
         
@@ -125,7 +154,7 @@ class RedisDeduplicationManager:
         # Set expiration to 10 minutes (600 seconds)
         self.redis.set(f"msg:{message_key}", current_time, ex=600)
         self.redis.set(f"msg:{message_id}", current_time, ex=600)
-        logger.info(f"Processing new message {message_id} from {from_number}")
+        logger.info(f"[DEBUG] Processing new message {message_id} from {from_number}")
         return False
         
     def is_duplicate_document(self, from_number, doc_id):
@@ -141,9 +170,12 @@ class RedisDeduplicationManager:
         """
         # Use fallback if Redis is not available
         if self.redis is None:
-            return self.fallback.is_duplicate_document(from_number, doc_id)
+            result = self.fallback.is_duplicate_document(from_number, doc_id)
+            logger.info(f"[DEBUG] Using fallback deduplication for document {doc_id}: {result}")
+            return result
             
         if not doc_id:
+            logger.info("[DEBUG] No document ID provided, not a duplicate")
             return False
             
         current_time = int(time.time())
@@ -151,9 +183,23 @@ class RedisDeduplicationManager:
         # Create a unique key for this document and user
         doc_user_key = f"{from_number}:{doc_id}"
         
+        # Debug logging
+        logger.info(f"[DEBUG] Checking if document is duplicate - Key: {doc_user_key}")
+        
         # Check if we've processed this document recently
         doc_user_exists = self.redis.exists(f"doc:{doc_user_key}")
         doc_exists = self.redis.exists(f"doc:{doc_id}")
+        
+        # Debug logging for key existence
+        if doc_user_exists:
+            timestamp = int(self.redis.get(f"doc:{doc_user_key}") or 0)
+            time_since_processed = current_time - timestamp
+            logger.info(f"[DEBUG] Document user key exists: doc:{doc_user_key}, processed {time_since_processed}s ago")
+        
+        if doc_exists:
+            timestamp = int(self.redis.get(f"doc:{doc_id}") or 0)
+            time_since_processed = current_time - timestamp
+            logger.info(f"[DEBUG] Document ID key exists: doc:{doc_id}, processed {time_since_processed}s ago")
         
         if doc_user_exists or doc_exists:
             # Get the timestamp when the document was processed
@@ -164,7 +210,7 @@ class RedisDeduplicationManager:
                 timestamp = int(self.redis.get(f"doc:{doc_id}") or 0)
                 
             time_since_processed = current_time - timestamp
-            logger.info(f"Skipping duplicate document processing for {doc_id} "
+            logger.info(f"[DEBUG] Skipping duplicate document processing for {doc_id} "
                       f"(processed {time_since_processed}s ago)")
             return True
             
@@ -172,6 +218,7 @@ class RedisDeduplicationManager:
         # Set expiration to 30 minutes (1800 seconds)
         self.redis.set(f"doc:{doc_user_key}", current_time, ex=1800)
         self.redis.set(f"doc:{doc_id}", current_time, ex=1800)
+        logger.info(f"[DEBUG] Processing new document {doc_id} for {from_number}")
         return False
         
     def is_document_processing(self, from_number, file_id):
@@ -187,22 +234,30 @@ class RedisDeduplicationManager:
         """
         # Use fallback if Redis is not available
         if self.redis is None:
-            return self.fallback.is_document_processing(from_number, file_id)
+            result = self.fallback.is_document_processing(from_number, file_id)
+            logger.info(f"[DEBUG] Using fallback for document processing check {file_id}: {result}")
+            return result
             
         if not file_id:
+            logger.info("[DEBUG] No file ID provided, not being processed")
             return False
             
         # Create a unique key for tracking this document processing
         processing_key = f"processing:{from_number}:{file_id}"
         
+        # Debug logging
+        logger.info(f"[DEBUG] Checking if document is being processed - Key: {processing_key}")
+        
         # Check if this document is already being processed
         if self.redis.exists(processing_key):
             timestamp = int(self.redis.get(processing_key) or 0)
-            time_since_started = int(time.time()) - timestamp
-            logger.info(f"Document {file_id} is already being processed "
+            current_time = int(time.time())
+            time_since_started = current_time - timestamp
+            logger.info(f"[DEBUG] Document {file_id} is already being processed "
                       f"(started {time_since_started}s ago)")
             return True
             
+        logger.info(f"[DEBUG] Document {file_id} is not currently being processed")
         return False
         
     def mark_document_processing(self, from_number, file_id):
@@ -218,17 +273,19 @@ class RedisDeduplicationManager:
         """
         # Use fallback if Redis is not available
         if self.redis is None:
-            return self.fallback.mark_document_processing(from_number, file_id)
-            
-        if not file_id:
-            return None
+            result = self.fallback.mark_document_processing(from_number, file_id)
+            logger.info(f"[DEBUG] Using fallback to mark document as processing {file_id}")
+            return result
             
         # Create a unique key for tracking this document processing
         processing_key = f"processing:{from_number}:{file_id}"
+        current_time = int(time.time())
         
-        # Mark as processing to avoid duplicate processing
-        # Set expiration to 2 hours (7200 seconds)
-        self.redis.set(processing_key, int(time.time()), ex=7200)
+        # Mark this document as being processed
+        # Set expiration to 30 minutes (1800 seconds)
+        self.redis.set(processing_key, current_time, ex=1800)
+        logger.info(f"[DEBUG] Marked document {file_id} as being processed with key {processing_key}")
+        
         return processing_key
         
     def mark_document_processed(self, processing_key):
@@ -240,105 +297,137 @@ class RedisDeduplicationManager:
         """
         # Use fallback if Redis is not available
         if self.redis is None:
-            return self.fallback.mark_document_processed(processing_key)
+            self.fallback.mark_document_processed(processing_key)
+            logger.info(f"[DEBUG] Using fallback to mark document as processed {processing_key}")
+            return
             
-        if processing_key and self.redis.exists(processing_key):
-            self.redis.delete(processing_key)
-            
+        # Delete the processing key
+        self.redis.delete(processing_key)
+        logger.info(f"[DEBUG] Marked document as processed by deleting key {processing_key}")
+        
     def track_message_type(self, doc_id, message_type, from_number=None):
         """
         Track a message type for a document to prevent duplicate notifications.
         
         Args:
             doc_id: The document ID
-            message_type: The type of message (e.g., 'stored', 'processing_started')
+            message_type: The type of message (e.g., 'stored', 'processing', 'completed')
             from_number: The sender's phone number (optional)
             
         Returns:
-            bool: True if this message type was already tracked, False otherwise
+            bool: True if this is a new message type for this document, False if it's a duplicate
         """
         # Use fallback if Redis is not available
         if self.redis is None:
-            if hasattr(self.fallback, '_is_duplicate_by_global_tracking'):
-                return self.fallback._is_duplicate_by_global_tracking(doc_id, message_type)
-            return False
-            
-        if not doc_id:
-            return False
-            
-        # Create a unique key for this document and message type
-        tracking_key = f"track:{doc_id}:{message_type}"
-        if from_number:
-            tracking_key = f"track:{from_number}:{doc_id}:{message_type}"
-            
-        # Check if this message type has already been tracked
-        if self.redis.exists(tracking_key):
-            timestamp = int(self.redis.get(tracking_key) or 0)
-            time_since_tracked = int(time.time()) - timestamp
-            logger.info(f"Message type '{message_type}' for document {doc_id} "
-                      f"already tracked {time_since_tracked}s ago")
+            logger.info(f"[DEBUG] Using fallback for message type tracking {doc_id}:{message_type}")
+            # Fallback doesn't implement this method, so always return True
             return True
             
-        # Mark this message type as tracked
-        # Set expiration based on message type
-        expiration = 600  # Default: 10 minutes
-        if message_type == 'stored':
-            expiration = 1800  # 30 minutes
-        elif message_type == 'processing_started':
-            expiration = 3600  # 1 hour
-        elif message_type == 'processing_completed':
-            expiration = 86400  # 24 hours
+        if not doc_id or not message_type:
+            logger.info("[DEBUG] Missing doc_id or message_type for tracking")
+            return True
             
-        self.redis.set(tracking_key, int(time.time()), ex=expiration)
-        return False
+        current_time = int(time.time())
+        
+        # Create a unique key for this document and message type
+        if from_number:
+            tracking_key = f"track:{from_number}:{doc_id}:{message_type}"
+        else:
+            tracking_key = f"track:{doc_id}:{message_type}"
+            
+        # Debug logging
+        logger.info(f"[DEBUG] Checking message type tracking - Key: {tracking_key}")
+        
+        # Check if we've sent this type of message for this document recently
+        if self.redis.exists(tracking_key):
+            timestamp = int(self.redis.get(tracking_key) or 0)
+            time_since_sent = current_time - timestamp
+            
+            # Different expiration times for different message types
+            if message_type == 'stored':
+                # Storage confirmations expire after 5 minutes
+                if time_since_sent < 300:
+                    logger.info(f"[DEBUG] Skipping duplicate 'stored' message for {doc_id} "
+                              f"(sent {time_since_sent}s ago)")
+                    return False
+            elif message_type == 'processing':
+                # Processing notifications expire after 10 minutes
+                if time_since_sent < 600:
+                    logger.info(f"[DEBUG] Skipping duplicate 'processing' message for {doc_id} "
+                              f"(sent {time_since_sent}s ago)")
+                    return False
+            elif message_type == 'completed' or message_type == 'error':
+                # Completion and error notifications expire after 1 hour
+                if time_since_sent < 3600:
+                    logger.info(f"[DEBUG] Skipping duplicate '{message_type}' message for {doc_id} "
+                              f"(sent {time_since_sent}s ago)")
+                    return False
+            else:
+                # Other message types expire after 5 minutes
+                if time_since_sent < 300:
+                    logger.info(f"[DEBUG] Skipping duplicate '{message_type}' message for {doc_id} "
+                              f"(sent {time_since_sent}s ago)")
+                    return False
+                    
+        # Set expiration based on message type
+        if message_type == 'stored':
+            # Storage confirmations expire after 5 minutes
+            self.redis.set(tracking_key, current_time, ex=300)
+        elif message_type == 'processing':
+            # Processing notifications expire after 10 minutes
+            self.redis.set(tracking_key, current_time, ex=600)
+        elif message_type == 'completed' or message_type == 'error':
+            # Completion and error notifications expire after 1 hour
+            self.redis.set(tracking_key, current_time, ex=3600)
+        else:
+            # Other message types expire after 5 minutes
+            self.redis.set(tracking_key, current_time, ex=300)
+            
+        logger.info(f"[DEBUG] Tracking new '{message_type}' message for {doc_id}")
+        return True
         
     def reset_message_tracking(self, doc_id, message_type, from_number=None):
         """
-        Reset tracking for a specific message type.
+        Reset message tracking for a document and message type.
         
         Args:
             doc_id: The document ID
-            message_type: The type of message to reset
+            message_type: The type of message
             from_number: The sender's phone number (optional)
         """
         # Use fallback if Redis is not available
         if self.redis is None:
+            logger.info(f"[DEBUG] Using fallback for reset message tracking {doc_id}:{message_type}")
+            # Fallback doesn't implement this method
+            return
+            
+        if not doc_id or not message_type:
             return
             
         # Create a unique key for this document and message type
-        tracking_key = f"track:{doc_id}:{message_type}"
         if from_number:
             tracking_key = f"track:{from_number}:{doc_id}:{message_type}"
+        else:
+            tracking_key = f"track:{doc_id}:{message_type}"
             
         # Delete the tracking key
         self.redis.delete(tracking_key)
+        logger.info(f"[DEBUG] Reset message tracking for {doc_id}:{message_type}")
         
     def cleanup(self):
-        """
-        Clean up old tracking data to prevent memory leaks.
-        
-        This method doesn't need to do much with Redis since we use expiration.
-        """
-        # Redis handles expiration automatically, so we don't need to do much here
-        # This method is mainly for compatibility with the in-memory implementation
-        
+        """Clean up old tracking data to prevent memory leaks"""
         # Use fallback if Redis is not available
         if self.redis is None:
-            return self.fallback.cleanup()
-            
-        # Only log periodically to avoid excessive logging
-        current_time = time.time()
-        if current_time - self.last_cleanup_time < 3600:  # 1 hour
+            self.fallback.cleanup()
             return
             
-        logger.info("Redis deduplication manager performing periodic health check")
-        try:
-            # Just ping Redis to make sure it's still available
-            self.redis.ping()
-            logger.info("Redis connection is healthy")
-        except Exception as e:
-            logger.error(f"Redis connection error during cleanup: {str(e)}")
-            # Try to reconnect
-            self._connect_to_redis()
+        # Only clean up once per hour
+        current_time = time.time()
+        if current_time - self.last_cleanup_time < 3600:
+            return
             
-        self.last_cleanup_time = current_time 
+        self.last_cleanup_time = current_time
+        logger.info("[DEBUG] Running Redis deduplication cleanup")
+        
+        # We don't need to manually clean up Redis keys since they have expiration times
+        # This method is kept for compatibility with the in-memory fallback 

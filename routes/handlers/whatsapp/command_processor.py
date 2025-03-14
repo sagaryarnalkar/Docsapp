@@ -40,6 +40,8 @@ class CommandProcessor:
         # Track context for better responses
         self.user_context = {}
         
+        logger.info("[DEBUG] CommandProcessor initialized")
+        
     async def handle_command(self, from_number, text):
         """
         Process a text command from a user.
@@ -53,9 +55,7 @@ class CommandProcessor:
         """
         try:
             # Log the command
-            print(f"\n=== Processing Text Command ===")
-            print(f"Command: {text}")
-            print(f"From: {from_number}")
+            logger.info(f"[DEBUG] Processing command: '{text}' from {from_number}")
 
             # Normalize the command
             command = text.lower().strip()
@@ -63,7 +63,7 @@ class CommandProcessor:
             # Check for system messages like "Fetch update"
             system_messages = ["fetch update", "sync", "refresh", "update", "status"]
             if command in system_messages:
-                print(f"Ignoring system message: '{command}'")
+                logger.info(f"[DEBUG] Ignoring system message: '{command}'")
                 return "System message ignored", 200
             
             # Initialize or update user context
@@ -73,27 +73,31 @@ class CommandProcessor:
                     'last_command': None,
                     'command_understood': False
                 }
+                logger.info(f"[DEBUG] Initialized user context for {from_number}")
                 
             # Try to get document count
             try:
                 document_list, _ = self.docs_app.list_documents(from_number)
-                self.user_context[from_number]['document_count'] = len(document_list) if document_list else 0
+                doc_count = len(document_list) if document_list else 0
+                self.user_context[from_number]['document_count'] = doc_count
+                logger.info(f"[DEBUG] User {from_number} has {doc_count} documents")
             except Exception as e:
-                print(f"Error getting document count: {str(e)}")
+                logger.error(f"[DEBUG] Error getting document count: {str(e)}")
             
             # Detect command intent from natural language using rule-based approach
             command_intent = self._detect_command_intent(command)
+            logger.info(f"[DEBUG] Rule-based intent detection result: {command_intent}")
             
             # If rule-based detection fails, try Gemini-based intent classification
             if not command_intent and self.intent_classifier.is_available:
-                print("Rule-based intent detection failed, trying Gemini classification...")
+                logger.info("[DEBUG] Rule-based intent detection failed, trying Gemini classification")
                 intent_result = await self.intent_classifier.classify_intent(command)
                 
                 if intent_result["status"] == "success" and intent_result["confidence"] > 0.7:
                     classified_intent = intent_result["intent"]
                     parameters = intent_result.get("parameters", {})
                     
-                    print(f"Gemini classified intent: {classified_intent} (confidence: {intent_result['confidence']})")
+                    logger.info(f"[DEBUG] Gemini classified intent: {classified_intent} (confidence: {intent_result['confidence']})")
                     
                     # Map the classified intent to a command
                     if classified_intent == "list_documents":
@@ -108,7 +112,7 @@ class CommandProcessor:
                         command_intent = f"delete {parameters['document_id']}"
             
             if command_intent:
-                print(f"Detected command intent: {command_intent}")
+                logger.info(f"[DEBUG] Final detected command intent: {command_intent}")
                 command = command_intent
                 
                 # Update user context - command was understood
@@ -117,18 +121,23 @@ class CommandProcessor:
                 # Process different commands - DIRECTLY EXECUTE THE INTENT
                 if command == 'help':
                     self.user_context[from_number]['last_command'] = 'help'
+                    logger.info(f"[DEBUG] Executing HELP command for {from_number}")
                     return await self._handle_help_command(from_number)
                 elif command == 'list':
                     self.user_context[from_number]['last_command'] = 'list'
+                    logger.info(f"[DEBUG] Executing LIST command for {from_number}")
                     return await self._handle_list_command(from_number)
                 elif command.startswith('find '):
                     self.user_context[from_number]['last_command'] = 'find'
+                    logger.info(f"[DEBUG] Executing FIND command for {from_number} with query: {command[5:].strip()}")
                     return await self._handle_find_command(from_number, command[5:].strip())
                 elif command.startswith('/ask '):
                     self.user_context[from_number]['last_command'] = 'ask'
+                    logger.info(f"[DEBUG] Executing ASK command for {from_number} with question: {command[5:].strip()}")
                     return await self._handle_ask_command(from_number, command[5:].strip())
                 elif command.startswith('delete '):
                     self.user_context[from_number]['last_command'] = 'delete'
+                    logger.info(f"[DEBUG] Executing DELETE command for {from_number} with target: {command[7:].strip()}")
                     # Check if we have a delete_document handler, otherwise use the standard one
                     if hasattr(self, '_handle_delete_command'):
                         return await self._handle_delete_command(from_number, command[7:].strip())
@@ -141,12 +150,13 @@ class CommandProcessor:
                         return "Delete command processed", 200
             else:
                 # Command was not understood
-                print(f"Unknown command: {command}")
+                logger.info(f"[DEBUG] Unknown command: {command}")
                 self.user_context[from_number]['last_command'] = 'unknown'
                 self.user_context[from_number]['command_understood'] = False
                 
                 # Use Gemini to generate a more helpful response
                 if self.response_generator.is_available:
+                    logger.info(f"[DEBUG] Generating AI response for unknown command: {command}")
                     response = await self.response_generator.generate_response(
                         text, 
                         self.user_context[from_number]
@@ -155,6 +165,7 @@ class CommandProcessor:
                     return "Unknown command handled with AI response", 200
                 else:
                     # Fall back to standard help message
+                    logger.info(f"[DEBUG] Using fallback help message for unknown command: {command}")
                     help_message = (
                         "I don't understand that command. Here are some things you can say:\n\n"
                         "• 'list' or 'show my documents' - See your stored files\n"
@@ -167,9 +178,9 @@ class CommandProcessor:
                     return "Unknown command", 200
 
         except Exception as e:
+            logger.error(f"[DEBUG] Error in handle_command: {str(e)}", exc_info=True)
             error_msg = "❌ Error processing command. Please try again."
             await self.message_sender.send_message(from_number, error_msg)
-            logger.error(f"Error in handle_command: {str(e)}", exc_info=True)
             raise WhatsAppHandlerError(str(e))
             
     async def _handle_help_command(self, from_number):
@@ -182,6 +193,7 @@ class CommandProcessor:
         Returns:
             tuple: (response_message, status_code)
         """
+        logger.info(f"[DEBUG] Processing help command for {from_number}")
         help_message = """🤖 Available commands:
 - Send any file to store it (documents, images, videos, audio)
 - Add descriptions by replying to a stored file
@@ -195,7 +207,9 @@ class CommandProcessor:
 • Images (JPG, PNG, etc.)
 • Videos (MP4, etc.)
 • Audio files (MP3, etc.)"""
-        await self.message_sender.send_message(from_number, help_message)
+        logger.info(f"[DEBUG] Sending help message to {from_number}")
+        send_result = await self.message_sender.send_message(from_number, help_message)
+        logger.info(f"[DEBUG] Help message send result: {send_result}")
         return "Help message sent", 200
         
     async def _handle_list_command(self, from_number):
@@ -208,15 +222,34 @@ class CommandProcessor:
         Returns:
             tuple: (response_message, status_code)
         """
-        print("Processing list command...")
+        logger.info(f"[DEBUG] Processing list command for {from_number}")
         # Use docs_app to list documents
-        document_list, _ = self.docs_app.list_documents(from_number)
-        if document_list:
-            message = "Your documents:\n\n" + "\n".join(document_list)
-        else:
-            message = "You don't have any stored documents. Send me any document to store it, and I'll keep it safe in your Google Drive!"
-        await self.message_sender.send_message(from_number, message)
-        return "List command processed", 200
+        try:
+            document_list, file_ids = self.docs_app.list_documents(from_number)
+            logger.info(f"[DEBUG] Found {len(document_list) if document_list else 0} documents for {from_number}")
+            
+            if document_list:
+                message = "Your documents:\n\n" + "\n".join(document_list)
+                logger.info(f"[DEBUG] Sending document list to {from_number} with {len(document_list)} documents")
+            else:
+                message = "You don't have any stored documents. Send me any document to store it, and I'll keep it safe in your Google Drive!"
+                logger.info(f"[DEBUG] Sending empty document list message to {from_number}")
+            
+            # Force this message to be sent by adding a timestamp
+            import time
+            timestamp = int(time.time())
+            message = f"{message}\n\nTimestamp: {timestamp}"
+            
+            logger.info(f"[DEBUG] Sending list command response to {from_number}")
+            send_result = await self.message_sender.send_message(from_number, message)
+            logger.info(f"[DEBUG] List command response send result: {send_result}")
+            
+            return "List command processed", 200
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in _handle_list_command: {str(e)}", exc_info=True)
+            error_msg = "❌ Error retrieving your documents. Please try again."
+            await self.message_sender.send_message(from_number, error_msg)
+            return "List command error", 500
         
     async def _handle_find_command(self, from_number, query):
         """
@@ -229,14 +262,28 @@ class CommandProcessor:
         Returns:
             tuple: (response_message, status_code)
         """
-        print("Processing find command...")
+        logger.info(f"[DEBUG] Processing find command for {from_number} with query: '{query}'")
         # Use docs_app to retrieve document
-        result = self.docs_app.retrieve_document(from_number, query)
-        if result:
-            await self.message_sender.send_message(from_number, "Found matching documents!")
-        else:
-            await self.message_sender.send_message(from_number, "No documents found matching your query.")
-        return "Find command processed", 200
+        try:
+            result = self.docs_app.retrieve_document(from_number, query)
+            
+            if result:
+                logger.info(f"[DEBUG] Found matching document for query '{query}'")
+                message = "Found matching documents!"
+            else:
+                logger.info(f"[DEBUG] No documents found for query '{query}'")
+                message = "No documents found matching your query."
+                
+            logger.info(f"[DEBUG] Sending find command response to {from_number}")
+            send_result = await self.message_sender.send_message(from_number, message)
+            logger.info(f"[DEBUG] Find command response send result: {send_result}")
+            
+            return "Find command processed", 200
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in _handle_find_command: {str(e)}", exc_info=True)
+            error_msg = "❌ Error searching for documents. Please try again."
+            await self.message_sender.send_message(from_number, error_msg)
+            return "Find command error", 500
         
     async def _handle_ask_command(self, from_number, question):
         """
@@ -249,48 +296,70 @@ class CommandProcessor:
         Returns:
             tuple: (response_message, status_code)
         """
-        print("Processing ask command...")
-        await self.message_sender.send_message(from_number, "🔄 Processing your question... This might take a moment.")
+        logger.info(f"[DEBUG] Processing ask command for {from_number} with question: '{question}'")
         
-        # Use the docs_app to process the question
-        result = await self.docs_app.ask_question(from_number, question)
-        
-        if result["status"] == "success" and result.get("answers"):
-            # Format answers from all relevant documents
-            response_parts = ["📝 Here are the answers from your documents:\n"]
+        try:
+            # Send processing message
+            processing_msg = "🔄 Processing your question... This might take a moment."
+            logger.info(f"[DEBUG] Sending processing message to {from_number}")
+            await self.message_sender.send_message(from_number, processing_msg)
             
-            for idx, answer in enumerate(result["answers"], 1):
-                # Format the answer section
-                response_parts.append(f"📄 Document {idx}: {answer['document']}")
-                response_parts.append(f"Answer: {answer['answer']}")
+            # Use the docs_app to process the question
+            logger.info(f"[DEBUG] Calling docs_app.ask_question with question: '{question}'")
+            result = await self.docs_app.ask_question(from_number, question)
+            logger.info(f"[DEBUG] ask_question result status: {result.get('status')}")
+            
+            if result["status"] == "success" and result.get("answers"):
+                # Format answers from all relevant documents
+                logger.info(f"[DEBUG] Found {len(result['answers'])} answers")
+                response_parts = ["📝 Here are the answers from your documents:\n"]
                 
-                # Add source information if available
-                if answer.get('sources'):
-                    source_info = []
-                    for source in answer['sources']:
-                        metadata = source.get('metadata', {})
-                        if metadata.get('page_number'):
-                            source_info.append(f"Page {metadata['page_number']}")
-                        if metadata.get('section'):
-                            source_info.append(metadata['section'])
-                    if source_info:
-                        response_parts.append(f"Source: {', '.join(source_info)}")
+                for idx, answer in enumerate(result["answers"], 1):
+                    # Format the answer section
+                    response_parts.append(f"📄 Document {idx}: {answer['document']}")
+                    response_parts.append(f"Answer: {answer['answer']}")
+                    
+                    # Add source information if available
+                    if answer.get('sources'):
+                        source_info = []
+                        for source in answer['sources']:
+                            metadata = source.get('metadata', {})
+                            if metadata.get('page_number'):
+                                source_info.append(f"Page {metadata['page_number']}")
+                            if metadata.get('section'):
+                                source_info.append(metadata['section'])
+                        if source_info:
+                            response_parts.append(f"Source: {', '.join(source_info)}")
+                    
+                    response_parts.append("")  # Add blank line between answers
                 
-                response_parts.append("")  # Add blank line between answers
+                # Add a note about confidence if available
+                if any(a.get('confidence') for a in result["answers"]):
+                    response_parts.append("\nℹ️ Note: Answers are provided based on the relevant content found in your documents.")
+                
+                message = "\n".join(response_parts)
+                logger.info(f"[DEBUG] Sending ask command response to {from_number} with {len(result['answers'])} answers")
+            else:
+                message = result.get("message", "No relevant information found in your documents.")
+                logger.info(f"[DEBUG] Sending ask command error response to {from_number}: {message}")
             
-            # Add a note about confidence if available
-            if any(a.get('confidence') for a in result["answers"]):
-                response_parts.append("\nℹ️ Note: Answers are provided based on the relevant content found in your documents.")
+            # Force this message to be sent by adding a timestamp
+            import time
+            timestamp = int(time.time())
+            message = f"{message}\n\nTimestamp: {timestamp}"
             
-            message = "\n".join(response_parts)
-            await self.message_sender.send_message(from_number, message)
-            return "Question processed", 200
-        else:
-            await self.message_sender.send_message(
-                from_number, 
-                result.get("message", "No relevant information found in your documents.")
-            )
-            return "Question processed", 500 
+            send_result = await self.message_sender.send_message(from_number, message)
+            logger.info(f"[DEBUG] Ask command response send result: {send_result}")
+            
+            if result["status"] == "success":
+                return "Question processed", 200
+            else:
+                return "Question processed", 500
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in _handle_ask_command: {str(e)}", exc_info=True)
+            error_msg = "❌ Error processing your question. Please try again."
+            await self.message_sender.send_message(from_number, error_msg)
+            return "Ask command error", 500
 
     def _detect_command_intent(self, text):
         """
@@ -300,85 +369,64 @@ class CommandProcessor:
             text: The user's message
             
         Returns:
-            str: The detected command, or None if no command was detected
+            str: The detected command intent, or None if no intent was detected
         """
-        # Normalize text for better matching
-        normalized_text = text.lower().strip()
+        logger.info(f"[DEBUG] Detecting intent for: '{text}'")
         
-        # Print debug info
-        print(f"Detecting intent for: '{normalized_text}'")
-        
-        # List command phrases
-        list_phrases = [
-            'show me my files', 'show my files', 'show my documents', 
-            'list my files', 'list my documents', 'show documents',
-            'what files do i have', 'what documents do i have',
-            'view my files', 'view my documents', 'display my files',
-            'show all my files', 'show all documents', 'get my files',
-            'see my files', 'see my documents', 'show me a list of my documents',
-            'show me my documents', 'list of my documents', 'list of documents',
-            'what documents have i stored', 'what documents have i saved',
-            'what have i stored', 'show me what i have'
-        ]
-        
-        # Help command phrases
-        help_phrases = [
-            'what can you do', 'how does this work', 'how to use',
-            'show me help', 'need help', 'instructions', 'guide me',
-            'how do i', 'what commands', 'available commands',
-            'help me', 'i need help', 'show help'
-        ]
-        
-        # Find command phrases
-        find_prefixes = [
-            'find', 'search for', 'look for', 'search', 'locate',
-            'get me', 'find me', 'search my files for', 'find documents about',
-            'search documents for', 'find files about', 'look up'
-        ]
-        
-        # Ask command phrases
-        ask_prefixes = [
-            'ask', 'tell me', 'what is', 'who is', 'when is',
-            'where is', 'why is', 'how is', 'can you tell me',
-            'i want to know', 'explain', 'describe'
-        ]
-        
-        # Check for exact matches first
-        if normalized_text == 'list':
-            print("Detected exact match for 'list' command")
-            return 'list'
-        elif normalized_text == 'help':
-            print("Detected exact match for 'help' command")
+        # Exact matches
+        if text == 'help':
+            logger.info("[DEBUG] Detected exact match for 'help' command")
             return 'help'
+        elif text == 'list' or text == 'show documents' or text == 'show my documents':
+            logger.info("[DEBUG] Detected exact match for 'list' command")
+            return 'list'
+            
+        # Prefix matches
+        if text.startswith('find '):
+            logger.info("[DEBUG] Detected 'find' command")
+            return text  # Return the full command with the search query
+        elif text.startswith('/ask '):
+            logger.info("[DEBUG] Detected '/ask' command")
+            return text  # Return the full command with the question
+        elif text.startswith('delete '):
+            logger.info("[DEBUG] Detected 'delete' command")
+            return text  # Return the full command with the document ID
+            
+        # Natural language matches
+        help_phrases = ['help me', 'what can you do', 'how does this work', 'commands', 'instructions']
+        list_phrases = ['show me', 'list', 'documents', 'files', 'what do i have']
+        find_phrases = ['find', 'search', 'look for', 'where is']
+        ask_phrases = ['ask', 'question', 'tell me about', 'what is', 'how to']
         
-        # Check for list command
-        for phrase in list_phrases:
-            if phrase in normalized_text:
-                print(f"Detected list intent from phrase: '{phrase}'")
-                return 'list'
-        
-        # Check for help command
-        for phrase in help_phrases:
-            if phrase in normalized_text:
-                print(f"Detected help intent from phrase: '{phrase}'")
-                return 'help'
-        
-        # Check for find command
-        for prefix in find_prefixes:
-            if normalized_text.startswith(prefix + ' '):
-                query = normalized_text[len(prefix) + 1:].strip()
-                if query:  # Only if there's something to search for
-                    print(f"Detected find intent with query: '{query}'")
+        # Check for help intent
+        if any(phrase in text for phrase in help_phrases):
+            logger.info("[DEBUG] Detected natural language 'help' command")
+            return 'help'
+            
+        # Check for list intent
+        if any(phrase in text for phrase in list_phrases):
+            logger.info("[DEBUG] Detected natural language 'list' command")
+            return 'list'
+            
+        # Check for find intent with query
+        for phrase in find_phrases:
+            if phrase in text:
+                # Extract the query after the phrase
+                query_start = text.find(phrase) + len(phrase)
+                query = text[query_start:].strip()
+                if query:
+                    logger.info(f"[DEBUG] Detected natural language 'find' command with query: '{query}'")
                     return f'find {query}'
-        
-        # Check for ask command
-        for prefix in ask_prefixes:
-            if normalized_text.startswith(prefix + ' '):
-                question = normalized_text[len(prefix) + 1:].strip()
-                if question:  # Only if there's a question
-                    print(f"Detected ask intent with question: '{question}'")
+                    
+        # Check for ask intent with question
+        for phrase in ask_phrases:
+            if phrase in text:
+                # Extract the question after the phrase
+                question_start = text.find(phrase) + len(phrase)
+                question = text[question_start:].strip()
+                if question:
+                    logger.info(f"[DEBUG] Detected natural language 'ask' command with question: '{question}'")
                     return f'/ask {question}'
-        
-        # No command intent detected
-        print("No intent detected")
+                    
+        logger.info("[DEBUG] No command intent detected")
         return None 
