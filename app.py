@@ -583,5 +583,46 @@ def test_database():
             "traceback": traceback.format_exc()
         }), 500
 
+@app.route('/test-redis')
+def test_redis():
+    """Test Redis connection"""
+    try:
+        redis_url = os.environ.get('REDIS_URL')
+        if not redis_url:
+            return "No Redis URL found in environment variables", 500
+            
+        import redis
+        redis_client = redis.Redis.from_url(
+            redis_url,
+            socket_timeout=2,
+            socket_connect_timeout=2,
+            decode_responses=True
+        )
+        
+        # Try to ping Redis
+        ping_result = redis_client.ping()
+        
+        # Try to set and get a value
+        test_key = "test_connection"
+        test_value = f"Connection test at {datetime.now().isoformat()}"
+        set_result = redis_client.set(test_key, test_value)
+        get_result = redis_client.get(test_key)
+        
+        return {
+            "status": "success",
+            "redis_url": redis_url.split('@')[1] if '@' in redis_url else "redis://[masked]",
+            "ping": ping_result,
+            "set": set_result,
+            "get": get_result,
+            "match": get_result == test_value
+        }, 200
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc()
+        }, 500
+
 if __name__ == "__main__":
     app.run(debug=True)
