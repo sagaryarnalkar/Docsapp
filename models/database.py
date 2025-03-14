@@ -167,14 +167,23 @@ def get_database_url():
 
 # Create database engine with the appropriate connection URL
 database_url = get_database_url()
-engine = create_engine(
-    database_url,
-    pool_size=10 if database_url.startswith('postgresql') else None,
-    max_overflow=20 if database_url.startswith('postgresql') else None,
-    pool_recycle=300 if database_url.startswith('postgresql') else None,
-    pool_pre_ping=True,
-    connect_args={'connect_timeout': 10} if database_url.startswith('postgresql') else {}
-)
+
+# Configure engine parameters based on database type
+engine_params = {
+    'pool_pre_ping': True
+}
+
+# Add PostgreSQL-specific parameters only if using PostgreSQL
+if database_url.startswith('postgresql'):
+    engine_params.update({
+        'pool_size': 10,
+        'max_overflow': 20,
+        'pool_recycle': 300,
+        'connect_args': {'connect_timeout': 10}
+    })
+
+# Create engine with appropriate parameters
+engine = create_engine(database_url, **engine_params)
 
 # Create all tables
 try:
