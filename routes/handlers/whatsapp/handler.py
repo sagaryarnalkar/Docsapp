@@ -177,7 +177,7 @@ class WhatsAppHandler:
             current_time = int(time.time())
             
             # Check for duplicate message using the appropriate deduplication mechanism
-            if self._is_duplicate_message(from_number, message_id, message_key):
+            if self._is_duplicate_message(from_number, message_id, message_key, message.get('type')):
                 print(f"DUPLICATE MESSAGE DETECTED: {message_key}")
                 return "Duplicate message processing prevented", 200
             
@@ -335,26 +335,37 @@ class WhatsAppHandler:
         """
         return await self.command_processor.handle_command(from_number, text)
 
-    def _is_duplicate_message(self, from_number, message_id, message_key):
+    def _is_duplicate_message(self, from_number, message_id, message_key, message_type=None):
         """
-        Check if a message is a duplicate using the deduplication manager
+        Check if a message is a duplicate.
         
         Args:
             from_number: The sender's phone number
             message_id: The WhatsApp message ID
-            message_key: A unique key for the message (usually message_id + timestamp)
+            message_key: A unique key for this message
+            message_type: Optional type of message (e.g., "list_command")
             
         Returns:
             bool: True if the message is a duplicate, False otherwise
         """
-        # First check using the deduplication manager
-        if self.deduplication.is_duplicate_message(from_number, message_key):
-            logger.info(f"Skipping duplicate message from {from_number}: {message_key}")
-            return True
+        try:
+            # Get the deduplication manager
+            dedup = self._get_deduplication()
             
-        # Mark the message as processed
-        self._mark_message_processed(from_number, message_id, message_key, int(time.time()))
-        return False
+            # Check if this is a duplicate message
+            is_duplicate = dedup.is_duplicate_message(from_number, message_id, message_type)
+            
+            # Debug logging
+            if is_duplicate:
+                print(f"[DEBUG] Message {message_id} from {from_number} is a duplicate")
+            else:
+                print(f"[DEBUG] Message {message_id} from {from_number} is new")
+                
+            return is_duplicate
+        except Exception as e:
+            logger.error(f"Error checking for duplicate message: {str(e)}")
+            # In case of error, assume it's not a duplicate to ensure processing
+            return False
     
     def _mark_message_processed(self, from_number, message_id, message_key, timestamp):
         """

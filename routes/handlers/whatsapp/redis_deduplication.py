@@ -98,13 +98,14 @@ class RedisDeduplicationManager:
             logger.error(f"[DEBUG] Failed to connect to Redis: {str(e)}")
             self.redis = None
     
-    def is_duplicate_message(self, from_number, message_id):
+    def is_duplicate_message(self, from_number, message_id, message_type=None):
         """
         Check if a message is a duplicate.
         
         Args:
             from_number: The sender's phone number
             message_id: The WhatsApp message ID
+            message_type: Optional type of message (e.g., "list_command")
             
         Returns:
             bool: True if the message is a duplicate, False otherwise
@@ -112,7 +113,7 @@ class RedisDeduplicationManager:
         # Use fallback if Redis is not available
         if self.redis is None:
             result = self.fallback.is_duplicate_message(from_number, message_id)
-            logger.info(f"[DEBUG] Using fallback deduplication for message {message_id}: {result}")
+            print(f"[DEBUG] Using fallback deduplication for message {message_id}: {result}")
             return result
             
         # Create a more robust message key that includes the from_number
@@ -120,7 +121,19 @@ class RedisDeduplicationManager:
         current_time = int(time.time())
         
         # Debug logging
-        logger.info(f"[DEBUG] Checking if message is duplicate - Key: {message_key}")
+        print(f"\n==================================================")
+        print(f"[DEBUG] DEDUPLICATION CHECK - Message ID: {message_id}")
+        print(f"[DEBUG] From: {from_number}")
+        print(f"[DEBUG] Key: {message_key}")
+        print(f"[DEBUG] Message Type: {message_type}")
+        print(f"==================================================")
+        
+        # Special handling for command responses - NEVER deduplicate these
+        if message_type in ["list_command", "help_command", "find_command", "ask_command"]:
+            print(f"[DEBUG] Message is a {message_type} response - BYPASSING DEDUPLICATION")
+            # Still track it for debugging purposes
+            self.redis.set(f"cmd:{message_key}", current_time, ex=600)
+            return False
         
         # Check both the combined key and the message_id for backward compatibility
         combined_key_exists = self.redis.exists(f"msg:{message_key}")
@@ -130,12 +143,12 @@ class RedisDeduplicationManager:
         if combined_key_exists:
             timestamp = int(self.redis.get(f"msg:{message_key}") or 0)
             time_since_processed = current_time - timestamp
-            logger.info(f"[DEBUG] Combined key exists: msg:{message_key}, processed {time_since_processed}s ago")
+            print(f"[DEBUG] Combined key exists: msg:{message_key}, processed {time_since_processed}s ago")
         
         if message_id_exists:
             timestamp = int(self.redis.get(f"msg:{message_id}") or 0)
             time_since_processed = current_time - timestamp
-            logger.info(f"[DEBUG] Message ID key exists: msg:{message_id}, processed {time_since_processed}s ago")
+            print(f"[DEBUG] Message ID key exists: msg:{message_id}, processed {time_since_processed}s ago")
         
         if combined_key_exists or message_id_exists:
             # Get the timestamp when the message was processed
@@ -146,15 +159,14 @@ class RedisDeduplicationManager:
                 timestamp = int(self.redis.get(f"msg:{message_id}") or 0)
                 
             time_since_processed = current_time - timestamp
-            logger.info(f"[DEBUG] Skipping duplicate message processing for message ID {message_id} "
-                      f"from {from_number} (processed {time_since_processed}s ago)")
+            print(f"[DEBUG] DUPLICATE DETECTED: Message ID {message_id} from {from_number} (processed {time_since_processed}s ago)")
             return True
         
         # Mark this message as being processed with both keys
         # Set expiration to 10 minutes (600 seconds)
         self.redis.set(f"msg:{message_key}", current_time, ex=600)
         self.redis.set(f"msg:{message_id}", current_time, ex=600)
-        logger.info(f"[DEBUG] Processing new message {message_id} from {from_number}")
+        print(f"[DEBUG] NEW MESSAGE: Processing message {message_id} from {from_number}")
         return False
         
     def is_duplicate_document(self, from_number, doc_id):

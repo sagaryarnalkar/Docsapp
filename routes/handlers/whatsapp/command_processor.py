@@ -9,6 +9,9 @@ import asyncio
 from .document_processor import WhatsAppHandlerError
 from models.intent_classifier import IntentClassifier
 from models.response_generator import ResponseGenerator
+import time
+import hashlib
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -44,144 +47,88 @@ class CommandProcessor:
         
     async def handle_command(self, from_number, text):
         """
-        Process a text command from a user.
+        Process a command from a user.
         
         Args:
-            from_number: The sender's phone number
+            from_number: The user's phone number
             text: The command text
             
         Returns:
-            tuple: (response_message, status_code)
+            A tuple of (success, message)
         """
         try:
-            # Log the command
-            logger.info(f"[DEBUG] Processing command: '{text}' from {from_number}")
-
-            # Normalize the command
-            command = text.lower().strip()
+            # Add timestamp to log for tracking
+            timestamp = int(time.time())
+            command_hash = hashlib.md5(f"{from_number}:{text}:{timestamp}".encode()).hexdigest()[:8]
             
-            # Check for system messages like "Fetch update"
-            system_messages = ["fetch update", "sync", "refresh", "update", "status"]
-            if command in system_messages:
-                logger.info(f"[DEBUG] Ignoring system message: '{command}'")
-                return "System message ignored", 200
+            print(f"\n==================================================")
+            print(f"[DEBUG] COMMAND PROCESSING START - {command_hash}")
+            print(f"[DEBUG] From: {from_number}")
+            print(f"[DEBUG] Text: '{text}'")
+            print(f"[DEBUG] Time: {timestamp}")
+            print(f"==================================================")
             
-            # Initialize or update user context
-            if from_number not in self.user_context:
-                self.user_context[from_number] = {
-                    'document_count': 0,
-                    'last_command': None,
-                    'command_understood': False
-                }
-                logger.info(f"[DEBUG] Initialized user context for {from_number}")
-                
-            # Try to get document count
-            try:
-                document_list, _ = self.docs_app.list_documents(from_number)
-                doc_count = len(document_list) if document_list else 0
-                self.user_context[from_number]['document_count'] = doc_count
-                logger.info(f"[DEBUG] User {from_number} has {doc_count} documents")
-            except Exception as e:
-                logger.error(f"[DEBUG] Error getting document count: {str(e)}")
+            # Normalize text
+            text = text.strip().lower()
             
-            # Detect command intent from natural language using rule-based approach
-            command_intent = self._detect_command_intent(command)
-            logger.info(f"[DEBUG] Rule-based intent detection result: {command_intent}")
+            # Check for help command
+            if text == 'help':
+                print(f"[DEBUG] {command_hash} - Detected HELP command")
+                return await self._handle_help_command(from_number)
+                
+            # Check for list command
+            if text == 'list':
+                print(f"[DEBUG] {command_hash} - Detected LIST command")
+                return await self._handle_list_command(from_number)
+                
+            # Check for find command
+            if text.startswith('find '):
+                print(f"[DEBUG] {command_hash} - Detected FIND command")
+                query = text[5:].strip()
+                print(f"[DEBUG] {command_hash} - Find query: '{query}'")
+                return await self._handle_find_command(from_number, query)
+                
+            # Check for ask command
+            if text.startswith('/ask '):
+                print(f"[DEBUG] {command_hash} - Detected ASK command")
+                question = text[5:].strip()
+                print(f"[DEBUG] {command_hash} - Question: '{question}'")
+                return await self._handle_ask_command(from_number, question)
+                
+            # Try to detect command intent
+            command_intent = self._detect_command_intent(text)
+            print(f"[DEBUG] {command_hash} - Command intent detection result: {command_intent}")
             
-            # If rule-based detection fails, try Gemini-based intent classification
-            if not command_intent and self.intent_classifier.is_available:
-                logger.info("[DEBUG] Rule-based intent detection failed, trying Gemini classification")
-                intent_result = await self.intent_classifier.classify_intent(command)
+            if command_intent == 'help':
+                print(f"[DEBUG] {command_hash} - Executing HELP command via intent detection")
+                return await self._handle_help_command(from_number)
                 
-                if intent_result["status"] == "success" and intent_result["confidence"] > 0.7:
-                    classified_intent = intent_result["intent"]
-                    parameters = intent_result.get("parameters", {})
-                    
-                    logger.info(f"[DEBUG] Gemini classified intent: {classified_intent} (confidence: {intent_result['confidence']})")
-                    
-                    # Map the classified intent to a command
-                    if classified_intent == "list_documents":
-                        command_intent = "list"
-                    elif classified_intent == "help":
-                        command_intent = "help"
-                    elif classified_intent == "find_document" and "search_query" in parameters:
-                        command_intent = f"find {parameters['search_query']}"
-                    elif classified_intent == "ask_question" and "question" in parameters:
-                        command_intent = f"/ask {parameters['question']}"
-                    elif classified_intent == "delete_document" and "document_id" in parameters:
-                        command_intent = f"delete {parameters['document_id']}"
+            elif command_intent == 'list':
+                print(f"[DEBUG] {command_hash} - Executing LIST command via intent detection")
+                return await self._handle_list_command(from_number)
+                
+            elif command_intent.startswith('find:'):
+                query = command_intent[5:].strip()
+                print(f"[DEBUG] {command_hash} - Executing FIND command via intent detection")
+                print(f"[DEBUG] {command_hash} - Find query: '{query}'")
+                return await self._handle_find_command(from_number, query)
+                
+            elif command_intent.startswith('ask:'):
+                question = command_intent[4:].strip()
+                print(f"[DEBUG] {command_hash} - Executing ASK command via intent detection")
+                print(f"[DEBUG] {command_hash} - Question: '{question}'")
+                return await self._handle_ask_command(from_number, question)
             
-            if command_intent:
-                logger.info(f"[DEBUG] Final detected command intent: {command_intent}")
-                command = command_intent
-                
-                # Update user context - command was understood
-                self.user_context[from_number]['command_understood'] = True
-                
-                # Process different commands - DIRECTLY EXECUTE THE INTENT
-                if command == 'help':
-                    self.user_context[from_number]['last_command'] = 'help'
-                    logger.info(f"[DEBUG] Executing HELP command for {from_number}")
-                    return await self._handle_help_command(from_number)
-                elif command == 'list':
-                    self.user_context[from_number]['last_command'] = 'list'
-                    logger.info(f"[DEBUG] Executing LIST command for {from_number}")
-                    return await self._handle_list_command(from_number)
-                elif command.startswith('find '):
-                    self.user_context[from_number]['last_command'] = 'find'
-                    logger.info(f"[DEBUG] Executing FIND command for {from_number} with query: {command[5:].strip()}")
-                    return await self._handle_find_command(from_number, command[5:].strip())
-                elif command.startswith('/ask '):
-                    self.user_context[from_number]['last_command'] = 'ask'
-                    logger.info(f"[DEBUG] Executing ASK command for {from_number} with question: {command[5:].strip()}")
-                    return await self._handle_ask_command(from_number, command[5:].strip())
-                elif command.startswith('delete '):
-                    self.user_context[from_number]['last_command'] = 'delete'
-                    logger.info(f"[DEBUG] Executing DELETE command for {from_number} with target: {command[7:].strip()}")
-                    # Check if we have a delete_document handler, otherwise use the standard one
-                    if hasattr(self, '_handle_delete_command'):
-                        return await self._handle_delete_command(from_number, command[7:].strip())
-                    else:
-                        # Use the standard message format for delete
-                        await self.message_sender.send_message(
-                            from_number, 
-                            f"Deleting document: {command[7:].strip()}"
-                        )
-                        return "Delete command processed", 200
-            else:
-                # Command was not understood
-                logger.info(f"[DEBUG] Unknown command: {command}")
-                self.user_context[from_number]['last_command'] = 'unknown'
-                self.user_context[from_number]['command_understood'] = False
-                
-                # Use Gemini to generate a more helpful response
-                if self.response_generator.is_available:
-                    logger.info(f"[DEBUG] Generating AI response for unknown command: {command}")
-                    response = await self.response_generator.generate_response(
-                        text, 
-                        self.user_context[from_number]
-                    )
-                    await self.message_sender.send_message(from_number, response)
-                    return "Unknown command handled with AI response", 200
-                else:
-                    # Fall back to standard help message
-                    logger.info(f"[DEBUG] Using fallback help message for unknown command: {command}")
-                    help_message = (
-                        "I don't understand that command. Here are some things you can say:\n\n"
-                        "• 'list' or 'show my documents' - See your stored files\n"
-                        "• 'find [text]' - Search for specific documents\n"
-                        "• '/ask [question]' - Ask questions about your documents\n"
-                        "• 'help' - See all available commands\n\n"
-                        "You can also just send me any document to store it!"
-                    )
-                    await self.message_sender.send_message(from_number, help_message)
-                    return "Unknown command", 200
-
+            # No command detected
+            print(f"[DEBUG] {command_hash} - No command detected in text: '{text}'")
+            return False, "I'm not sure what you're asking. Try 'help' to see available commands."
+            
         except Exception as e:
-            logger.error(f"[DEBUG] Error in handle_command: {str(e)}", exc_info=True)
-            error_msg = "❌ Error processing command. Please try again."
-            await self.message_sender.send_message(from_number, error_msg)
-            raise WhatsAppHandlerError(str(e))
+            error_id = str(uuid.uuid4())[:8]
+            print(f"[ERROR] Command processing error {error_id}: {str(e)}")
+            import traceback
+            print(f"[ERROR] Traceback {error_id}: {traceback.format_exc()}")
+            return False, f"❌ Sorry, an error occurred while processing your command. (Error ID: {error_id})"
             
     async def _handle_help_command(self, from_number):
         """
@@ -213,43 +160,70 @@ class CommandProcessor:
         return "Help message sent", 200
         
     async def _handle_list_command(self, from_number):
-        """
-        Handle the 'list' command.
-        
-        Args:
-            from_number: The sender's phone number
-            
-        Returns:
-            tuple: (response_message, status_code)
-        """
-        logger.info(f"[DEBUG] Processing list command for {from_number}")
-        # Use docs_app to list documents
+        """Handle list command"""
         try:
-            document_list, file_ids = self.docs_app.list_documents(from_number)
-            logger.info(f"[DEBUG] Found {len(document_list) if document_list else 0} documents for {from_number}")
+            command_hash = hashlib.md5(f"{from_number}:list:{int(time.time())}".encode()).hexdigest()[:8]
+            print(f"[DEBUG] {command_hash} - Executing LIST command for {from_number}")
+            
+            # Check if user is authorized
+            if not self.docs_app._get_user_credentials(from_number):
+                print(f"[DEBUG] {command_hash} - User {from_number} is not authorized")
+                return False, "You need to log in first. Send 'login' to get started."
+            
+            # Get document list
+            print(f"[DEBUG] {command_hash} - Getting document list for {from_number}")
+            document_list, documents = self.docs_app.list_documents(from_number)
             
             if document_list:
-                message = "Your documents:\n\n" + "\n".join(document_list)
-                logger.info(f"[DEBUG] Sending document list to {from_number} with {len(document_list)} documents")
+                print(f"[DEBUG] {command_hash} - Found {len(document_list)} documents")
+                # Add timestamp to make message unique
+                timestamp = int(time.time())
+                response_text = f"Your documents (as of {timestamp}):\n\n" + "\n".join(document_list)
+                response_text += "\n\nTo get a document, reply with the number (e.g., '2')"
+                response_text += "\nTo delete a document, reply with 'delete <number>' (e.g., 'delete 2')"
+                
+                # Send the message with special handling
+                print(f"[DEBUG] {command_hash} - Sending LIST response with {len(document_list)} documents")
+                success = await self.message_sender.send_message(
+                    from_number, 
+                    response_text,
+                    message_type="list_command",
+                    bypass_deduplication=True
+                )
+                
+                if success:
+                    print(f"[DEBUG] {command_hash} - LIST response sent successfully")
+                    return True, "Document list sent"
+                else:
+                    print(f"[DEBUG] {command_hash} - Failed to send LIST response")
+                    return False, "Failed to send document list"
             else:
-                message = "You don't have any stored documents. Send me any document to store it, and I'll keep it safe in your Google Drive!"
-                logger.info(f"[DEBUG] Sending empty document list message to {from_number}")
-            
-            # Force this message to be sent by adding a timestamp
-            import time
-            timestamp = int(time.time())
-            message = f"{message}\n\nTimestamp: {timestamp}"
-            
-            logger.info(f"[DEBUG] Sending list command response to {from_number}")
-            send_result = await self.message_sender.send_message(from_number, message)
-            logger.info(f"[DEBUG] List command response send result: {send_result}")
-            
-            return "List command processed", 200
+                print(f"[DEBUG] {command_hash} - No documents found for {from_number}")
+                # Add timestamp to make message unique
+                timestamp = int(time.time())
+                response_text = f"You don't have any stored documents. (Check: {timestamp})"
+                
+                # Send the message with special handling
+                success = await self.message_sender.send_message(
+                    from_number, 
+                    response_text,
+                    message_type="list_command",
+                    bypass_deduplication=True
+                )
+                
+                if success:
+                    print(f"[DEBUG] {command_hash} - Empty LIST response sent successfully")
+                    return True, "Empty document list sent"
+                else:
+                    print(f"[DEBUG] {command_hash} - Failed to send empty LIST response")
+                    return False, "Failed to send document list"
+                
         except Exception as e:
-            logger.error(f"[DEBUG] Error in _handle_list_command: {str(e)}", exc_info=True)
-            error_msg = "❌ Error retrieving your documents. Please try again."
-            await self.message_sender.send_message(from_number, error_msg)
-            return "List command error", 500
+            error_id = str(uuid.uuid4())[:8]
+            print(f"[ERROR] List command error {error_id}: {str(e)}")
+            import traceback
+            print(f"[ERROR] Traceback {error_id}: {traceback.format_exc()}")
+            return False, f"❌ An error occurred while listing your documents. (Error ID: {error_id})"
         
     async def _handle_find_command(self, from_number, query):
         """
