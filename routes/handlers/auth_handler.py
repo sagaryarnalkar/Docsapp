@@ -355,18 +355,26 @@ class AuthHandler:
                             
                             if is_new_user:
                                 welcome_msg = (
-                                    f"🎉 Welcome to DocsApp! 🎉\n\n"
-                                    f"You've successfully logged in to your Google account.\n\n"
-                                    f"You can now:\n"
-                                    f"• Send documents to store them\n"
-                                    f"• Type 'list' to see your documents\n"
-                                    f"• Type 'help' for more commands"
+                                    f"🎉 Welcome to Docverse—You're In! 🎉\n\n"
+                                    f"Great news—you're connected to Docverse via your Google Drive! Now, send us your documents, "
+                                    f"and we'll index them for lightning-fast access. Your info will be readily available—ask anything "
+                                    f"complex with our AI-powered search!"
                                 )
                             else:
+                                # Get document count for returning users
+                                doc_count = 0
+                                try:
+                                    from models.database import Document, Session
+                                    session = Session()
+                                    doc_count = session.query(Document).filter_by(user_phone=phone).count()
+                                    session.close()
+                                except Exception as e:
+                                    print(f"Error getting document count: {str(e)}")
+                                
                                 welcome_msg = (
-                                    f"👋 Welcome back to DocsApp!\n\n"
-                                    f"You've successfully logged in to your Google account.\n\n"
-                                    f"Type 'list' to see your stored documents or 'help' for available commands."
+                                    f"👋 Welcome back to Docverse!\n\n"
+                                    f"We are now connected to your Google Drive. "
+                                    f"You have {doc_count} document{'s' if doc_count != 1 else ''} stored."
                                 )
                             
                             await handler.send_message(phone, welcome_msg)

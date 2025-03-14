@@ -272,11 +272,12 @@ class WhatsAppHandler:
 
         if auth_url.startswith('http'):
             message = (
-                "🔐 *Authorization Required*\n\n"
-                "To use this bot and manage your documents, I need access to your Google Drive.\n\n"
-                "Please click the link below to authorize:\n\n"
+                "🌟 *Welcome to Docverse!* 🌟\n\n"
+                "Hey there! You've just stepped into your personal document universe. To get started, we'll send you a sign-in link to connect your Google Drive—then send us a ton of your documents, and we'll store them securely in your Google Drive (not with us!).\n\n"
+                "Upload anytime, retrieve with ease, or ask any complex questions with our AI-powered search (we've got it covered!). For example, ask \"What's my passport number and address?\" and we'll fetch it from your passport document in a snap.\n\n"
+                "Ready to revolutionize your file management? Click the link below:\n\n"
                 f"{auth_url}\n\n"
-                "After authorizing, you can start using the bot!"
+                "After connecting, you can start sending documents right away!"
             )
             print("\n=== Sending Auth Message ===")
             print(f"Message: {message}")
