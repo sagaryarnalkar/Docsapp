@@ -125,7 +125,7 @@ class CommandProcessor:
         if document_list:
             message = "Your documents:\n\n" + "\n".join(document_list)
         else:
-            message = "You don't have any stored documents."
+            message = "You don't have any stored documents. Send me any document to store it, and I'll keep it safe in your Google Drive!"
         await self.message_sender.send_message(from_number, message)
         return "List command processed", 200
         

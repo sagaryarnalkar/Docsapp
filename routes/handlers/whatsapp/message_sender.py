@@ -61,10 +61,13 @@ class MessageSender:
             cutoff_time = current_time - 3600
             self.sent_messages = {k:v for k,v in self.sent_messages.items() if v > cutoff_time}
             
-            # Special handling for unknown command messages - always send these
+            # Messages that should always be sent (bypass deduplication)
             is_unknown_command = "I don't understand that command" in message
-            if is_unknown_command:
-                print(f"Sending unknown command message to {to_number} (bypassing deduplication)")
+            is_no_documents = "You don't have any stored documents" in message
+            is_important_message = is_unknown_command or is_no_documents
+            
+            if is_important_message:
+                print(f"Sending important message to {to_number} (bypassing deduplication): {message[:50]}...")
                 # Don't return here, continue with sending the message
             # Regular deduplication for other messages
             elif message_key in self.sent_messages:
