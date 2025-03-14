@@ -5,7 +5,10 @@ This module handles processing text commands from WhatsApp users.
 """
 
 import logging
+import asyncio
 from .document_processor import WhatsAppHandlerError
+from models.intent_classifier import IntentClassifier
+from models.response_generator import ResponseGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,13 @@ class CommandProcessor:
         """
         self.docs_app = docs_app
         self.message_sender = message_sender
+        
+        # Initialize the intent classifier and response generator
+        self.intent_classifier = IntentClassifier()
+        self.response_generator = ResponseGenerator()
+        
+        # Track context for better responses
+        self.user_context = {}
         
     async def handle_command(self, from_number, text):
         """
@@ -56,37 +66,110 @@ class CommandProcessor:
                 print(f"Ignoring system message: '{command}'")
                 return "System message ignored", 200
             
-            # Detect command intent from natural language
+            # Initialize or update user context
+            if from_number not in self.user_context:
+                self.user_context[from_number] = {
+                    'document_count': 0,
+                    'last_command': None,
+                    'command_understood': False
+                }
+                
+            # Try to get document count
+            try:
+                document_list, _ = self.docs_app.list_documents(from_number)
+                self.user_context[from_number]['document_count'] = len(document_list) if document_list else 0
+            except Exception as e:
+                print(f"Error getting document count: {str(e)}")
+            
+            # Detect command intent from natural language using rule-based approach
             command_intent = self._detect_command_intent(command)
+            
+            # If rule-based detection fails, try Gemini-based intent classification
+            if not command_intent and self.intent_classifier.is_available:
+                print("Rule-based intent detection failed, trying Gemini classification...")
+                intent_result = await self.intent_classifier.classify_intent(command)
+                
+                if intent_result["status"] == "success" and intent_result["confidence"] > 0.7:
+                    classified_intent = intent_result["intent"]
+                    parameters = intent_result.get("parameters", {})
+                    
+                    print(f"Gemini classified intent: {classified_intent} (confidence: {intent_result['confidence']})")
+                    
+                    # Map the classified intent to a command
+                    if classified_intent == "list_documents":
+                        command_intent = "list"
+                    elif classified_intent == "help":
+                        command_intent = "help"
+                    elif classified_intent == "find_document" and "search_query" in parameters:
+                        command_intent = f"find {parameters['search_query']}"
+                    elif classified_intent == "ask_question" and "question" in parameters:
+                        command_intent = f"/ask {parameters['question']}"
+                    elif classified_intent == "delete_document" and "document_id" in parameters:
+                        command_intent = f"delete {parameters['document_id']}"
+            
             if command_intent:
                 print(f"Detected command intent: {command_intent}")
                 command = command_intent
-            
-            # Process different commands
-            if command == 'help':
-                return await self._handle_help_command(from_number)
-            elif command == 'list':
-                return await self._handle_list_command(from_number)
-            elif command.startswith('find '):
-                return await self._handle_find_command(from_number, command[5:].strip())
-            elif command.startswith('/ask '):
-                return await self._handle_ask_command(from_number, command[5:].strip())
+                
+                # Update user context - command was understood
+                self.user_context[from_number]['command_understood'] = True
+                
+                # Process different commands - DIRECTLY EXECUTE THE INTENT
+                if command == 'help':
+                    self.user_context[from_number]['last_command'] = 'help'
+                    return await self._handle_help_command(from_number)
+                elif command == 'list':
+                    self.user_context[from_number]['last_command'] = 'list'
+                    return await self._handle_list_command(from_number)
+                elif command.startswith('find '):
+                    self.user_context[from_number]['last_command'] = 'find'
+                    return await self._handle_find_command(from_number, command[5:].strip())
+                elif command.startswith('/ask '):
+                    self.user_context[from_number]['last_command'] = 'ask'
+                    return await self._handle_ask_command(from_number, command[5:].strip())
+                elif command.startswith('delete '):
+                    self.user_context[from_number]['last_command'] = 'delete'
+                    # Check if we have a delete_document handler, otherwise use the standard one
+                    if hasattr(self, '_handle_delete_command'):
+                        return await self._handle_delete_command(from_number, command[7:].strip())
+                    else:
+                        # Use the standard message format for delete
+                        await self.message_sender.send_message(
+                            from_number, 
+                            f"Deleting document: {command[7:].strip()}"
+                        )
+                        return "Delete command processed", 200
             else:
+                # Command was not understood
                 print(f"Unknown command: {command}")
-                help_message = (
-                    "I don't understand that command. Here are some things you can say:\n\n"
-                    "• 'list' or 'show my documents' - See your stored files\n"
-                    "• 'find [text]' - Search for specific documents\n"
-                    "• '/ask [question]' - Ask questions about your documents\n"
-                    "• 'help' - See all available commands\n\n"
-                    "You can also just send me any document to store it!"
-                )
-                await self.message_sender.send_message(from_number, help_message)
-                return "Unknown command", 200
+                self.user_context[from_number]['last_command'] = 'unknown'
+                self.user_context[from_number]['command_understood'] = False
+                
+                # Use Gemini to generate a more helpful response
+                if self.response_generator.is_available:
+                    response = await self.response_generator.generate_response(
+                        text, 
+                        self.user_context[from_number]
+                    )
+                    await self.message_sender.send_message(from_number, response)
+                    return "Unknown command handled with AI response", 200
+                else:
+                    # Fall back to standard help message
+                    help_message = (
+                        "I don't understand that command. Here are some things you can say:\n\n"
+                        "• 'list' or 'show my documents' - See your stored files\n"
+                        "• 'find [text]' - Search for specific documents\n"
+                        "• '/ask [question]' - Ask questions about your documents\n"
+                        "• 'help' - See all available commands\n\n"
+                        "You can also just send me any document to store it!"
+                    )
+                    await self.message_sender.send_message(from_number, help_message)
+                    return "Unknown command", 200
 
         except Exception as e:
             error_msg = "❌ Error processing command. Please try again."
             await self.message_sender.send_message(from_number, error_msg)
+            logger.error(f"Error in handle_command: {str(e)}", exc_info=True)
             raise WhatsAppHandlerError(str(e))
             
     async def _handle_help_command(self, from_number):
