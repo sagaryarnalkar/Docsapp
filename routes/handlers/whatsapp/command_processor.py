@@ -49,7 +49,13 @@ class CommandProcessor:
 
             # Normalize the command
             command = text.lower().strip()
-
+            
+            # Detect command intent from natural language
+            command_intent = self._detect_command_intent(command)
+            if command_intent:
+                print(f"Detected command intent: {command_intent}")
+                command = command_intent
+            
             # Process different commands
             if command == 'help':
                 return await self._handle_help_command(from_number)
@@ -191,3 +197,72 @@ class CommandProcessor:
                 result.get("message", "No relevant information found in your documents.")
             )
             return "Question processed", 500 
+
+    def _detect_command_intent(self, text):
+        """
+        Detect command intent from natural language.
+        
+        Args:
+            text: The user's message
+            
+        Returns:
+            str: The detected command, or None if no command was detected
+        """
+        # List command phrases
+        list_phrases = [
+            'show me my files', 'show my files', 'show my documents', 
+            'list my files', 'list my documents', 'show documents',
+            'what files do i have', 'what documents do i have',
+            'view my files', 'view my documents', 'display my files',
+            'show all my files', 'show all documents', 'get my files',
+            'see my files', 'see my documents'
+        ]
+        
+        # Help command phrases
+        help_phrases = [
+            'what can you do', 'how does this work', 'how to use',
+            'show me help', 'need help', 'instructions', 'guide me',
+            'how do i', 'what commands', 'available commands',
+            'help me', 'i need help', 'show help'
+        ]
+        
+        # Find command phrases
+        find_prefixes = [
+            'find', 'search for', 'look for', 'search', 'locate',
+            'get me', 'find me', 'search my files for', 'find documents about',
+            'search documents for', 'find files about', 'look up'
+        ]
+        
+        # Ask command phrases
+        ask_prefixes = [
+            'ask', 'tell me', 'what is', 'who is', 'when is',
+            'where is', 'why is', 'how is', 'can you tell me',
+            'i want to know', 'explain', 'describe'
+        ]
+        
+        # Check for list command
+        for phrase in list_phrases:
+            if phrase in text:
+                return 'list'
+        
+        # Check for help command
+        for phrase in help_phrases:
+            if phrase in text:
+                return 'help'
+        
+        # Check for find command
+        for prefix in find_prefixes:
+            if text.startswith(prefix + ' '):
+                query = text[len(prefix) + 1:].strip()
+                if query:  # Only if there's something to search for
+                    return f'find {query}'
+        
+        # Check for ask command
+        for prefix in ask_prefixes:
+            if text.startswith(prefix + ' '):
+                question = text[len(prefix) + 1:].strip()
+                if question:  # Only if there's a question
+                    return f'/ask {question}'
+        
+        # No command intent detected
+        return None 
