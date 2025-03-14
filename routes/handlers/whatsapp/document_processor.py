@@ -54,19 +54,34 @@ class DocumentProcessor:
     
     def __init__(self, docs_app, message_sender, deduplication):
         """
-        Initialize the document processor.
+        Initialize the document processor
         
         Args:
             docs_app: The DocsApp instance for document operations
-            message_sender: The MessageSender instance for sending responses
-            deduplication: The DeduplicationManager for tracking processed documents
+            message_sender: The MessageSender for sending WhatsApp messages
+            deduplication: The deduplication manager to use (Redis or in-memory)
         """
         self.docs_app = docs_app
         self.message_sender = message_sender
         self.deduplication = deduplication
         
-        # Track document processing states to prevent duplicate notifications
+        # Document processing states
+        self.pending_descriptions = {}
         self.document_states = {}
+        
+        # Schedule cleanup of document states
+        self._cleanup_document_states()
+        
+        # Try to get RAG processor if available
+        try:
+            self.rag_handler = RAGHandler(docs_app)
+            logger.info("RAG handler initialized for document processing")
+        except Exception as e:
+            self.rag_handler = None
+            logger.warning(f"RAG handler not available: {str(e)}")
+            
+        # Log initialization
+        logger.info("Document processor initialized")
         
         # Clean up old global message tracking entries
         self._cleanup_global_tracking()
@@ -87,75 +102,94 @@ class DocumentProcessor:
         
     async def handle_document(self, from_number, document, message=None):
         """
-        Process a document from WhatsApp.
+        Handle a document message from WhatsApp
         
         Args:
             from_number: The sender's phone number
             document: The document data from WhatsApp
-            message: The full message object (optional)
+            message: Optional message text accompanying the document
             
         Returns:
             tuple: (response_message, status_code)
         """
-        debug_info = []
-        try:
-            debug_info.append("=== Document Processing Started ===")
-            debug_info.append(f"Document details: {json.dumps(document, indent=2) if document else 'None'}")
-
-            # Handle replies to documents (for adding descriptions)
+        # If no document provided (might be a reply), handle it differently
+        if not document:
             if message and 'context' in message:
-                return await self._handle_document_reply(from_number, message, debug_info)
-
-            # If no document provided, return early
-            if not document:
-                return "No document to process", 200
-
-            # Check for duplicate document processing
+                return await self._handle_document_reply(from_number, message, {"message": message})
+            return "No document to process", 200
+            
+        try:
+            # Extract document information immediately
             doc_id = document.get('id')
-            filename = document.get('filename', 'Unknown file')
+            filename = document.get('filename', 'unknown_file')
             mime_type = document.get('mime_type', 'application/octet-stream')
             
-            # Check global tracking first
-            if self._is_duplicate_by_global_tracking(doc_id, "document_received"):
-                logger.info(f"Skipping duplicate document processing for {doc_id} based on global tracking")
-                return "Duplicate document processing prevented", 200
+            # Create a debug info dictionary for logging
+            debug_info = {
+                'from_number': from_number,
+                'doc_id': doc_id,
+                'filename': filename,
+                'mime_type': mime_type,
+                'message': message
+            }
             
-            # Mark as received in global tracking
-            self._update_global_tracking(doc_id, "document_received")
+            logger.info(f"Received document from {from_number}: {filename} ({mime_type})")
             
-            if self._get_deduplication().is_duplicate_document(from_number, doc_id):
-                # Still send a confirmation message if we haven't sent one recently
-                if not self._is_duplicate_by_global_tracking(doc_id, "already_processed_notification"):
-                    await self.message_sender.send_message(
-                        from_number, 
-                        f"✅ Document '{filename}' was already processed. You can ask questions about it using:\n/ask <your question>"
-                    )
-                    self._update_global_tracking(doc_id, "already_processed_notification")
-                    
-                return "Duplicate document processing prevented", 200
-
-            # Get document details
-            debug_info.append(f"Doc ID: {doc_id}")
-            debug_info.append(f"Filename: {filename}")
-            debug_info.append(f"MIME Type: {mime_type}")
-
-            # Get initial description from caption if provided
-            description = "Document from WhatsApp"
-            if message and message.get('caption'):
-                description = message.get('caption')
-                debug_info.append(f"Using caption as initial description: {description}")
-
-            # Download and process the document
-            return await self._download_and_process_document(
-                from_number, doc_id, filename, mime_type, description, debug_info
+            # IMPORTANT: Check for duplicates IMMEDIATELY to prevent duplicate processing
+            if self.deduplication.is_duplicate_document(from_number, doc_id):
+                logger.info(f"Skipping duplicate document from {from_number}: {filename}")
+                # Still send a message to inform the user (but don't process again)
+                await self.message_sender.send_message(
+                    from_number, 
+                    f"⚠️ I've already received this document ({filename}). No need to send it again."
+                )
+                return "Duplicate document", 200
+                
+            # IMPORTANT: Mark the document as being processed IMMEDIATELY
+            # This prevents duplicate processing if WhatsApp resends the webhook
+            processing_key = f"{from_number}:{doc_id}"
+            self.deduplication.mark_document_processing(from_number, doc_id)
+            logger.info(f"Marked document as being processed: {processing_key}")
+            
+            # If there's a message with the document, it might be a description
+            description = ""
+            if message:
+                if isinstance(message, dict) and message.get('caption'):
+                    description = message.get('caption')
+                elif isinstance(message, str):
+                    description = message
+            
+            # IMPORTANT: Send an immediate acknowledgment to the user
+            # This lets them know we've received the document, even before processing starts
+            await self.message_sender.send_message(
+                from_number, 
+                f"📥 I've received your document '{filename}'. Processing now..."
             )
-
-        except WhatsAppHandlerError:
-            raise
+            
+            # Start processing in the background
+            # This allows us to return a 200 response to WhatsApp immediately
+            asyncio.create_task(self._process_document_async(
+                from_number, doc_id, filename, mime_type, description, debug_info, processing_key
+            ))
+            
+            # Return success immediately to prevent WhatsApp from resending the webhook
+            return "Document received and processing started", 200
+            
         except Exception as e:
-            error_msg = f"❌ Error processing document: {str(e)}"
-            await self.message_sender.send_message(from_number, error_msg)
-            raise WhatsAppHandlerError(str(e))
+            logger.error(f"Error handling document: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Send error message to user
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    "❌ Sorry, I couldn't process your document. Please try again later."
+                )
+            except Exception as send_err:
+                logger.error(f"Error sending error message: {str(send_err)}")
+                
+            return f"Error: {str(e)}", 500
             
     async def _handle_document_reply(self, from_number, message, debug_info):
         """
@@ -202,7 +236,7 @@ class DocumentProcessor:
             
     async def _download_and_process_document(self, from_number, doc_id, filename, mime_type, description, debug_info):
         """
-        Download a document from WhatsApp and process it.
+        Download and process a document from WhatsApp
         
         Args:
             from_number: The sender's phone number
@@ -210,149 +244,178 @@ class DocumentProcessor:
             filename: The document filename
             mime_type: The document MIME type
             description: The document description
-            debug_info: List for collecting debug information
+            debug_info: Debug information dictionary
             
         Returns:
             tuple: (response_message, status_code)
         """
-        # Check if we've already started downloading this document
-        if self._is_duplicate_by_global_tracking(doc_id, "download_started"):
-            logger.info(f"Skipping duplicate download for {doc_id}")
-            return "Duplicate download prevented", 200
-            
-        # Mark as download started in global tracking
-        self._update_global_tracking(doc_id, "download_started")
+        # Create a unique processing key for this document
+        processing_key = f"{from_number}:{doc_id}"
         
-        # Get media URL first
-        media_request_url = f"https://graph.facebook.com/{self.message_sender.api_version}/{doc_id}"
-        headers = {
-            'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
-            'Accept': '*/*'
-        }
+        try:
+            # Check if we've already started downloading this document
+            if self._is_duplicate_by_global_tracking(doc_id, "download_started"):
+                logger.info(f"Skipping duplicate download for {doc_id}")
+                return "Duplicate download prevented", 200
+            
+            # Mark as download started in global tracking
+            self._update_global_tracking(doc_id, "download_started")
+            
+            # Get media URL first
+            media_request_url = f"https://graph.facebook.com/{self.message_sender.api_version}/{doc_id}"
+            headers = {
+                'Authorization': f'Bearer {WHATSAPP_ACCESS_TOKEN}',
+                'Accept': '*/*'
+            }
 
-        debug_info.append(f"Media Request URL: {media_request_url}")
-        debug_info.append(f"Using headers: {json.dumps(headers)}")
+            debug_info.append(f"Media Request URL: {media_request_url}")
+            debug_info.append(f"Using headers: {json.dumps(headers)}")
 
-        # First get the media URL using aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(media_request_url, headers=headers) as media_response:
-                media_response_text = await media_response.text()
-                debug_info.append(f"Media URL Request Status: {media_response.status}")
-                debug_info.append(f"Media URL Response: {media_response_text}")
+            # First get the media URL using aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(media_request_url, headers=headers) as media_response:
+                    media_response_text = await media_response.text()
+                    debug_info.append(f"Media URL Request Status: {media_response.status}")
+                    debug_info.append(f"Media URL Response: {media_response_text}")
 
-                if media_response.status == 200:
-                    try:
-                        media_data = json.loads(media_response_text)
-                        download_url = media_data.get('url')
-                        debug_info.append(f"Got download URL: {download_url}")
+                    if media_response.status == 200:
+                        try:
+                            media_data = json.loads(media_response_text)
+                            download_url = media_data.get('url')
+                            debug_info.append(f"Got download URL: {download_url}")
 
-                        if download_url:
-                            # Now download the actual file using aiohttp
-                            async with session.get(download_url, headers=headers) as file_response:
-                                debug_info.append(f"File Download Status: {file_response.status}")
+                            if download_url:
+                                # Now download the actual file using aiohttp
+                                async with session.get(download_url, headers=headers) as file_response:
+                                    debug_info.append(f"File Download Status: {file_response.status}")
 
-                                if file_response.status == 200:
-                                    file_content = await file_response.read()
-                                    temp_path = os.path.join(TEMP_DIR, filename)
-                                    with open(temp_path, 'wb') as f:
-                                        f.write(file_content)
+                                    if file_response.status == 200:
+                                        file_content = await file_response.read()
+                                        temp_path = os.path.join(TEMP_DIR, filename)
+                                        with open(temp_path, 'wb') as f:
+                                            f.write(file_content)
 
-                                    debug_info.append(f"File saved to: {temp_path}")
+                                        debug_info.append(f"File saved to: {temp_path}")
 
-                                    try:
-                                        # Check if we've already stored this document
-                                        if self._is_duplicate_by_global_tracking(doc_id, "document_stored"):
-                                            logger.info(f"Skipping duplicate storage for {doc_id}")
-                                            return "Duplicate storage prevented", 200
-                                            
-                                        # Store in Drive with description
-                                        store_result = await self.docs_app.store_document(
-                                            from_number, temp_path, description, filename
-                                        )
-                                        debug_info.append(f"Store document result: {store_result}")
-
-                                        if not store_result:
-                                            debug_info.append("Failed to store document")
-                                            error_msg = "❌ Error storing document. Please try again later."
-                                            await self.message_sender.send_message(from_number, error_msg)
-                                            raise WhatsAppHandlerError("Failed to store document")
-
-                                        debug_info.append("Document stored successfully")
-                                        
-                                        # Get the file ID for tracking
-                                        file_id = store_result.get('file_id', 'unknown')
-                                        
-                                        # Mark as stored in global tracking
-                                        self._update_global_tracking(doc_id, "document_stored")
-                                        self._update_global_tracking(file_id, "document_stored")
-                                        
-                                        # Create a document state entry for this file
-                                        doc_state_key = f"{from_number}:{file_id}"
-                                        self.document_states[doc_state_key] = {
-                                            "received": True,
-                                            "stored": True,
-                                            "processing_started": False,
-                                            "processing_completed": False,
-                                            "last_notification": int(time.time())
-                                        }
-                                        
-                                        # Check if we've already sent a storage confirmation
-                                        if not self._is_duplicate_by_global_tracking(doc_id, "storage_notification") and \
-                                           not self._is_duplicate_by_global_tracking(file_id, "storage_notification"):
-                                            # Send storage confirmation message
-                                            folder_name = self.docs_app.folder_name
-                                            immediate_response = (
-                                                f"✅ Document '{filename}' stored successfully in your Google Drive folder '{folder_name}'!\n\n"
-                                                f"Initial description: {description}\n\n"
-                                                "You can reply to this message with additional descriptions "
-                                                "to make the document easier to find later!"
-                                            )
-                                            
-                                            await self.message_sender.send_message(from_number, immediate_response)
-                                            
-                                            # Mark storage notification as sent
-                                            self._update_global_tracking(doc_id, "storage_notification")
-                                            self._update_global_tracking(file_id, "storage_notification")
-                                        
-                                        # Process document with RAG in the background
-                                        if file_id != 'unknown':
-                                            await self._process_document_with_rag(
-                                                from_number, 
-                                                file_id,
-                                                store_result.get('mime_type'),
-                                                filename
-                                            )
-                                            
-                                        return "Document stored successfully", 200
-                                    finally:
-                                        # Always clean up temp file
                                         try:
-                                            if os.path.exists(temp_path):
-                                                os.remove(temp_path)
-                                                debug_info.append("Temp file cleaned up")
-                                        except Exception as e:
-                                            logger.error(f"Failed to clean up temp file: {str(e)}")
-                                else:
-                                    debug_info.append(f"File download failed: {await file_response.text()}")
-                                    error_msg = "❌ Failed to download the document. Please try sending it again."
-                                    await self.message_sender.send_message(from_number, error_msg)
-                                    raise WhatsAppHandlerError("Failed to download document")
-                        else:
-                            debug_info.append("No download URL found in response")
-                            error_msg = "❌ Could not access the document. Please try sending it again."
+                                            # Check if we've already stored this document
+                                            if self._is_duplicate_by_global_tracking(doc_id, "document_stored"):
+                                                logger.info(f"Skipping duplicate storage for {doc_id}")
+                                                return "Duplicate storage prevented", 200
+                                            
+                                            # Store in Drive with description
+                                            store_result = await self.docs_app.store_document(
+                                                from_number, temp_path, description, filename
+                                            )
+                                            debug_info.append(f"Store document result: {store_result}")
+
+                                            if not store_result:
+                                                debug_info.append("Failed to store document")
+                                                error_msg = "❌ Error storing document. Please try again later."
+                                                await self.message_sender.send_message(from_number, error_msg)
+                                                raise WhatsAppHandlerError("Failed to store document")
+
+                                            debug_info.append("Document stored successfully")
+                                            
+                                            # Get the file ID for tracking
+                                            file_id = store_result.get('file_id', 'unknown')
+                                            
+                                            # Mark as stored in global tracking
+                                            self._update_global_tracking(doc_id, "document_stored")
+                                            self._update_global_tracking(file_id, "document_stored")
+                                            
+                                            # Create a document state entry for this file
+                                            doc_state_key = f"{from_number}:{file_id}"
+                                            self.document_states[doc_state_key] = {
+                                                "received": True,
+                                                "stored": True,
+                                                "processing_started": False,
+                                                "processing_completed": False,
+                                                "last_notification": int(time.time())
+                                            }
+                                            
+                                            # Check if we've already sent a storage confirmation
+                                            if not self._is_duplicate_by_global_tracking(doc_id, "storage_notification") and \
+                                               not self._is_duplicate_by_global_tracking(file_id, "storage_notification"):
+                                                # Send storage confirmation message
+                                                folder_name = self.docs_app.folder_name
+                                                immediate_response = (
+                                                    f"✅ Document '{filename}' has been successfully stored in your Google Drive folder '{folder_name}'!\n\n"
+                                                    f"Initial description: {description}\n\n"
+                                                    "You can reply to this message with additional descriptions "
+                                                    "to make the document easier to find later!"
+                                                )
+                                                
+                                                await self.message_sender.send_message(from_number, immediate_response)
+                                                
+                                                # Mark storage notification as sent
+                                                self._update_global_tracking(doc_id, "storage_notification")
+                                                self._update_global_tracking(file_id, "storage_notification")
+                                            
+                                            # Process document with RAG in the background
+                                            if file_id != 'unknown':
+                                                await self._process_document_with_rag(
+                                                    from_number, 
+                                                    file_id,
+                                                    store_result.get('mime_type'),
+                                                    filename
+                                                )
+                                                
+                                            # After successful processing, mark the document as processed
+                                            self.deduplication.mark_document_processed(processing_key)
+                                            
+                                            return "Document stored successfully", 200
+                                        finally:
+                                            # Always clean up temp file
+                                            try:
+                                                if os.path.exists(temp_path):
+                                                    os.remove(temp_path)
+                                                    debug_info.append("Temp file cleaned up")
+                                            except Exception as e:
+                                                logger.error(f"Failed to clean up temp file: {str(e)}")
+                                    else:
+                                        debug_info.append(f"File download failed: {await file_response.text()}")
+                                        error_msg = "❌ Failed to download the document. Please try sending it again."
+                                        await self.message_sender.send_message(from_number, error_msg)
+                                        raise WhatsAppHandlerError("Failed to download document")
+                            else:
+                                debug_info.append("No download URL found in response")
+                                error_msg = "❌ Could not access the document. Please try sending it again."
+                                await self.message_sender.send_message(from_number, error_msg)
+                                raise WhatsAppHandlerError("No download URL found")
+                        except json.JSONDecodeError as e:
+                            debug_info.append(f"Error parsing media response: {str(e)}")
+                            error_msg = "❌ Error processing the document. Please try again later."
                             await self.message_sender.send_message(from_number, error_msg)
-                            raise WhatsAppHandlerError("No download URL found")
-                    except json.JSONDecodeError as e:
-                        debug_info.append(f"Error parsing media response: {str(e)}")
-                        error_msg = "❌ Error processing the document. Please try again later."
+                            raise WhatsAppHandlerError(str(e))
+                    else:
+                        debug_info.append(f"Media URL request failed: {media_response_text}")
+                        error_msg = "❌ Could not access the document. Please try sending it again."
                         await self.message_sender.send_message(from_number, error_msg)
-                        raise WhatsAppHandlerError(str(e))
-                else:
-                    debug_info.append(f"Media URL request failed: {media_response_text}")
-                    error_msg = "❌ Could not access the document. Please try sending it again."
-                    await self.message_sender.send_message(from_number, error_msg)
-                    raise WhatsAppHandlerError("Media URL request failed")
+                        raise WhatsAppHandlerError("Media URL request failed")
                     
+        except Exception as e:
+            # On error, reset the document processing status
+            try:
+                self.deduplication.reset_message_tracking(doc_id, "document", from_number)
+            except Exception as reset_err:
+                logger.error(f"Error resetting document tracking: {str(reset_err)}")
+            
+            logger.error(f"Error handling document: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Send error message to user
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    "❌ Sorry, I couldn't process your document. Please try again later."
+                )
+            except Exception as send_err:
+                logger.error(f"Error sending error message: {str(send_err)}")
+                
+            return f"Error: {str(e)}", 500
+            
     async def _process_document_with_rag(self, from_number, file_id, mime_type, filename):
         """
         Process a document with RAG in the background.
@@ -594,3 +657,43 @@ class DocumentProcessor:
         if self.redis_deduplication:
             return self.redis_deduplication
         return self.deduplication 
+
+    async def _process_document_async(self, from_number, doc_id, filename, mime_type, description, debug_info, processing_key):
+        """
+        Process a document asynchronously after acknowledging receipt
+        
+        Args:
+            from_number: The sender's phone number
+            doc_id: The document ID
+            filename: The document filename
+            mime_type: The document MIME type
+            description: The document description
+            debug_info: Debug information dictionary
+            processing_key: The unique key for tracking this document processing
+        """
+        try:
+            # Process the document
+            result = await self._download_and_process_document(
+                from_number, doc_id, filename, mime_type, description, debug_info
+            )
+            logger.info(f"Async document processing completed: {result}")
+        except Exception as e:
+            logger.error(f"Error in async document processing: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # On error, reset the document processing status
+            try:
+                self.deduplication.reset_message_tracking(doc_id, "document", from_number)
+                logger.info(f"Reset document processing status for {processing_key}")
+            except Exception as reset_err:
+                logger.error(f"Error resetting document tracking: {str(reset_err)}")
+            
+            # Send error message to user
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    "❌ Sorry, I couldn't process your document. Please try again later."
+                )
+            except Exception as send_err:
+                logger.error(f"Error sending error message: {str(send_err)}") 

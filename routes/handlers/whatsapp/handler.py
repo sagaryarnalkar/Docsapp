@@ -51,50 +51,43 @@ class WhatsAppHandler:
         self.pending_descriptions = pending_descriptions
         self.user_state = user_state
         
-        # Initialize WhatsApp API configuration
-        self.api_version = WHATSAPP_API_VERSION
-        self.phone_number_id = WHATSAPP_PHONE_NUMBER_ID
-        self.access_token = WHATSAPP_ACCESS_TOKEN
+        # Initialize message sender
+        api_version = os.environ.get('WHATSAPP_API_VERSION', 'v17.0')
+        phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+        access_token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
         
-        # Initialize specialized components
-        self.auth_handler = AuthHandler(self.user_state)
-        self.message_sender = MessageSender(
-            self.api_version, 
-            self.phone_number_id, 
-            self.access_token
-        )
+        if not phone_number_id or not access_token:
+            logger.error("Missing WhatsApp API credentials")
+            print("❌ Missing WhatsApp API credentials")
+            
+        self.message_sender = MessageSender(api_version, phone_number_id, access_token)
         
-        # Initialize deduplication manager
-        self.deduplication = DeduplicationManager()
-        
-        # Try to initialize Redis deduplication manager if available
+        # Try to use Redis deduplication if available
         try:
             from .redis_deduplication import RedisDeduplicationManager
             redis_url = os.environ.get('REDIS_URL')
             if redis_url:
-                self.redis_deduplication = RedisDeduplicationManager(redis_url)
-                logger.info(f"Using Redis for message deduplication: {redis_url.split('@')[1] if '@' in redis_url else 'unknown'}")
-                print(f"Using Redis for message deduplication")
+                self.deduplication = RedisDeduplicationManager(redis_url)
+                logger.info("✅ Using Redis for message deduplication")
+                print("✅ Using Redis for message deduplication")
             else:
-                self.redis_deduplication = None
-                logger.info("Redis URL not available, using in-memory deduplication")
-                print("Redis URL not available, using in-memory deduplication")
-        except ImportError as e:
-            self.redis_deduplication = None
-            logger.warning(f"Redis deduplication not available: {str(e)}")
-            print(f"Redis deduplication not available: {str(e)}")
+                # Fall back to in-memory deduplication
+                from .deduplication import DeduplicationManager
+                self.deduplication = DeduplicationManager()
+                logger.info("⚠️ Using in-memory message deduplication (Redis URL not found)")
+                print("⚠️ Using in-memory message deduplication (Redis URL not found)")
+        except Exception as e:
+            # Fall back to in-memory deduplication on error
+            from .deduplication import DeduplicationManager
+            self.deduplication = DeduplicationManager()
+            logger.error(f"❌ Error initializing Redis deduplication, falling back to in-memory: {str(e)}")
+            print(f"❌ Error initializing Redis deduplication, falling back to in-memory: {str(e)}")
         
-        # Initialize document processor with the appropriate deduplication manager
-        self.document_processor = DocumentProcessor(
-            self.docs_app, 
-            self.message_sender,
-            self._get_deduplication()
-        )
+        # Initialize command processor with message sender
+        self.command_processor = CommandProcessor(docs_app, self.message_sender)
         
-        self.command_processor = CommandProcessor(
-            self.docs_app, 
-            self.message_sender
-        )
+        # Initialize document processor with message sender and deduplication
+        self.document_processor = DocumentProcessor(docs_app, self.message_sender, self.deduplication)
         
         # Check if RAG processor is available
         self.rag_processor = docs_app.rag_processor if docs_app else None
@@ -104,8 +97,9 @@ class WhatsAppHandler:
             self.rag_processor.is_available
         )
         
-        # Clean up old global message tracking entries
-        self._cleanup_global_tracking()
+        # In-memory tracking for global deduplication (will be replaced by Redis)
+        self.processed_messages = {}
+        self.last_cleanup = time.time()
 
     async def send_message(self, to_number, message):
         """
@@ -220,7 +214,10 @@ class WhatsAppHandler:
                     }.get(message_type, '')
                     media_obj['filename'] = f"{message_type}_{int(time.time())}{extension}"
                 
-                return await self.document_processor.handle_document(from_number, media_obj, message)
+                # IMPORTANT: Start document processing in the background
+                # This allows us to return a 200 response to WhatsApp immediately
+                asyncio.create_task(self._process_document_async(from_number, media_obj, message))
+                return f"{message_type} received and processing started", 200
                 
             # Handle text messages and document replies
             elif message_type == 'text':
@@ -236,14 +233,15 @@ class WhatsAppHandler:
                 # Check if this is a reply to a document (for adding descriptions)
                 if 'context' in message:
                     print("Processing document reply...")
-                    return await self.document_processor.handle_document(from_number, None, message)
+                    # IMPORTANT: Process document reply in the background
+                    asyncio.create_task(self._process_document_reply_async(from_number, message))
+                    return "Document reply received and processing started", 200
                 # Handle regular text commands
                 else:
                     print(f"Processing text message: {message_text}")
-                    return await self.command_processor.handle_command(
-                        from_number, 
-                        message_text
-                    )
+                    # IMPORTANT: Process text command in the background
+                    asyncio.create_task(self._process_text_command_async(from_number, message_text))
+                    return "Text command received and processing started", 200
             else:
                 print(f"Unsupported message type: {message_type}")
                 await self.message_sender.send_message(
@@ -335,47 +333,45 @@ class WhatsAppHandler:
 
     def _is_duplicate_message(self, from_number, message_id, message_key):
         """
-        Check if a message is a duplicate using the appropriate deduplication mechanism.
+        Check if a message is a duplicate using the deduplication manager
         
         Args:
             from_number: The sender's phone number
             message_id: The WhatsApp message ID
-            message_key: The combined key (from_number:message_id)
+            message_key: A unique key for the message (usually message_id + timestamp)
             
         Returns:
             bool: True if the message is a duplicate, False otherwise
         """
-        # Use Redis if available
-        if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
-            return self.redis_deduplication.is_duplicate_message(from_number, message_id)
-        
-        # Fall back to in-memory tracking
-        is_duplicate = self._is_duplicate_by_global_tracking(message_key)
-        
-        # Also check the deduplication manager as a backup
-        if not is_duplicate:
-            is_duplicate = self.deduplication.is_duplicate_message(from_number, message_id)
+        # First check using the deduplication manager
+        if self.deduplication.is_duplicate_message(from_number, message_key):
+            logger.info(f"Skipping duplicate message from {from_number}: {message_key}")
+            return True
             
-        return is_duplicate
+        # Mark the message as processed
+        self._mark_message_processed(from_number, message_id, message_key, int(time.time()))
+        return False
     
     def _mark_message_processed(self, from_number, message_id, message_key, timestamp):
         """
-        Mark a message as processed using the appropriate deduplication mechanism.
+        Mark a message as processed in the deduplication manager
         
         Args:
             from_number: The sender's phone number
             message_id: The WhatsApp message ID
-            message_key: The combined key (from_number:message_id)
-            timestamp: The current timestamp
+            message_key: A unique key for the message
+            timestamp: The timestamp when the message was processed
         """
-        # Use Redis if available
-        if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
-            # Redis tracking is handled in the is_duplicate_message method
-            # which already marks the message as processed if it's not a duplicate
-            pass
-        else:
-            # Fall back to in-memory tracking
-            self._update_global_tracking(message_key, timestamp)
+        # Mark the message as processed in the deduplication manager
+        try:
+            # Track the message in the deduplication system
+            self.deduplication.track_message_type(message_key, "text", from_number)
+            logger.debug(f"Marked message as processed: {message_key}")
+        except Exception as e:
+            logger.error(f"Error marking message as processed: {str(e)}")
+            
+        # Also update the global tracking as a backup
+        self._update_global_tracking(message_key, timestamp)
 
     def _is_duplicate_by_global_tracking(self, message_key):
         """
@@ -437,4 +433,80 @@ class WhatsAppHandler:
         """
         if hasattr(self, 'redis_deduplication') and self.redis_deduplication:
             return self.redis_deduplication
-        return self.deduplication 
+        return self.deduplication
+        
+    async def _process_document_async(self, from_number, media_obj, message):
+        """
+        Process a document asynchronously after acknowledging receipt
+        
+        Args:
+            from_number: The sender's phone number
+            media_obj: The media object from WhatsApp
+            message: The full message object
+        """
+        try:
+            result = await self.document_processor.handle_document(from_number, media_obj, message)
+            logger.info(f"Async document processing completed: {result}")
+        except Exception as e:
+            logger.error(f"Error in async document processing: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Send error message to user
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    "❌ Sorry, I couldn't process your document. Please try again later."
+                )
+            except Exception as send_err:
+                logger.error(f"Error sending error message: {str(send_err)}")
+                
+    async def _process_document_reply_async(self, from_number, message):
+        """
+        Process a document reply asynchronously after acknowledging receipt
+        
+        Args:
+            from_number: The sender's phone number
+            message: The message object
+        """
+        try:
+            result = await self.document_processor.handle_document(from_number, None, message)
+            logger.info(f"Async document reply processing completed: {result}")
+        except Exception as e:
+            logger.error(f"Error in async document reply processing: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Send error message to user
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    "❌ Sorry, I couldn't process your reply. Please try again later."
+                )
+            except Exception as send_err:
+                logger.error(f"Error sending error message: {str(send_err)}")
+                
+    async def _process_text_command_async(self, from_number, message_text):
+        """
+        Process a text command asynchronously after acknowledging receipt
+        
+        Args:
+            from_number: The sender's phone number
+            message_text: The message text
+        """
+        try:
+            result = await self.command_processor.handle_command(from_number, message_text)
+            logger.info(f"Async text command processing completed: {result}")
+        except Exception as e:
+            logger.error(f"Error in async text command processing: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Send error message to user
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    "❌ Sorry, I couldn't process your command. Please try again later."
+                )
+            except Exception as send_err:
+                logger.error(f"Error sending error message: {str(send_err)}") 
