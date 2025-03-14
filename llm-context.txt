@@ -22,6 +22,12 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
    - Persistent user sessions
    - Secure token management
 
+4. Natural Language Understanding
+   - Gemini-powered intent classification
+   - Context-aware response generation
+   - Direct execution of identified intents
+   - Fallback to rule-based detection
+
 ## Technical Architecture
 
 ### Components
@@ -42,7 +48,13 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
    - SQLite: User data and document metadata
    - Vector Store: Document embeddings
 
-### Key Files
+4. Natural Language Processing
+   - IntentClassifier: Gemini-based intent detection
+   - ResponseGenerator: Context-aware responses
+   - Command mapping and parameter extraction
+   - User context tracking
+
+### Key Files and Modules
 1. app.py
    - Main application entry point
    - Route handlers
@@ -50,15 +62,54 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
 
 2. models/
    - docs_app.py: Core document management logic
-   - rag_processor.py: Document processing and RAG implementation
+   - rag_processor.py: Compatibility wrapper for RAG implementation
+   - intent_classifier.py: Gemini-powered intent classification
+   - response_generator.py: Natural language response generation
+   - rag/: Modular RAG processor implementation
+     - processor.py: Main RAG coordinator
+     - document_processor.py: Document extraction and processing
+     - embedding_generator.py: Embedding generation with fallbacks
+     - text_chunker.py: Text chunking and preparation
+     - vector_store.py: Vector storage and retrieval
+     - llm_interface.py: Language model interfaces
+     - compatibility.py: Backward compatibility layer
    - database.py: Database models and connection management
    - user_state.py: User session and authentication management
 
 3. routes/handlers/
-   - whatsapp_handler.py: WhatsApp message processing
-   - document_handler.py: Document operations
-   - rag_handler.py: RAG query processing
-   - auth_handler.py: Authentication flow
+   - whatsapp_handler.py: Compatibility wrapper for WhatsApp processing
+   - whatsapp/: Modular WhatsApp handler implementation
+     - handler.py: Main WhatsApp message coordinator
+     - command_processor.py: Command processing with intent detection
+     - document_processor.py: Document handling
+     - message_sender.py: Message sending with deduplication
+     - deduplication.py: Message deduplication
+
+## Recent Updates
+
+1. WhatsApp Message Handling Improvements
+   - Added read receipt handling to mark messages as read
+   - Implemented system message filtering for messages like "Fetch update"
+   - Improved deduplication to prevent duplicate messages
+   - Fixed issues with unexpected "I don't understand" messages
+
+2. Gemini-Powered Intent Classification
+   - Added IntentClassifier using Google's Gemini model
+   - Implemented fallback to Gemini when rule-based detection fails
+   - Added parameter extraction from natural language queries
+   - Set confidence threshold for intent classification
+
+3. Natural Language Response Generation
+   - Added ResponseGenerator using Google's Gemini model
+   - Implemented context-aware responses based on user history
+   - Added tracking of user context (document count, previous commands)
+   - Improved error handling and fallbacks
+
+4. Direct Intent Execution
+   - Updated command processor to execute identified intents directly
+   - Eliminated need for users to use exact command syntax
+   - Improved user experience with more natural interactions
+   - Maintained backward compatibility with existing commands
 
 ## Development History
 
@@ -109,24 +160,37 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
    - Improved user feedback for failures
    - Enhanced debugging capabilities
 
+5. Deduplication
+   - Implemented robust message deduplication
+   - Added document processing deduplication
+   - Enhanced message sending deduplication
+   - Automatic cleanup of tracking data
+
 ### Recent Conversations and Updates
 
-1. Persistence Issues
-   - Problem: User data and documents were not persisting across deployments
-   - Solution: 
-     - Implemented persistent storage using mounted disk in Render
-     - Updated database paths to use persistent directory
-     - Modified configuration to maintain data across deployments
+1. Circular Import Resolution
+   - Problem: Circular imports between WhatsAppHandler and RAGHandler
+   - Solution:
+     - Relocated imports within methods that require them
+     - Used dependency injection to break circular dependencies
+     - Simplified initialization to ensure a single instance is used
 
-2. Document Processing
-   - Added detailed logging for processing steps
-   - Improved error handling in RAG pipeline
-   - Enhanced text extraction capabilities
+2. Modular Restructuring
+   - Refactored RAG processor into modular components
+   - Refactored WhatsApp handler into modular components
+   - Added compatibility layers for backward compatibility
+   - Improved error handling and logging
 
-3. Authentication Flow
-   - Streamlined OAuth process
-   - Improved token management
-   - Added better error messages
+3. Gemini Model Updates
+   - Updated language model initialization to use Gemini 2.0
+   - Added fallback to Gemini 1.0 when 2.0 is unavailable
+   - Enhanced error handling for model initialization
+
+4. Deduplication Enhancements
+   - Implemented robust message deduplication
+   - Added document processing deduplication
+   - Enhanced message sending deduplication
+   - Added cleanup mechanisms to prevent memory leaks
 
 ## Deployment
 
@@ -204,12 +268,15 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
    - Document processing time varies (30s to 2min based on file type)
    - Users receive two responses for /ask command (processing message + answer)
    - Need to ensure Google Drive folder persistence across sessions
+   - Duplicate document processing notifications in some cases
 
 3. Last Working State
    - Persistent storage implementation complete
    - Database migration to persistent storage done
    - User authentication flow working
    - Document processing pipeline operational
+   - Modular RAG processor implementation complete
+   - Modular WhatsApp handler implementation complete
 
 ## Critical Implementation Details
 
@@ -229,6 +296,25 @@ DocsApp is a WhatsApp-based document management system that allows users to stor
    ```
    Question -> Embedding -> Vector Search -> 
    Context Retrieval -> RAG Generation -> Response
+   ```
+
+### Deduplication Mechanisms
+1. Message Deduplication
+   ```
+   Incoming Message -> Extract Message ID and Sender -> 
+   Check Against Processed Messages -> Process Only If New
+   ```
+
+2. Document Processing Deduplication
+   ```
+   Document Upload -> Create Document Key (User+FileID) -> 
+   Check Against Processed Documents -> Process Only If New
+   ```
+
+3. Message Sending Deduplication
+   ```
+   Outgoing Message -> Create Message Key (User+Content) -> 
+   Check Against Sent Messages -> Send Only If Not Recent
    ```
 
 ### Database Schema
@@ -277,36 +363,33 @@ OAUTH_REDIRECT_URI=https://docsapp-20br.onrender.com/oauth2callback
 │   ├── database.py
 │   ├── docs_app.py
 │   ├── rag_processor.py
+│   ├── intent_classifier.py
+│   ├── response_generator.py
+│   ├── rag/
+│   │   ├── __init__.py
+│   │   ├── processor.py
+│   │   ├── document_processor.py
+│   │   ├── embedding_generator.py
+│   │   ├── text_chunker.py
+│   │   ├── vector_store.py
+│   │   ├── llm_interface.py
+│   │   └── compatibility.py
 │   └── user_state.py
 ├── routes/
 │   └── handlers/
 │       ├── auth_handler.py
 │       ├── document_handler.py
 │       ├── rag_handler.py
-│       └── whatsapp_handler.py
+│       ├── whatsapp_handler.py
+│       └── whatsapp/
+│           ├── __init__.py
+│           ├── handler.py
+│           ├── message_sender.py
+│           ├── document_processor.py
+│           ├── command_processor.py
+│           └── deduplication.py
 └── render.yaml
 ```
-
-### Recent Code Changes
-1. Persistence Implementation
-   ```python
-   PERSISTENT_DB_DIR = "/data/docsapp/db"
-   os.makedirs(PERSISTENT_DB_DIR, exist_ok=True)
-   ```
-
-2. Database Connection
-   ```python
-   db_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
-   engine = create_engine(f'sqlite:///{db_path}')
-   ```
-
-3. Render Configuration
-   ```yaml
-   disk:
-     name: docsapp-data
-     mountPath: /data/docsapp
-     sizeGB: 1
-   ```
 
 ### Known Limitations
 1. Processing Times
@@ -329,6 +412,7 @@ OAUTH_REDIRECT_URI=https://docsapp-20br.onrender.com/oauth2callback
 2. Optimize document processing time
 3. Consider combining processing message with final answer
 4. Implement better progress tracking
+5. Enhance deduplication for document processing notifications
 
 ## Testing Instructions
 1. Document Upload Test
