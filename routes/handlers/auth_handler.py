@@ -358,7 +358,13 @@ class AuthHandler:
                                     f"🎉 Welcome to Docverse—You're In! 🎉\n\n"
                                     f"Great news—you're connected to Docverse via your Google Drive! Now, send us your documents, "
                                     f"and we'll index them for lightning-fast access. Your info will be readily available—ask anything "
-                                    f"complex with our AI-powered search!"
+                                    f"complex with our AI-powered search!\n\n"
+                                    f"📋 *Available Commands:*\n"
+                                    f"• Send any document to store it\n"
+                                    f"• *list* - View your stored documents\n"
+                                    f"• *find [text]* - Search for documents\n"
+                                    f"• *ask [question]* - Ask questions about your documents\n"
+                                    f"• *help* - Show all commands"
                                 )
                             else:
                                 # Get document count for returning users
@@ -374,7 +380,13 @@ class AuthHandler:
                                 welcome_msg = (
                                     f"👋 Welcome back to Docverse!\n\n"
                                     f"We are now connected to your Google Drive. "
-                                    f"You have {doc_count} document{'s' if doc_count != 1 else ''} stored."
+                                    f"You have {doc_count} document{'s' if doc_count != 1 else ''} stored.\n\n"
+                                    f"📋 *Available Commands:*\n"
+                                    f"• Send any document to store it\n"
+                                    f"• *list* - View your stored documents\n"
+                                    f"• *find [text]* - Search for documents\n"
+                                    f"• *ask [question]* - Ask questions about your documents\n"
+                                    f"• *help* - Show all commands"
                                 )
                             
                             await handler.send_message(phone, welcome_msg)
