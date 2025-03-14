@@ -62,9 +62,8 @@ class MessageSender:
             self.sent_messages = {k:v for k,v in self.sent_messages.items() if v > cutoff_time}
             
             # Messages that should always be sent (bypass deduplication)
-            is_unknown_command = "I don't understand that command" in message
             is_no_documents = "You don't have any stored documents" in message
-            is_important_message = is_unknown_command or is_no_documents
+            is_important_message = is_no_documents
             
             if is_important_message:
                 print(f"Sending important message to {to_number} (bypassing deduplication): {message[:50]}...")
@@ -160,4 +159,42 @@ class MessageSender:
             print(f"Error sending WhatsApp message: {str(e)}")
             import traceback
             print(f"Send Message Traceback: {traceback.format_exc()}")
+            return False 
+
+    async def mark_message_as_read(self, message_id):
+        """
+        Mark a WhatsApp message as read to update read receipts.
+        
+        Args:
+            message_id: The WhatsApp message ID to mark as read
+            
+        Returns:
+            bool: True if the message was marked as read successfully, False otherwise
+        """
+        try:
+            url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
+            
+            data = {
+                'messaging_product': 'whatsapp',
+                'status': 'read',
+                'message_id': message_id
+            }
+            
+            print(f"\nMarking message {message_id} as read:")
+            print(f"URL: {url}")
+            print(f"Data: {json.dumps(data, indent=2)}")
+            
+            # Use aiohttp for async HTTP requests
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=self.headers, json=data) as response:
+                    response_text = await response.text()
+                    print(f"Mark as Read Response Status: {response.status}")
+                    print(f"Mark as Read Response Body: {response_text}")
+                    
+                    return response.status == 200
+                    
+        except Exception as e:
+            print(f"Error marking message as read: {str(e)}")
+            import traceback
+            print(f"Mark as Read Traceback: {traceback.format_exc()}")
             return False 

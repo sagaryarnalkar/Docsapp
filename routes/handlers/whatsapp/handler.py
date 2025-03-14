@@ -171,6 +171,9 @@ class WhatsAppHandler:
                 print("Missing message ID or sender number")
                 return "Invalid message data", 400
                 
+            # Mark the message as read to update read receipts
+            await self.message_sender.mark_message_as_read(message_id)
+            
             # Create a more robust message key that combines the sender's number and message ID
             message_key = f"{from_number}:{message_id}"
             current_time = int(time.time())
@@ -221,20 +224,29 @@ class WhatsAppHandler:
                 
             # Handle text messages and document replies
             elif message_type == 'text':
+                # Get the message text
+                message_text = message.get('text', {}).get('body', '').strip()
+                
+                # Filter out system messages like "Fetch update"
+                system_messages = ["fetch update", "sync", "refresh", "update", "status"]
+                if message_text.lower() in system_messages:
+                    print(f"Ignoring system message: '{message_text}'")
+                    return "System message ignored", 200
+                    
                 # Check if this is a reply to a document (for adding descriptions)
                 if 'context' in message:
                     print("Processing document reply...")
                     return await self.document_processor.handle_document(from_number, None, message)
                 # Handle regular text commands
                 else:
-                    print(f"Processing text message: {message.get('text', {}).get('body', '')}")
+                    print(f"Processing text message: {message_text}")
                     return await self.command_processor.handle_command(
                         from_number, 
-                        message.get('text', {}).get('body', '')
+                        message_text
                     )
             else:
                 print(f"Unsupported message type: {message_type}")
-                await self.send_message(
+                await self.message_sender.send_message(
                     from_number, 
                     "Sorry, I don't understand this type of message. You can send me documents, "
                     "images, videos, audio files, or text commands."
@@ -250,7 +262,7 @@ class WhatsAppHandler:
             
             # Only try to send a message if we have a from_number
             if 'from_number' in locals() and from_number:
-                await self.send_message(
+                await self.message_sender.send_message(
                     from_number, 
                     "❌ Sorry, there was an error processing your request. Please try again later."
                 )

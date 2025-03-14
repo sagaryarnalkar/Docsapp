@@ -50,6 +50,12 @@ class CommandProcessor:
             # Normalize the command
             command = text.lower().strip()
             
+            # Check for system messages like "Fetch update"
+            system_messages = ["fetch update", "sync", "refresh", "update", "status"]
+            if command in system_messages:
+                print(f"Ignoring system message: '{command}'")
+                return "System message ignored", 200
+            
             # Detect command intent from natural language
             command_intent = self._detect_command_intent(command)
             if command_intent:
