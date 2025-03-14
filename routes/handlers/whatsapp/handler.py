@@ -51,6 +51,10 @@ class WhatsAppHandler:
         self.pending_descriptions = pending_descriptions
         self.user_state = user_state
         
+        # Initialize auth handler
+        from routes.handlers.auth_handler import AuthHandler
+        self.auth_handler = AuthHandler(user_state)
+        
         # Initialize message sender
         api_version = os.environ.get('WHATSAPP_API_VERSION', 'v17.0')
         phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
