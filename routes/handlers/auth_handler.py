@@ -6,6 +6,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from config import BASE_DIR, TEMP_DIR, SCOPES, OAUTH_REDIRECT_URI
 from utils.response_builder import ResponseBuilder
 from googleapiclient.discovery import build
+from models.database import UserToken, get_session
 
 logger = logging.getLogger(__name__)
 
@@ -327,28 +328,21 @@ class AuthHandler:
                 # Send welcome message without depending on userinfo API
                 try:
                     # Check if this is a new user or returning user
-                    is_new_user = False
-                    with self.user_state.db_pool.get_connection() as conn:
-                        cursor = conn.execute(
-                            "SELECT login_count FROM users WHERE phone_number = ?", 
-                            (phone,)
-                        )
-                        result = cursor.fetchone()
-                        if result is None or result[0] <= 1:
-                            is_new_user = True
-                            # Update login count
-                            conn.execute(
-                                "UPDATE users SET login_count = COALESCE(login_count, 0) + 1 WHERE phone_number = ?",
-                                (phone,)
-                            )
-                        else:
-                            # Update login count for returning user
-                            conn.execute(
-                                "UPDATE users SET login_count = login_count + 1 WHERE phone_number = ?",
-                                (phone,)
-                            )
+                    is_new_user = True  # Default to new user
                     
-                    # Send welcome message
+                    # Use ORM to check if this is a returning user
+                    session = get_session()
+                    try:
+                        user_token = session.query(UserToken).filter_by(phone_number=phone).first()
+                        if user_token is not None:
+                            # This is a returning user
+                            is_new_user = False
+                    except Exception as e:
+                        print(f"Error checking user status: {str(e)}")
+                    finally:
+                        session.close()
+                    
+                    # Import WhatsAppHandler here to avoid circular import
                     from routes.handlers.whatsapp_handler import WhatsAppHandler
                     import asyncio
                     
