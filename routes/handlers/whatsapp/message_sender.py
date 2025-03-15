@@ -109,13 +109,15 @@ class MessageSender:
             
             print(f"[DEBUG] {message_hash} - Sending message to WhatsApp API")
             print(f"[DEBUG] {message_hash} - URL: {url}")
-            print(f"[DEBUG] {message_hash} - Headers: {headers}")
+            print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
             
             # Send the message
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, json=data) as response:
                     response_text = await response.text()
                     print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
+                    print(f"[DEBUG] {message_hash} - Response Headers: {dict(response.headers)}")
+                    print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
                     
                     if response.status == 200:
                         try:

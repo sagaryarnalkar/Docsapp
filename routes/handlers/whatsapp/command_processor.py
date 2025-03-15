@@ -182,41 +182,61 @@ class CommandProcessor:
                 response_text += "\n\nTo get a document, reply with the number (e.g., '2')"
                 response_text += "\nTo delete a document, reply with 'delete <number>' (e.g., 'delete 2')"
                 
-                # Send the message with special handling
+                # Send the message with special handling - try up to 3 times
                 print(f"[DEBUG] {command_hash} - Sending LIST response with {len(document_list)} documents")
-                success = await self.message_sender.send_message(
-                    from_number, 
-                    response_text,
-                    message_type="list_command",
-                    bypass_deduplication=True
-                )
                 
-                if success:
-                    print(f"[DEBUG] {command_hash} - LIST response sent successfully")
-                    return True, "Document list sent"
-                else:
-                    print(f"[DEBUG] {command_hash} - Failed to send LIST response")
-                    return False, "Failed to send document list"
+                # Try sending the message up to 3 times
+                max_retries = 3
+                for attempt in range(1, max_retries + 1):
+                    print(f"[DEBUG] {command_hash} - Send attempt {attempt}/{max_retries}")
+                    success = await self.message_sender.send_message(
+                        from_number, 
+                        response_text,
+                        message_type="list_command",
+                        bypass_deduplication=True
+                    )
+                    
+                    if success:
+                        print(f"[DEBUG] {command_hash} - LIST response sent successfully on attempt {attempt}")
+                        return True, "Document list sent"
+                    else:
+                        print(f"[DEBUG] {command_hash} - Failed to send LIST response on attempt {attempt}")
+                        if attempt < max_retries:
+                            # Wait a bit before retrying
+                            await asyncio.sleep(1)
+                
+                # If we get here, all attempts failed
+                print(f"[DEBUG] {command_hash} - All {max_retries} send attempts failed")
+                return False, "Failed to send document list after multiple attempts"
             else:
                 print(f"[DEBUG] {command_hash} - No documents found for {from_number}")
                 # Add timestamp to make message unique
                 timestamp = int(time.time())
                 response_text = f"You don't have any stored documents. (Check: {timestamp})"
                 
-                # Send the message with special handling
-                success = await self.message_sender.send_message(
-                    from_number, 
-                    response_text,
-                    message_type="list_command",
-                    bypass_deduplication=True
-                )
+                # Try sending the message up to 3 times
+                max_retries = 3
+                for attempt in range(1, max_retries + 1):
+                    print(f"[DEBUG] {command_hash} - Send attempt {attempt}/{max_retries}")
+                    success = await self.message_sender.send_message(
+                        from_number, 
+                        response_text,
+                        message_type="list_command",
+                        bypass_deduplication=True
+                    )
+                    
+                    if success:
+                        print(f"[DEBUG] {command_hash} - Empty LIST response sent successfully on attempt {attempt}")
+                        return True, "Empty document list sent"
+                    else:
+                        print(f"[DEBUG] {command_hash} - Failed to send empty LIST response on attempt {attempt}")
+                        if attempt < max_retries:
+                            # Wait a bit before retrying
+                            await asyncio.sleep(1)
                 
-                if success:
-                    print(f"[DEBUG] {command_hash} - Empty LIST response sent successfully")
-                    return True, "Empty document list sent"
-                else:
-                    print(f"[DEBUG] {command_hash} - Failed to send empty LIST response")
-                    return False, "Failed to send document list"
+                # If we get here, all attempts failed
+                print(f"[DEBUG] {command_hash} - All {max_retries} send attempts failed")
+                return False, "Failed to send document list after multiple attempts"
                 
         except Exception as e:
             error_id = str(uuid.uuid4())[:8]
