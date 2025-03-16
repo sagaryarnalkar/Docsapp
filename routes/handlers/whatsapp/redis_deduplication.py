@@ -132,9 +132,16 @@ class RedisDeduplicationManager:
         # This ensures all outgoing messages are always sent
         if message_type is not None:
             print(f"[DEBUG] Message is a {message_type} response - BYPASSING DEDUPLICATION")
+            print(f"[DEBUG] OUTGOING MESSAGE DETECTED - DEDUPLICATION DISABLED")
             # Do not track outgoing messages at all
             return False
         
+        # TEMPORARY FIX: Disable deduplication for ALL messages
+        print(f"[DEBUG] TEMPORARY FIX: DEDUPLICATION DISABLED FOR ALL MESSAGES")
+        return False
+        
+        # The code below is temporarily disabled
+        """
         # For incoming messages, continue with normal deduplication
         # Check both the combined key and the message_id for backward compatibility
         combined_key_exists = self.redis.exists(f"msg:{message_key}")
@@ -168,6 +175,7 @@ class RedisDeduplicationManager:
         self.redis.set(f"msg:{message_key}", current_time, ex=600)
         self.redis.set(f"msg:{message_id}", current_time, ex=600)
         print(f"[DEBUG] NEW MESSAGE: Processing message {message_id} from {from_number}")
+        """
         return False
         
     def is_duplicate_document(self, from_number, doc_id):

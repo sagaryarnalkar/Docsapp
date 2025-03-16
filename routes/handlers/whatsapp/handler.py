@@ -350,6 +350,12 @@ class WhatsAppHandler:
             bool: True if the message is a duplicate, False otherwise
         """
         try:
+            # TEMPORARY FIX: Disable deduplication for ALL messages
+            print(f"[DEBUG] TEMPORARY FIX: DEDUPLICATION DISABLED FOR ALL MESSAGES IN HANDLER")
+            return False
+            
+            # The code below is temporarily disabled
+            """
             # Get the deduplication manager
             dedup = self._get_deduplication()
             
@@ -363,6 +369,7 @@ class WhatsAppHandler:
                 print(f"[DEBUG] Message {message_id} from {from_number} is new")
                 
             return is_duplicate
+            """
         except Exception as e:
             logger.error(f"Error checking for duplicate message: {str(e)}")
             # In case of error, assume it's not a duplicate to ensure processing

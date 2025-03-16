@@ -52,6 +52,12 @@ def is_duplicate_message(message_id, from_number, message_type=None):
         bool: True if the message is a duplicate, False otherwise
         dict: Additional information about the check
     """
+    # TEMPORARY FIX: Disable deduplication for ALL messages
+    logger.info(f"TEMPORARY FIX: DEDUPLICATION DISABLED FOR ALL MESSAGES IN MESSAGE_DEDUPLICATION")
+    return False, {"reason": "Deduplication temporarily disabled"}
+    
+    # The code below is temporarily disabled
+    """
     redis_client = get_redis_client()
     if not redis_client:
         logger.warning("Redis not available for deduplication check")
@@ -123,8 +129,6 @@ def is_duplicate_message(message_id, from_number, message_type=None):
     # Set expiration to 10 minutes (600 seconds)
     redis_client.set(combined_key, current_time, ex=600)
     redis_client.set(message_id_key, current_time, ex=600)
-    logger.info(f"NEW MESSAGE: Processing message {message_id} from {from_number}")
+    """
     
-    result["is_duplicate"] = False
-    result["reason"] = "New message"
-    return False, result 
+    return False, {"reason": "New message"} 

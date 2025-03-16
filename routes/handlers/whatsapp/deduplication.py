@@ -46,6 +46,12 @@ class DeduplicationManager:
             print(f"[DEBUG] Message is a {message_type} - BYPASSING DEDUPLICATION FOR OUTGOING MESSAGE")
             return False
             
+        # TEMPORARY FIX: Disable deduplication for ALL messages
+        print(f"[DEBUG] TEMPORARY FIX: DEDUPLICATION DISABLED FOR ALL MESSAGES")
+        return False
+        
+        # The code below is temporarily disabled
+        """
         # Create a more robust message key that includes the from_number
         message_key = f"{from_number}:{message_id}"
         current_time = int(time.time())
@@ -64,6 +70,7 @@ class DeduplicationManager:
         self.processed_messages[message_key] = current_time
         self.processed_messages[message_id] = current_time
         print(f"Processing new message {message_id} from {from_number}")
+        """
         return False
         
     def is_duplicate_document(self, from_number, doc_id):

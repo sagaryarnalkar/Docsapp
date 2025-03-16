@@ -82,6 +82,9 @@ class MessageSender:
             bool: Whether the message was sent successfully
         """
         try:
+            # IMPORTANT: Force bypass_deduplication to True for ALL outgoing messages
+            bypass_deduplication = True
+            
             # Generate a unique hash for this message for tracking in logs
             message_hash = hashlib.md5(f"{to_number}:{message[:20]}:{int(time.time())}".encode()).hexdigest()[:8]
             
@@ -91,6 +94,7 @@ class MessageSender:
             print(f"[DEBUG] Message Type: {message_type or 'outgoing_message'}")  # Default type for all outgoing messages
             print(f"[DEBUG] Message Length: {len(message)} characters")
             print(f"[DEBUG] Message Preview: {message[:50]}...")
+            print(f"[DEBUG] DEDUPLICATION BYPASS: {bypass_deduplication} (FORCED TO TRUE)")
             
             # Print token information for debugging
             print(f"[DEBUG] {message_hash} - WHATSAPP ACCESS TOKEN: {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
