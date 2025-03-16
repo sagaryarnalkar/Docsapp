@@ -12,7 +12,7 @@ import uuid
 from .document_processor import WhatsAppHandlerError
 from .commands.intent_detector import IntentDetector
 from .commands.help_command import HelpCommandHandler
-from .commands.list_command import ListCommandHandler
+from .commands.list_command_debug import ListCommandHandler
 from .commands.find_command import FindCommandHandler
 from .commands.ask_command import AskCommandHandler
 
@@ -49,6 +49,7 @@ class CommandProcessor:
         self.ask_handler = AskCommandHandler(docs_app, message_sender)
         
         logger.info("[DEBUG] CommandProcessor initialized")
+        print("[DEBUG] CommandProcessor initialized with message_sender:", message_sender)
         
     async def handle_command(self, from_number, text):
         """
@@ -85,21 +86,56 @@ class CommandProcessor:
                 
                 if command_type == 'help':
                     print(f"[DEBUG] {command_hash} - Executing HELP command")
-                    return await self.help_handler.handle(from_number)
+                    try:
+                        result = await self.help_handler.handle(from_number)
+                        print(f"[DEBUG] {command_hash} - HELP command completed with result: {result}")
+                        return result
+                    except Exception as e:
+                        print(f"[DEBUG] {command_hash} - HELP command failed with error: {str(e)}")
+                        import traceback
+                        print(f"[DEBUG] {command_hash} - Traceback: {traceback.format_exc()}")
+                        raise
                     
                 elif command_type == 'list':
                     print(f"[DEBUG] {command_hash} - Executing LIST command")
-                    return await self.list_handler.handle(from_number)
+                    try:
+                        print(f"[DEBUG] {command_hash} - LIST handler type: {type(self.list_handler)}")
+                        print(f"[DEBUG] {command_hash} - LIST handler docs_app: {self.list_handler.docs_app}")
+                        print(f"[DEBUG] {command_hash} - LIST handler message_sender: {self.list_handler.message_sender}")
+                        result = await self.list_handler.handle(from_number)
+                        print(f"[DEBUG] {command_hash} - LIST command completed with result: {result}")
+                        return result
+                    except Exception as e:
+                        print(f"[DEBUG] {command_hash} - LIST command failed with error: {str(e)}")
+                        import traceback
+                        print(f"[DEBUG] {command_hash} - Traceback: {traceback.format_exc()}")
+                        raise
                     
                 elif command_type == 'find':
                     query = intent.get('query', '')
                     print(f"[DEBUG] {command_hash} - Executing FIND command with query: '{query}'")
-                    return await self.find_handler.handle(from_number, query)
+                    try:
+                        result = await self.find_handler.handle(from_number, query)
+                        print(f"[DEBUG] {command_hash} - FIND command completed with result: {result}")
+                        return result
+                    except Exception as e:
+                        print(f"[DEBUG] {command_hash} - FIND command failed with error: {str(e)}")
+                        import traceback
+                        print(f"[DEBUG] {command_hash} - Traceback: {traceback.format_exc()}")
+                        raise
                     
                 elif command_type == 'ask':
                     question = intent.get('question', '')
                     print(f"[DEBUG] {command_hash} - Executing ASK command with question: '{question}'")
-                    return await self.ask_handler.handle(from_number, question)
+                    try:
+                        result = await self.ask_handler.handle(from_number, question)
+                        print(f"[DEBUG] {command_hash} - ASK command completed with result: {result}")
+                        return result
+                    except Exception as e:
+                        print(f"[DEBUG] {command_hash} - ASK command failed with error: {str(e)}")
+                        import traceback
+                        print(f"[DEBUG] {command_hash} - Traceback: {traceback.format_exc()}")
+                        raise
                     
                 else:
                     print(f"[DEBUG] {command_hash} - Unsupported command type: {command_type}")

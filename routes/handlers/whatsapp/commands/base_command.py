@@ -8,6 +8,7 @@ import logging
 import hashlib
 import time
 import uuid
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,32 @@ class BaseCommandHandler:
         """
         try:
             logger.info(f"[DEBUG] Sending {message_type} response to {from_number}")
-            print(f"[DEBUG] {command_id} - Sending {message_type} response with length {len(message)}")
+            print(f"\n==================================================")
+            print(f"[DEBUG] SEND_RESPONSE START - {command_id}")
+            print(f"[DEBUG] {command_id} - From: {from_number}")
+            print(f"[DEBUG] {command_id} - Message Type: {message_type}")
+            print(f"[DEBUG] {command_id} - Message Length: {len(message)} characters")
+            print(f"[DEBUG] {command_id} - Message Preview: {message[:100]}...")
+            print(f"[DEBUG] {command_id} - Message Sender: {self.message_sender}")
+            print(f"==================================================")
             
             # Use the regular send_message method which is known to work for sign-in messages
+            print(f"[DEBUG] {command_id} - Calling message_sender.send_message")
+            
+            # Try with direct access to message_sender attributes
+            try:
+                print(f"[DEBUG] {command_id} - Message sender API version: {self.message_sender.api_version}")
+                print(f"[DEBUG] {command_id} - Message sender phone number ID: {self.message_sender.phone_number_id}")
+                print(f"[DEBUG] {command_id} - Message sender access token: {self.message_sender.access_token[:5]}...{self.message_sender.access_token[-5:] if len(self.message_sender.access_token) > 10 else ''}")
+            except Exception as attr_err:
+                print(f"[DEBUG] {command_id} - Error accessing message_sender attributes: {str(attr_err)}")
+            
+            # Add a direct timestamp to the message for extra uniqueness
+            direct_timestamp = int(time.time())
+            if "Timestamp:" not in message:
+                message += f"\n\nDirect Timestamp: {direct_timestamp}"
+                print(f"[DEBUG] {command_id} - Added direct timestamp {direct_timestamp} to message")
+            
             send_result = await self.message_sender.send_message(
                 from_number,
                 message,
@@ -98,10 +122,32 @@ class BaseCommandHandler:
             logger.info(f"[DEBUG] {message_type} response send result: {send_result}")
             print(f"[DEBUG] {command_id} - {message_type} response send result: {send_result}")
             
+            # If send_message failed, try send_message_direct as a fallback
+            if not send_result:
+                print(f"[DEBUG] {command_id} - send_message failed, trying send_message_direct as fallback")
+                
+                # Add another timestamp for the fallback attempt
+                fallback_timestamp = int(time.time())
+                message += f"\n\nFallback Timestamp: {fallback_timestamp}"
+                
+                try:
+                    fallback_result = await self.message_sender.send_message_direct(
+                        from_number,
+                        message,
+                        message_type=message_type
+                    )
+                    print(f"[DEBUG] {command_id} - Fallback send_message_direct result: {fallback_result}")
+                    return fallback_result
+                except Exception as fallback_err:
+                    print(f"[DEBUG] {command_id} - Fallback send_message_direct failed: {str(fallback_err)}")
+                    print(f"[DEBUG] {command_id} - Fallback traceback: {traceback.format_exc()}")
+                    return False
+            
             return send_result
         except Exception as e:
             logger.error(f"[DEBUG] Error sending {message_type} response: {str(e)}", exc_info=True)
             print(f"[DEBUG] {command_id} - Error sending {message_type} response: {str(e)}")
+            print(f"[DEBUG] {command_id} - Error traceback: {traceback.format_exc()}")
             return False
             
     async def send_error_message(self, from_number, error_message, command_id):
@@ -117,6 +163,13 @@ class BaseCommandHandler:
             bool: Whether the message was sent successfully
         """
         try:
+            print(f"[DEBUG] {command_id} - Sending error message: {error_message}")
+            
+            # Add a direct timestamp to the error message
+            direct_timestamp = int(time.time())
+            if "Timestamp:" not in error_message:
+                error_message += f"\n\nError Timestamp: {direct_timestamp}"
+            
             # Use the regular send_message method which is known to work for sign-in messages
             return await self.message_sender.send_message(
                 from_number,
@@ -127,6 +180,7 @@ class BaseCommandHandler:
             )
         except Exception as e:
             print(f"[DEBUG] {command_id} - Error sending error message: {str(e)}")
+            print(f"[DEBUG] {command_id} - Error traceback: {traceback.format_exc()}")
             return False
             
     def handle_exception(self, e, command_id=None):
@@ -143,6 +197,5 @@ class BaseCommandHandler:
         error_id = command_id or str(uuid.uuid4())[:8]
         logger.error(f"[DEBUG] Error {error_id}: {str(e)}", exc_info=True)
         print(f"[ERROR] Error {error_id}: {str(e)}")
-        import traceback
         print(f"[ERROR] Traceback {error_id}: {traceback.format_exc()}")
         return f"❌ Sorry, an error occurred. Please try again. (Error ID: {error_id})" 
