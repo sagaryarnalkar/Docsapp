@@ -141,6 +141,8 @@ class CommandProcessor:
             tuple: (response_message, status_code)
         """
         logger.info(f"[DEBUG] Processing help command for {from_number}")
+        command_id = hashlib.md5(f"help:{from_number}:{int(time.time())}".encode()).hexdigest()[:8]
+        print(f"[DEBUG] Help command ID: {command_id}")
         
         try:
             # Create help message
@@ -154,20 +156,35 @@ class CommandProcessor:
                 "You can also upload documents directly to this chat."
             )
             
+            # Add a unique identifier and timestamp to prevent deduplication
+            timestamp = int(time.time())
+            unique_id = f"help-{command_id}-{timestamp}"
+            help_message = f"{help_message}\n\nCommand ID: {unique_id}"
+            
             logger.info(f"[DEBUG] Sending help command response to {from_number}")
+            print(f"[DEBUG] {command_id} - Sending help response with length {len(help_message)}")
+            
             # Pass the message_type parameter to ensure it bypasses deduplication
             send_result = await self.message_sender.send_message(
                 from_number, 
                 help_message, 
-                message_type="help_command"
+                message_type="help_command",
+                bypass_deduplication=True,
+                max_retries=3
             )
             logger.info(f"[DEBUG] Help command response send result: {send_result}")
+            print(f"[DEBUG] {command_id} - Help command response send result: {send_result}")
             
             return "Help command processed", 200
         except Exception as e:
             logger.error(f"[DEBUG] Error in _handle_help_command: {str(e)}", exc_info=True)
-            error_msg = "❌ Error processing help command. Please try again."
-            await self.message_sender.send_message(from_number, error_msg, message_type="error_message")
+            error_msg = f"❌ Error processing help command. Please try again. (Error ID: {command_id})"
+            await self.message_sender.send_message(
+                from_number, 
+                error_msg, 
+                message_type="error_message",
+                bypass_deduplication=True
+            )
             return "Help command error", 500
         
     async def _handle_list_command(self, from_number):
@@ -204,18 +221,21 @@ class CommandProcessor:
                 message = "You don't have any documents yet. Send me a file to get started!"
                 logger.info(f"[DEBUG] No documents found for {from_number}")
             
-            # Add a unique identifier to the message to prevent deduplication
-            unique_id = f"list-{command_id}"
+            # Add a unique identifier and timestamp to the message to prevent deduplication
+            timestamp = int(time.time())
+            unique_id = f"list-{command_id}-{timestamp}"
             message = f"{message}\n\nCommand ID: {unique_id}"
             
             logger.info(f"[DEBUG] Sending list command response to {from_number}")
             print(f"[DEBUG] {command_id} - Sending list response with length {len(message)}")
             
-            # Send the message
+            # Send the message with explicit bypass_deduplication=True
             send_result = await self.message_sender.send_message(
                 from_number, 
                 message, 
-                message_type="list_command"
+                message_type="list_command",
+                bypass_deduplication=True,
+                max_retries=3
             )
             
             logger.info(f"[DEBUG] List command response send result: {send_result}")
@@ -224,14 +244,16 @@ class CommandProcessor:
             # If sending failed, try an alternative approach
             if not send_result:
                 print(f"[DEBUG] {command_id} - First attempt failed, trying alternative approach")
-                # Try sending a simpler message
+                # Try sending a simpler message with a different message type
                 alt_message = f"List command processed. You have {len(doc_list) if doc_list else 0} documents."
-                alt_message += f"\n\nRetry ID: {unique_id}-retry"
+                alt_message += f"\n\nRetry ID: {unique_id}-retry-{int(time.time())}"
                 
                 send_result = await self.message_sender.send_message(
                     from_number,
                     alt_message,
-                    message_type="list_command_retry"
+                    message_type="outgoing_message",  # Use a different message type
+                    bypass_deduplication=True,
+                    max_retries=3
                 )
                 print(f"[DEBUG] {command_id} - Alternative message send result: {send_result}")
             
@@ -244,7 +266,8 @@ class CommandProcessor:
                 await self.message_sender.send_message(
                     from_number, 
                     error_msg, 
-                    message_type="error_message"
+                    message_type="error_message",
+                    bypass_deduplication=True
                 )
             except Exception as send_err:
                 print(f"[DEBUG] {command_id} - Error sending error message: {str(send_err)}")
@@ -263,6 +286,9 @@ class CommandProcessor:
             tuple: (response_message, status_code)
         """
         logger.info(f"[DEBUG] Processing find command for {from_number} with query: '{query}'")
+        command_id = hashlib.md5(f"find:{from_number}:{query}:{int(time.time())}".encode()).hexdigest()[:8]
+        print(f"[DEBUG] Find command ID: {command_id}")
+        
         # Use docs_app to retrieve document
         try:
             result = self.docs_app.retrieve_document(from_number, query)
@@ -273,21 +299,36 @@ class CommandProcessor:
             else:
                 logger.info(f"[DEBUG] No documents found for query '{query}'")
                 message = "No documents found matching your query."
+            
+            # Add a unique identifier and timestamp to prevent deduplication
+            timestamp = int(time.time())
+            unique_id = f"find-{command_id}-{timestamp}"
+            message = f"{message}\n\nCommand ID: {unique_id}"
                 
             logger.info(f"[DEBUG] Sending find command response to {from_number}")
+            print(f"[DEBUG] {command_id} - Sending find response with length {len(message)}")
+            
             # Pass the message_type parameter to ensure it bypasses deduplication
             send_result = await self.message_sender.send_message(
                 from_number, 
                 message, 
-                message_type="find_command"
+                message_type="find_command",
+                bypass_deduplication=True,
+                max_retries=3
             )
             logger.info(f"[DEBUG] Find command response send result: {send_result}")
+            print(f"[DEBUG] {command_id} - Find command response send result: {send_result}")
             
             return "Find command processed", 200
         except Exception as e:
             logger.error(f"[DEBUG] Error in _handle_find_command: {str(e)}", exc_info=True)
-            error_msg = "❌ Error searching for documents. Please try again."
-            await self.message_sender.send_message(from_number, error_msg, message_type="error_message")
+            error_msg = f"❌ Error searching for documents. Please try again. (Error ID: {command_id})"
+            await self.message_sender.send_message(
+                from_number, 
+                error_msg, 
+                message_type="error_message",
+                bypass_deduplication=True
+            )
             return "Find command error", 500
         
     async def _handle_ask_command(self, from_number, question):
@@ -302,80 +343,76 @@ class CommandProcessor:
             tuple: (response_message, status_code)
         """
         logger.info(f"[DEBUG] Processing ask command for {from_number} with question: '{question}'")
+        command_id = hashlib.md5(f"ask:{from_number}:{question}:{int(time.time())}".encode()).hexdigest()[:8]
+        print(f"[DEBUG] Ask command ID: {command_id}")
         
         try:
-            # Send processing message
-            processing_msg = "🔄 Processing your question... This might take a moment."
-            logger.info(f"[DEBUG] Sending processing message to {from_number}")
+            # Send an acknowledgment message first
+            ack_message = f"🔍 Processing your question: '{question}'\n\nThis may take a moment..."
             await self.message_sender.send_message(
                 from_number, 
-                processing_msg, 
-                message_type="processing_message"
+                ack_message, 
+                message_type="ask_command_ack",
+                bypass_deduplication=True
             )
             
-            # Use the docs_app to process the question
-            logger.info(f"[DEBUG] Calling docs_app.ask_question with question: '{question}'")
+            # Process the question
+            logger.info(f"[DEBUG] Calling docs_app.ask_question for {from_number}")
             result = await self.docs_app.ask_question(from_number, question)
-            logger.info(f"[DEBUG] ask_question result status: {result.get('status')}")
+            logger.info(f"[DEBUG] docs_app.ask_question returned: {result}")
             
-            if result["status"] == "success" and result.get("answers"):
-                # Format answers from all relevant documents
-                logger.info(f"[DEBUG] Found {len(result['answers'])} answers")
-                response_parts = ["📝 Here are the answers from your documents:\n"]
+            if result and result.get('status') == 'success':
+                message = result.get('message', 'Here is your answer:')
                 
-                for idx, answer in enumerate(result["answers"], 1):
-                    # Format the answer section
-                    response_parts.append(f"📄 Document {idx}: {answer['document']}")
-                    response_parts.append(f"Answer: {answer['answer']}")
+                # Format answers if available
+                if 'answers' in result and result['answers']:
+                    answers = result['answers']
+                    message_parts = [message, ""]
                     
-                    # Add source information if available
-                    if answer.get('sources'):
-                        source_info = []
-                        for source in answer['sources']:
-                            metadata = source.get('metadata', {})
-                            if metadata.get('page_number'):
-                                source_info.append(f"Page {metadata['page_number']}")
-                            if metadata.get('section'):
-                                source_info.append(metadata['section'])
-                        if source_info:
-                            response_parts.append(f"Source: {', '.join(source_info)}")
+                    for i, answer in enumerate(answers, 1):
+                        doc_name = answer.get('document', 'Unknown document')
+                        answer_text = answer.get('answer', 'No answer found')
+                        message_parts.append(f"📄 *Document {i}: {doc_name}*")
+                        message_parts.append(answer_text)
+                        message_parts.append("")
                     
-                    response_parts.append("")  # Add blank line between answers
+                    message = "\n".join(message_parts)
                 
-                # Add a note about confidence if available
-                if any(a.get('confidence') for a in result["answers"]):
-                    response_parts.append("\nℹ️ Note: Answers are provided based on the relevant content found in your documents.")
-                
-                message = "\n".join(response_parts)
-                logger.info(f"[DEBUG] Sending ask command response to {from_number} with {len(result['answers'])} answers")
+                logger.info(f"[DEBUG] Generated answer for question '{question}'")
+                logger.info(f"[DEBUG] Answer preview: {message[:100]}...")
             else:
-                message = result.get("message", "No relevant information found in your documents.")
-                logger.info(f"[DEBUG] Sending ask command error response to {from_number}: {message}")
+                error = result.get('error', 'Unknown error') if result else 'Failed to process question'
+                message = f"❌ Sorry, I couldn't answer your question: {error}"
+                logger.info(f"[DEBUG] Failed to answer question '{question}': {error}")
             
-            # Force this message to be sent by adding a timestamp
-            import time
+            # Add a unique identifier and timestamp to prevent deduplication
             timestamp = int(time.time())
-            message = f"{message}\n\nTimestamp: {timestamp}"
+            unique_id = f"ask-{command_id}-{timestamp}"
+            message = f"{message}\n\nCommand ID: {unique_id}"
             
-            # Pass the message_type parameter to ensure it bypasses deduplication
+            logger.info(f"[DEBUG] Sending ask command response to {from_number}")
+            print(f"[DEBUG] {command_id} - Sending ask response with length {len(message)}")
+            
+            # Send the answer
             send_result = await self.message_sender.send_message(
                 from_number, 
                 message, 
-                message_type="ask_command"
+                message_type="ask_command",
+                bypass_deduplication=True,
+                max_retries=3
             )
             logger.info(f"[DEBUG] Ask command response send result: {send_result}")
+            print(f"[DEBUG] {command_id} - Ask command response send result: {send_result}")
             
-            if result["status"] == "success":
-                return "Question processed", 200
-            else:
-                return "Question processed", 500
+            return "Ask command processed", 200
         except Exception as e:
             logger.error(f"[DEBUG] Error in _handle_ask_command: {str(e)}", exc_info=True)
-            error_msg = "❌ Error processing your question. Please try again."
+            error_msg = f"❌ Error processing your question. Please try again. (Error ID: {command_id})"
             await self.message_sender.send_message(
                 from_number, 
                 error_msg, 
-                message_type="error_message"
+                message_type="error_message",
+                bypass_deduplication=True
             )
             return "Ask command error", 500
 
