@@ -38,8 +38,11 @@ class MessageSender:
         # Get credentials from environment if not provided
         self.access_token = access_token or os.environ.get('WHATSAPP_ACCESS_TOKEN')
         self.phone_number_id = phone_number_id or os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
-        self.api_version = api_version
-        self.base_url = f"https://graph.facebook.com/{api_version}/{self.phone_number_id}/messages"
+        self.api_version = api_version or os.environ.get('WHATSAPP_API_VERSION', 'v22.0')
+        
+        # Fix: Ensure we're using the correct URL structure with API version
+        self.base_url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
+        
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.access_token}"
@@ -83,7 +86,7 @@ class MessageSender:
             print(f"[DEBUG] Message Preview: {message[:50]}...")
             
             # Print token information for debugging
-            print(f"[DEBUG] {message_hash} - WHATSAPP ACCESS TOKEN: {self.access_token}")
+            print(f"[DEBUG] {message_hash} - WHATSAPP ACCESS TOKEN: {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             print(f"[DEBUG] {message_hash} - TOKEN LENGTH: {len(self.access_token)}")
             print(f"[DEBUG] {message_hash} - TOKEN FORMAT CORRECT: {self.access_token.startswith('EAA')}")
             print(f"==================================================")
@@ -97,8 +100,8 @@ class MessageSender:
                 message = f"{message}\n\nTimestamp: {timestamp} ({readable_time})"
                 print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
             
-            # Prepare the API request
-            url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
+            # Prepare the API request - Fix: Use the base_url property that's already correctly constructed
+            url = self.base_url
             
             headers = {
                 "Content-Type": "application/json",
@@ -120,7 +123,7 @@ class MessageSender:
             print(f"[DEBUG] {message_hash} -   Phone Number ID: {self.phone_number_id}")
             print(f"[DEBUG] {message_hash} - HEADERS:")
             print(f"[DEBUG] {message_hash} -   Content-Type: {headers['Content-Type']}")
-            print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:]} (full token in logs above)")
+            print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
             
             # Implement retry logic
@@ -220,7 +223,7 @@ class MessageSender:
             logger.info(f"[DEBUG] Marking message as read: {message_id}")
             
             # Print token information for debugging
-            print(f"[DEBUG] MARK AS READ - WHATSAPP ACCESS TOKEN: {self.access_token}")
+            print(f"[DEBUG] MARK AS READ - WHATSAPP ACCESS TOKEN: {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             print(f"[DEBUG] MARK AS READ - TOKEN LENGTH: {len(self.access_token)}")
             print(f"[DEBUG] MARK AS READ - TOKEN FORMAT CORRECT: {self.access_token.startswith('EAA')}")
             
@@ -228,8 +231,9 @@ class MessageSender:
             if not self.token_valid:
                 logger.error("[DEBUG] Cannot mark message as read: WhatsApp access token is invalid")
                 return False
-                
-            url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
+            
+            # Use the base_url property that's already correctly constructed
+            url = self.base_url
             
             data = {
                 'messaging_product': 'whatsapp',
@@ -239,6 +243,7 @@ class MessageSender:
             
             logger.info(f"[DEBUG] Mark as read URL: {url}")
             logger.info(f"[DEBUG] Mark as read data: {json.dumps(data)}")
+            logger.info(f"[DEBUG] Mark as read headers: Content-Type={self.headers['Content-Type']}, Authorization=Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             
             # Use aiohttp for async HTTP requests
             async with aiohttp.ClientSession() as session:
