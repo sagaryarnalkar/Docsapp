@@ -184,21 +184,20 @@ class CommandProcessor:
         
         try:
             # Get documents from docs_app
-            documents = self.docs_app.list_documents(from_number)
+            logger.info(f"[DEBUG] Calling docs_app.list_documents for {from_number}")
+            doc_list, file_ids = self.docs_app.list_documents(from_number)
+            logger.info(f"[DEBUG] docs_app.list_documents returned {len(doc_list)} documents and {len(file_ids)} file IDs")
             
-            if documents:
+            if doc_list:
                 # Format document list
                 message_parts = ["📚 Your Documents:\n"]
                 
-                for idx, doc in enumerate(documents, 1):
-                    doc_name = doc.get("name", "Unnamed Document")
-                    doc_type = doc.get("type", "Unknown")
-                    doc_date = doc.get("date", "Unknown date")
-                    
-                    message_parts.append(f"{idx}. {doc_name} ({doc_type}) - {doc_date}")
+                # Add each document to the message
+                message_parts.extend(doc_list)
                 
                 message = "\n".join(message_parts)
-                logger.info(f"[DEBUG] Found {len(documents)} documents for {from_number}")
+                logger.info(f"[DEBUG] Found {len(doc_list)} documents for {from_number}")
+                logger.info(f"[DEBUG] Message preview: {message[:100]}...")
             else:
                 message = "You don't have any documents yet. Send me a file to get started!"
                 logger.info(f"[DEBUG] No documents found for {from_number}")
