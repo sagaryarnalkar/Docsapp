@@ -198,6 +198,9 @@ if database_url.startswith('postgresql'):
 # Create engine with appropriate parameters
 engine = create_engine(database_url, **engine_params)
 
+# Create session factory
+Session = sessionmaker(bind=engine)
+
 # Create all tables
 try:
     print("Attempting to create database tables...")
@@ -228,9 +231,6 @@ except Exception as e:
     print(f"❌ Error creating/verifying database tables: {str(e)}")
     import traceback
     print(traceback.format_exc())
-
-# Create session factory
-Session = sessionmaker(bind=engine)
 
 def get_session():
     """Get a database session"""
