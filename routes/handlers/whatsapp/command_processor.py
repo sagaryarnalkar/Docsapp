@@ -141,109 +141,83 @@ class CommandProcessor:
             tuple: (response_message, status_code)
         """
         logger.info(f"[DEBUG] Processing help command for {from_number}")
-        help_message = """🤖 Available commands:
-- Send any file to store it (documents, images, videos, audio)
-- Add descriptions by replying to a stored file
-- 'list' to see your stored files
-- 'find <text>' to search your files
-- '/ask <question>' to ask questions about your documents (Beta)
-- 'help' to see this message
-
-📎 Supported file types:
-• Documents (PDF, Word, Excel, PowerPoint, etc.)
-• Images (JPG, PNG, etc.)
-• Videos (MP4, etc.)
-• Audio files (MP3, etc.)"""
-        logger.info(f"[DEBUG] Sending help message to {from_number}")
-        send_result = await self.message_sender.send_message(from_number, help_message)
-        logger.info(f"[DEBUG] Help message send result: {send_result}")
-        return "Help message sent", 200
+        
+        try:
+            # Create help message
+            help_message = (
+                "📱 *DocsApp WhatsApp Bot Help*\n\n"
+                "Available commands:\n"
+                "• *help* - Show this help message\n"
+                "• *list* - List all your documents\n"
+                "• *find [query]* - Search for documents\n"
+                "• */ask [question]* - Ask a question about your documents\n\n"
+                "You can also upload documents directly to this chat."
+            )
+            
+            logger.info(f"[DEBUG] Sending help command response to {from_number}")
+            # Pass the message_type parameter to ensure it bypasses deduplication
+            send_result = await self.message_sender.send_message(
+                from_number, 
+                help_message, 
+                message_type="help_command"
+            )
+            logger.info(f"[DEBUG] Help command response send result: {send_result}")
+            
+            return "Help command processed", 200
+        except Exception as e:
+            logger.error(f"[DEBUG] Error in _handle_help_command: {str(e)}", exc_info=True)
+            error_msg = "❌ Error processing help command. Please try again."
+            await self.message_sender.send_message(from_number, error_msg, message_type="error_message")
+            return "Help command error", 500
         
     async def _handle_list_command(self, from_number):
-        """Handle list command"""
+        """
+        Handle the 'list' command.
+        
+        Args:
+            from_number: The sender's phone number
+            
+        Returns:
+            tuple: (response_message, status_code)
+        """
+        logger.info(f"[DEBUG] Processing list command for {from_number}")
+        
         try:
-            command_hash = hashlib.md5(f"{from_number}:list:{int(time.time())}".encode()).hexdigest()[:8]
-            print(f"[DEBUG] {command_hash} - Executing LIST command for {from_number}")
+            # Get documents from docs_app
+            documents = self.docs_app.list_documents(from_number)
             
-            # Check if user is authorized
-            if not self.docs_app._get_user_credentials(from_number):
-                print(f"[DEBUG] {command_hash} - User {from_number} is not authorized")
-                return False, "You need to log in first. Send 'login' to get started."
-            
-            # Get document list
-            print(f"[DEBUG] {command_hash} - Getting document list for {from_number}")
-            document_list, documents = self.docs_app.list_documents(from_number)
-            
-            if document_list:
-                print(f"[DEBUG] {command_hash} - Found {len(document_list)} documents")
-                # Add timestamp to make message unique
-                timestamp = int(time.time())
-                response_text = f"Your documents (as of {timestamp}):\n\n" + "\n".join(document_list)
-                response_text += "\n\nTo get a document, reply with the number (e.g., '2')"
-                response_text += "\nTo delete a document, reply with 'delete <number>' (e.g., 'delete 2')"
+            if documents:
+                # Format document list
+                message_parts = ["📚 Your Documents:\n"]
                 
-                # Send the message with special handling - try up to 3 times
-                print(f"[DEBUG] {command_hash} - Sending LIST response with {len(document_list)} documents")
-                
-                # Try sending the message up to 3 times
-                max_retries = 3
-                for attempt in range(1, max_retries + 1):
-                    print(f"[DEBUG] {command_hash} - Send attempt {attempt}/{max_retries}")
-                    success = await self.message_sender.send_message(
-                        from_number, 
-                        response_text,
-                        message_type="list_command",
-                        bypass_deduplication=True
-                    )
+                for idx, doc in enumerate(documents, 1):
+                    doc_name = doc.get("name", "Unnamed Document")
+                    doc_type = doc.get("type", "Unknown")
+                    doc_date = doc.get("date", "Unknown date")
                     
-                    if success:
-                        print(f"[DEBUG] {command_hash} - LIST response sent successfully on attempt {attempt}")
-                        return True, "Document list sent"
-                    else:
-                        print(f"[DEBUG] {command_hash} - Failed to send LIST response on attempt {attempt}")
-                        if attempt < max_retries:
-                            # Wait a bit before retrying
-                            await asyncio.sleep(1)
+                    message_parts.append(f"{idx}. {doc_name} ({doc_type}) - {doc_date}")
                 
-                # If we get here, all attempts failed
-                print(f"[DEBUG] {command_hash} - All {max_retries} send attempts failed")
-                return False, "Failed to send document list after multiple attempts"
+                message = "\n".join(message_parts)
+                logger.info(f"[DEBUG] Found {len(documents)} documents for {from_number}")
             else:
-                print(f"[DEBUG] {command_hash} - No documents found for {from_number}")
-                # Add timestamp to make message unique
-                timestamp = int(time.time())
-                response_text = f"You don't have any stored documents. (Check: {timestamp})"
-                
-                # Try sending the message up to 3 times
-                max_retries = 3
-                for attempt in range(1, max_retries + 1):
-                    print(f"[DEBUG] {command_hash} - Send attempt {attempt}/{max_retries}")
-                    success = await self.message_sender.send_message(
-                        from_number, 
-                        response_text,
-                        message_type="list_command",
-                        bypass_deduplication=True
-                    )
-                    
-                    if success:
-                        print(f"[DEBUG] {command_hash} - Empty LIST response sent successfully on attempt {attempt}")
-                        return True, "Empty document list sent"
-                    else:
-                        print(f"[DEBUG] {command_hash} - Failed to send empty LIST response on attempt {attempt}")
-                        if attempt < max_retries:
-                            # Wait a bit before retrying
-                            await asyncio.sleep(1)
-                
-                # If we get here, all attempts failed
-                print(f"[DEBUG] {command_hash} - All {max_retries} send attempts failed")
-                return False, "Failed to send document list after multiple attempts"
-                
+                message = "You don't have any documents yet. Send me a file to get started!"
+                logger.info(f"[DEBUG] No documents found for {from_number}")
+            
+            logger.info(f"[DEBUG] Sending list command response to {from_number}")
+            # Pass the message_type parameter to ensure it bypasses deduplication
+            send_result = await self.message_sender.send_message(
+                from_number, 
+                message, 
+                message_type="list_command"
+            )
+            logger.info(f"[DEBUG] List command response send result: {send_result}")
+            
+            return "List command processed", 200
         except Exception as e:
-            error_id = str(uuid.uuid4())[:8]
-            print(f"[ERROR] List command error {error_id}: {str(e)}")
-            import traceback
-            print(f"[ERROR] Traceback {error_id}: {traceback.format_exc()}")
-            return False, f"❌ An error occurred while listing your documents. (Error ID: {error_id})"
+            logger.error(f"[DEBUG] Error in _handle_list_command: {str(e)}", exc_info=True)
+            error_msg = "❌ Error retrieving your documents. Please try again."
+            await self.message_sender.send_message(from_number, error_msg, message_type="error_message")
+            return "List command error", 500
         
     async def _handle_find_command(self, from_number, query):
         """
@@ -269,14 +243,19 @@ class CommandProcessor:
                 message = "No documents found matching your query."
                 
             logger.info(f"[DEBUG] Sending find command response to {from_number}")
-            send_result = await self.message_sender.send_message(from_number, message)
+            # Pass the message_type parameter to ensure it bypasses deduplication
+            send_result = await self.message_sender.send_message(
+                from_number, 
+                message, 
+                message_type="find_command"
+            )
             logger.info(f"[DEBUG] Find command response send result: {send_result}")
             
             return "Find command processed", 200
         except Exception as e:
             logger.error(f"[DEBUG] Error in _handle_find_command: {str(e)}", exc_info=True)
             error_msg = "❌ Error searching for documents. Please try again."
-            await self.message_sender.send_message(from_number, error_msg)
+            await self.message_sender.send_message(from_number, error_msg, message_type="error_message")
             return "Find command error", 500
         
     async def _handle_ask_command(self, from_number, question):
@@ -296,7 +275,11 @@ class CommandProcessor:
             # Send processing message
             processing_msg = "🔄 Processing your question... This might take a moment."
             logger.info(f"[DEBUG] Sending processing message to {from_number}")
-            await self.message_sender.send_message(from_number, processing_msg)
+            await self.message_sender.send_message(
+                from_number, 
+                processing_msg, 
+                message_type="processing_message"
+            )
             
             # Use the docs_app to process the question
             logger.info(f"[DEBUG] Calling docs_app.ask_question with question: '{question}'")
@@ -342,7 +325,12 @@ class CommandProcessor:
             timestamp = int(time.time())
             message = f"{message}\n\nTimestamp: {timestamp}"
             
-            send_result = await self.message_sender.send_message(from_number, message)
+            # Pass the message_type parameter to ensure it bypasses deduplication
+            send_result = await self.message_sender.send_message(
+                from_number, 
+                message, 
+                message_type="ask_command"
+            )
             logger.info(f"[DEBUG] Ask command response send result: {send_result}")
             
             if result["status"] == "success":
@@ -352,7 +340,11 @@ class CommandProcessor:
         except Exception as e:
             logger.error(f"[DEBUG] Error in _handle_ask_command: {str(e)}", exc_info=True)
             error_msg = "❌ Error processing your question. Please try again."
-            await self.message_sender.send_message(from_number, error_msg)
+            await self.message_sender.send_message(
+                from_number, 
+                error_msg, 
+                message_type="error_message"
+            )
             return "Ask command error", 500
 
     def _detect_command_intent(self, text):

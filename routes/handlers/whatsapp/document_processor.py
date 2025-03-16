@@ -312,7 +312,7 @@ class DocumentProcessor:
                                             if not store_result:
                                                 debug_info.append("Failed to store document")
                                                 error_msg = "❌ Error storing document. Please try again later."
-                                                await self.message_sender.send_message(from_number, error_msg)
+                                                await self._handle_error(from_number, error_msg)
                                                 raise WhatsAppHandlerError("Failed to store document")
 
                                             debug_info.append("Document stored successfully")
@@ -376,22 +376,22 @@ class DocumentProcessor:
                                     else:
                                         debug_info.append(f"File download failed: {await file_response.text()}")
                                         error_msg = "❌ Failed to download the document. Please try sending it again."
-                                        await self.message_sender.send_message(from_number, error_msg)
+                                        await self._handle_error(from_number, error_msg)
                                         raise WhatsAppHandlerError("Failed to download document")
                             else:
                                 debug_info.append("No download URL found in response")
                                 error_msg = "❌ Could not access the document. Please try sending it again."
-                                await self.message_sender.send_message(from_number, error_msg)
+                                await self._handle_error(from_number, error_msg)
                                 raise WhatsAppHandlerError("No download URL found")
                         except json.JSONDecodeError as e:
                             debug_info.append(f"Error parsing media response: {str(e)}")
                             error_msg = "❌ Error processing the document. Please try again later."
-                            await self.message_sender.send_message(from_number, error_msg)
+                            await self._handle_error(from_number, error_msg, e)
                             raise WhatsAppHandlerError(str(e))
                     else:
                         debug_info.append(f"Media URL request failed: {media_response_text}")
                         error_msg = "❌ Could not access the document. Please try sending it again."
-                        await self.message_sender.send_message(from_number, error_msg)
+                        await self._handle_error(from_number, error_msg)
                         raise WhatsAppHandlerError("Media URL request failed")
                     
         except Exception as e:
@@ -697,3 +697,22 @@ class DocumentProcessor:
                 )
             except Exception as send_err:
                 logger.error(f"Error sending error message: {str(send_err)}") 
+
+    async def _handle_error(self, from_number, error_msg, error=None):
+        """
+        Handle an error by sending an error message to the user.
+        
+        Args:
+            from_number: The user's phone number
+            error_msg: The error message to send
+            error: The exception that occurred (optional)
+        """
+        if error:
+            logger.error(f"Error processing document: {str(error)}", exc_info=True)
+            
+        # Send error message to user with message_type to bypass deduplication
+        await self.message_sender.send_message(
+            from_number, 
+            error_msg, 
+            message_type="error_message"
+        ) 
