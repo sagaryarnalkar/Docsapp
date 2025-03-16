@@ -120,7 +120,7 @@ class AuthHandler:
                     # Ensure directory exists
                     os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
                     with open(temp_file_path, 'w') as f:
-                        f.write(user_phone)
+                f.write(user_phone)
                     print(f"Stored user data at: {temp_file_path}")
                 except Exception as e:
                     print(f"Failed to store at {temp_file_path}: {str(e)}")
@@ -256,7 +256,7 @@ class AuthHandler:
             
             try:
                 # Fetch token using the callback URL
-                flow.fetch_token(authorization_response=request_url)
+            flow.fetch_token(authorization_response=request_url)
                 print("Successfully fetched token")
             except Exception as token_error:
                 # Check if it's a scope mismatch error
@@ -406,8 +406,8 @@ class AuthHandler:
                     print(f"Error sending welcome message: {str(e)}")
                     import traceback
                     print(f"Traceback:\n{traceback.format_exc()}")
-                
-                return self._get_success_html()
+            
+            return self._get_success_html()
             
             error_msg = "User session expired. Please try again."
             logger.error("No temp user file found")

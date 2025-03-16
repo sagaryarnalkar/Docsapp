@@ -171,9 +171,9 @@ def before_request():
         print(f"REQUEST ID: {request.request_id}")
         print(f"PROCESSING REQUEST - SERVER VERSION {VERSION}")
         print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Method: {request.method}")
-        print(f"URL: {request.url}")
-        print(f"Headers: {dict(request.headers)}")
+    print(f"Method: {request.method}")
+    print(f"URL: {request.url}")
+    print(f"Headers: {dict(request.headers)}")
         print(f"{'='*50}\n")
         
         # Log request body for POST requests
@@ -185,9 +185,9 @@ def before_request():
             except Exception as e:
                 print(f"[{request.request_id}] Error reading request data: {str(e)}")
         
-        if request.form:
+    if request.form:
             print(f"[{request.request_id}] Form Data: {dict(request.form)}")
-        if request.args:
+    if request.args:
             print(f"[{request.request_id}] Query Args: {dict(request.args)}")
     except Exception as e:
         print(f"Error in before_request: {str(e)}")

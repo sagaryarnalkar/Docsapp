@@ -71,7 +71,7 @@ class DocsApp:
             credentials = self._get_user_credentials(user_phone)
             if not credentials:
                 return None
-            
+
             return build('drive', 'v3', credentials=credentials)
         except Exception as e:
             logger.error(f"Error getting Drive service: {str(e)}")
@@ -86,22 +86,22 @@ class DocsApp:
                 spaces='drive',
                 fields='files(id, name)'
             ).execute()
-            
+
             items = results.get('files', [])
-            
+
             if items:
                 return items[0]['id']
             
             # Create folder if it doesn't exist
             folder_metadata = {
                 'name': folder_name,
-                'mimeType': 'application/vnd.google-apps.folder'
-            }
+                    'mimeType': 'application/vnd.google-apps.folder'
+                }
             
             folder = service.files().create(
                 body=folder_metadata,
-                fields='id'
-            ).execute()
+                    fields='id'
+                ).execute()
             
             return folder.get('id')
             
@@ -121,12 +121,12 @@ class DocsApp:
             if not user_phone or not file_path or not filename:
                 logger.error("Missing required parameters for document storage")
                 return False
-                
+
             # Verify file exists
             if not os.path.exists(file_path):
                 logger.error(f"File not found at path: {file_path}")
                 return False
-                
+
             # Get Drive service using user's OAuth credentials
             service = self._get_drive_service(user_phone)
             if not service:
@@ -142,7 +142,7 @@ class DocsApp:
             print("Uploading file to Drive...")
             try:
                 # Upload file to Drive with specific permissions
-                file_metadata = {
+            file_metadata = {
                     'name': filename,
                     'parents': [folder_id],
                     'appProperties': {
@@ -157,12 +157,12 @@ class DocsApp:
                 )
                 
                 file = service.files().create(
-                    body=file_metadata,
-                    media_body=media,
+                body=file_metadata,
+                media_body=media,
                     fields='id, mimeType',
                     supportsAllDrives=True
-                ).execute()
-                
+            ).execute()
+
                 print(f"File uploaded to Drive with ID: {file['id']}")
                 print(f"MIME Type: {file.get('mimeType')}")
                 
@@ -449,7 +449,7 @@ class DocsApp:
                     doc.description = description
                     session.commit()
                     return True
-                return False
+                    return False
 
         except Exception as e:
             logger.error(f"Error updating description: {str(e)}")
@@ -570,7 +570,7 @@ class DocsApp:
                 ).execute()
 
                 return file
-
+                
         except Exception as e:
             logger.error(f"Error retrieving document: {str(e)}")
             return None

@@ -41,15 +41,15 @@ class UserState:
             from models.database import DatabasePool
             self.db_pool = DatabasePool("users.db")
             
-            with self.db_pool.get_cursor() as cursor:
-                cursor.execute('''
+        with self.db_pool.get_cursor() as cursor:
+            cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     phone_number TEXT PRIMARY KEY,
                     tokens TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-                ''')
+            ''')
                 logger.info("Users database initialized")
     
     def store_tokens(self, phone_number, tokens):
@@ -95,8 +95,8 @@ class UserState:
                     session.close()
             else:
                 # Legacy SQLite approach
-                with self.db_pool.get_cursor() as cursor:
-                    cursor.execute('''
+        with self.db_pool.get_cursor() as cursor:
+            cursor.execute('''
                     INSERT INTO users (phone_number, tokens, updated_at)
                     VALUES (?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(phone_number) DO UPDATE SET
@@ -223,7 +223,7 @@ class UserState:
             logger.info("Cleaning up credentials cache")
             self.credentials_cache = {}
             self.last_cleanup = current_time
-    
+
     def is_authorized(self, phone):
         """
         Check if a user is authorized
@@ -280,7 +280,7 @@ class UserState:
         except Exception as e:
             print(f"[DEBUG] Error checking authorization: {str(e)}")
             return False
-    
+
     def store_auth_code(self, code, state):
         """
         Store an authorization code from OAuth callback
