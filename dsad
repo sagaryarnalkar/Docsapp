@@ -1,0 +1,73 @@
+[1mdiff --git a/models/database.py b/models/database.py[m
+[1mindex 6345bcb1..cb25ddd5 100644[m
+[1m--- a/models/database.py[m
+[1m+++ b/models/database.py[m
+[36m@@ -151,6 +151,12 @@[m [mdef get_database_url():[m
+     """Get the database URL from environment or use SQLite as fallback"""[m
+     # Check for PostgreSQL connection URL from Render[m
+     postgres_url = os.environ.get('DATABASE_URL')[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Hardcoded PostgreSQL URL (for development/testing)[m
+[32m+[m[32m    if not postgres_url:[m
+[32m+[m[32m        # Use the internal URL for better performance within Render[m
+[32m+[m[32m        postgres_url = "postgresql://docsapp_ebj9_user:3iqc2U2xN4XTgGD7MeSnFEqtaBUrUXYP@dpg-cv96i95umphs73flbnng-a/docsapp_ebj9"[m
+[32m+[m[41m    [m
+     if postgres_url:[m
+         # Ensure the URL uses the correct driver for SQLAlchemy[m
+         if postgres_url.startswith('postgres:'):[m
+[36m@@ -171,12 +177,18 @@[m [mengine = create_engine([m
+     pool_size=10 if database_url.startswith('postgresql') else None,[m
+     max_overflow=20 if database_url.startswith('postgresql') else None,[m
+     pool_recycle=300 if database_url.startswith('postgresql') else None,[m
+[31m-    pool_pre_ping=True[m
+[32m+[m[32m    pool_pre_ping=True,[m
+[32m+[m[32m    connect_args={'connect_timeout': 10} if database_url.startswith('postgresql') else {}[m
+ )[m
+ [m
+ # Create all tables[m
+[31m-Base.metadata.create_all(engine)[m
+[31m-print("Database tables created successfully")[m
+[32m+[m[32mtry:[m
+[32m+[m[32m    Base.metadata.create_all(engine)[m
+[32m+[m[32m    print("Database tables created successfully")[m
+[32m+[m[32mexcept Exception as e:[m
+[32m+[m[32m    print(f"Error creating database tables: {str(e)}")[m
+[32m+[m[32m    import traceback[m
+[32m+[m[32m    print(traceback.format_exc())[m
+ [m
+ # Create session factory[m
+ Session = sessionmaker(bind=engine)[m
+[36m@@ -233,6 +245,23 @@[m [mdef migrate_sqlite_to_postgres():[m
+             )[m
+             pg_session.add(new_doc)[m
+         [m
+[32m+[m[32m        # Migrate user tokens[m
+[32m+[m[32m        try:[m
+[32m+[m[32m            user_tokens = sqlite_session.query(UserToken).all()[m
+[32m+[m[32m            print(f"Found {len(user_tokens)} user tokens to migrate")[m
+[32m+[m[41m            [m
+[32m+[m[32m            for token in user_tokens:[m
+[32m+[m[32m                new_token = UserToken([m
+[32m+[m[32m                    phone_number=token.phone_number,[m
+[32m+[m[32m                    tokens=token.tokens,[m
+[32m+[m[32m                    created_at=token.created_at,[m
+[32m+[m[32m                    updated_at=token.updated_at[m
+[32m+[m[32m                )[m
+[32m+[m[32m                pg_session.add(new_token)[m
+[32m+[m[32m        except Exception as e:[m
+[32m+[m[32m            print(f"Error migrating user tokens: {str(e)}")[m
+[32m+[m[32m            # Continue with migration even if user tokens fail[m
+[32m+[m[41m        [m
+         pg_session.commit()[m
+         pg_session.close()[m
+         sqlite_session.close()[m
+[36m@@ -249,4 +278,6 @@[m [mdef migrate_sqlite_to_postgres():[m
+ try:[m
+     migrate_sqlite_to_postgres()[m
+ except Exception as e:[m
+[31m-    print(f"Migration attempt failed: {str(e)}")[m
+\ No newline at end of file[m
+[32m+[m[32m    print(f"Migration attempt failed: {str(e)}")[m
+[32m+[m[32m    import traceback[m
+[32m+[m[32m    print(traceback.format_exc())[m
+\ No newline at end of file[m
