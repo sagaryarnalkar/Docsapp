@@ -84,7 +84,7 @@ class BaseCommandHandler:
         """
         try:
             logger.info(f"[DEBUG] Sending {message_type} response to {from_number}")
-            print(f"[DEBUG] Sagar {command_id} - Sending {message_type} response with length {len(message)}")
+            print(f"[DEBUG] {command_id} - Sending {message_type} response with length {len(message)}")
             
             # Use the regular send_message method which is known to work for sign-in messages
             send_result = await self.message_sender.send_message(
