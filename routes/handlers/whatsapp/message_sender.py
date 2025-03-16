@@ -81,6 +81,11 @@ class MessageSender:
             print(f"[DEBUG] Message Type: {message_type or 'outgoing_message'}")  # Default type for all outgoing messages
             print(f"[DEBUG] Message Length: {len(message)} characters")
             print(f"[DEBUG] Message Preview: {message[:50]}...")
+            
+            # Print token information for debugging
+            print(f"[DEBUG] {message_hash} - WHATSAPP ACCESS TOKEN: {self.access_token}")
+            print(f"[DEBUG] {message_hash} - TOKEN LENGTH: {len(self.access_token)}")
+            print(f"[DEBUG] {message_hash} - TOKEN FORMAT CORRECT: {self.access_token.startswith('EAA')}")
             print(f"==================================================")
             
             # Always add a timestamp to ensure uniqueness
@@ -109,6 +114,13 @@ class MessageSender:
             
             print(f"[DEBUG] {message_hash} - Sending message to WhatsApp API")
             print(f"[DEBUG] {message_hash} - URL: {url}")
+            print(f"[DEBUG] {message_hash} - URL COMPONENTS:")
+            print(f"[DEBUG] {message_hash} -   Base: https://graph.facebook.com")
+            print(f"[DEBUG] {message_hash} -   API Version: {self.api_version}")
+            print(f"[DEBUG] {message_hash} -   Phone Number ID: {self.phone_number_id}")
+            print(f"[DEBUG] {message_hash} - HEADERS:")
+            print(f"[DEBUG] {message_hash} -   Content-Type: {headers['Content-Type']}")
+            print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:]} (full token in logs above)")
             print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
             
             # Implement retry logic
@@ -206,6 +218,11 @@ class MessageSender:
         """
         try:
             logger.info(f"[DEBUG] Marking message as read: {message_id}")
+            
+            # Print token information for debugging
+            print(f"[DEBUG] MARK AS READ - WHATSAPP ACCESS TOKEN: {self.access_token}")
+            print(f"[DEBUG] MARK AS READ - TOKEN LENGTH: {len(self.access_token)}")
+            print(f"[DEBUG] MARK AS READ - TOKEN FORMAT CORRECT: {self.access_token.startswith('EAA')}")
             
             # Check if token is known to be invalid
             if not self.token_valid:
