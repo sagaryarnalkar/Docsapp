@@ -105,19 +105,20 @@ class WhatsAppHandler:
         self.processed_messages = {}
         self.last_cleanup = time.time()
 
-    async def send_message(self, to_number, message):
+    async def send_message(self, to_number, message, message_type="outgoing_message"):
         """
         Send a WhatsApp message to a user.
         
         Args:
             to_number: The recipient's phone number
             message: The message text to send
+            message_type: Type of message (default: "outgoing_message")
             
         Returns:
             bool: True if the message was sent successfully, False otherwise
         """
         # Delegate to the message sender component
-        return await self.message_sender.send_message(to_number, message)
+        return await self.message_sender.send_message(to_number, message, message_type=message_type)
 
     async def handle_incoming_message(self, data):
         """

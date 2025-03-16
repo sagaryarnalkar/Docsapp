@@ -141,7 +141,8 @@ class DocumentProcessor:
                 # Still send a message to inform the user (but don't process again)
                 await self.message_sender.send_message(
                     from_number, 
-                    f"⚠️ I've already received this document ({filename}). No need to send it again."
+                    f"⚠️ I've already received this document ({filename}). No need to send it again.",
+                    message_type="document_duplicate_notification"
                 )
                 return "Duplicate document", 200
                 
@@ -163,7 +164,8 @@ class DocumentProcessor:
             # This lets them know we've received the document, even before processing starts
             await self.message_sender.send_message(
                 from_number, 
-                f"📥 I've received your document '{filename}'. Processing now..."
+                f"📄 I've received your document: *{filename}*\n\nI'll process it and let you know when it's ready.",
+                message_type="document_received_notification"
             )
             
             # Start processing in the background
@@ -184,7 +186,8 @@ class DocumentProcessor:
             try:
                 await self.message_sender.send_message(
                     from_number, 
-                    "❌ Sorry, I couldn't process your document. Please try again later."
+                    "❌ Sorry, I couldn't process your document. Please try again later.",
+                    message_type="document_processing_error"
                 )
             except Exception as send_err:
                 logger.error(f"Error sending error message: {str(send_err)}")
@@ -223,13 +226,14 @@ class DocumentProcessor:
             if result:
                 await self.message_sender.send_message(
                     from_number, 
-                    f"✅ Added description to document: {description}\n\n"
-                    "You can keep adding more descriptions to make the document easier to find!"
+                    f"✅ Description added to document: *{filename}*\n\n{description}",
+                    message_type="document_description_confirmation"
                 )
             else:
                 await self.message_sender.send_message(
                     from_number, 
-                    f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info)
+                    f"❌ Failed to update document description.\n\nDebug Info:\n" + "\n".join(debug_info),
+                    message_type="document_error_notification"
                 )
             return "Description updated", 200
         return "No quoted message ID found", 400
@@ -346,7 +350,7 @@ class DocumentProcessor:
                                                     "to make the document easier to find later!"
                                                 )
                                                 
-                                                await self.message_sender.send_message(from_number, immediate_response)
+                                                await self.message_sender.send_message(from_number, immediate_response, message_type="document_processing_notification")
                                                 
                                                 # Mark storage notification as sent
                                                 self._update_global_tracking(doc_id, "storage_notification")
@@ -409,7 +413,8 @@ class DocumentProcessor:
             try:
                 await self.message_sender.send_message(
                     from_number, 
-                    "❌ Sorry, I couldn't process your document. Please try again later."
+                    "❌ Sorry, I couldn't process your document. Please try again later.",
+                    message_type="document_processing_error"
                 )
             except Exception as send_err:
                 logger.error(f"Error sending error message: {str(send_err)}")
@@ -441,7 +446,8 @@ class DocumentProcessor:
                 if not self._is_duplicate_by_global_tracking(file_id, "processing_notification"):
                     await self.message_sender.send_message(
                         from_number, 
-                        "🔄 Document is already being processed. I'll notify you when it's complete..."
+                        "🔄 Document is already being processed. I'll notify you when it's complete...",
+                        message_type="document_processing_notification"
                     )
                     self._update_global_tracking(file_id, "processing_notification")
                 return
@@ -467,7 +473,8 @@ class DocumentProcessor:
                 # Send processing started message
                 await self.message_sender.send_message(
                     from_number, 
-                    "🔄 Document processing started. I'll notify you when it's complete..."
+                    "🔄 Document processing started. I'll notify you when it's complete...",
+                    message_type="document_processing_notification"
                 )
                 # Mark processing notification as sent
                 self._update_global_tracking(file_id, "processing_notification")
@@ -508,7 +515,8 @@ class DocumentProcessor:
                             from_number, 
                             f"✅ Document '{filename}' has been processed successfully!\n\n"
                             f"You can now ask questions about it using:\n"
-                            f"/ask <your question>"
+                            f"/ask <your question>",
+                            message_type="document_success_notification"
                         )
                     else:
                         error = result.get("error", "Unknown error")
@@ -516,7 +524,8 @@ class DocumentProcessor:
                         await self.message_sender.send_message(
                             from_number,
                             f"⚠️ Document processing completed with issues: {error}\n\n"
-                            f"You can still try asking questions about it."
+                            f"You can still try asking questions about it.",
+                            message_type="document_processing_issues"
                         )
                     
                     # Mark completion notification as sent
@@ -548,7 +557,8 @@ class DocumentProcessor:
                     await self.message_sender.send_message(
                         from_number, 
                         f"❌ There was an error processing your document: {str(e)}\n\n"
-                        f"You can still try asking questions about it, but results may be limited."
+                        f"You can still try asking questions about it, but results may be limited.",
+                        message_type="document_processing_error"
                     )
                     
                     # Mark error notification as sent
@@ -693,7 +703,8 @@ class DocumentProcessor:
             try:
                 await self.message_sender.send_message(
                     from_number, 
-                    "❌ Sorry, I couldn't process your document. Please try again later."
+                    "❌ Sorry, I couldn't process your document. Please try again later.",
+                    message_type="document_processing_error"
                 )
             except Exception as send_err:
                 logger.error(f"Error sending error message: {str(send_err)}") 
@@ -714,5 +725,5 @@ class DocumentProcessor:
         await self.message_sender.send_message(
             from_number, 
             error_msg, 
-            message_type="error_message"
+            message_type="document_error_notification"
         ) 

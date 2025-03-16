@@ -131,11 +131,11 @@ class RedisDeduplicationManager:
         # NEVER deduplicate outgoing messages (command responses)
         # This ensures all outgoing messages are always sent
         if message_type is not None:
-            print(f"[DEBUG] Message is a {message_type} - BYPASSING DEDUPLICATION FOR OUTGOING MESSAGE")
-            # Still track it for debugging purposes
-            self.redis.set(f"cmd:{message_key}", current_time, ex=600)
+            print(f"[DEBUG] Message is a {message_type} response - BYPASSING DEDUPLICATION")
+            # Do not track outgoing messages at all
             return False
         
+        # For incoming messages, continue with normal deduplication
         # Check both the combined key and the message_id for backward compatibility
         combined_key_exists = self.redis.exists(f"msg:{message_key}")
         message_id_exists = self.redis.exists(f"msg:{message_id}")

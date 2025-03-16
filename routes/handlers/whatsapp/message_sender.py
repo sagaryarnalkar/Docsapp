@@ -78,7 +78,7 @@ class MessageSender:
             print(f"\n==================================================")
             print(f"[DEBUG] MESSAGE SENDER START - {message_hash}")
             print(f"[DEBUG] To: {to_number}")
-            print(f"[DEBUG] Message Type: {message_type}")
+            print(f"[DEBUG] Message Type: {message_type or 'outgoing_message'}")  # Default type for all outgoing messages
             print(f"[DEBUG] Message Length: {len(message)} characters")
             print(f"[DEBUG] Message Preview: {message[:50]}...")
             print(f"==================================================")
