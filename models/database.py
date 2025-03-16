@@ -3,13 +3,14 @@ import sqlite3
 from contextlib import contextmanager
 import logging
 from config import DB_DIR
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Text
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Text, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 import shutil
 from datetime import datetime
 import urllib.parse
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,19 @@ def get_database_url():
         if postgres_url.startswith('postgres:'):
             postgres_url = postgres_url.replace('postgres:', 'postgresql:')
         print(f"Using PostgreSQL database: {postgres_url.split('@')[1] if '@' in postgres_url else 'unknown'}")
-        return postgres_url
+        
+        # Test the PostgreSQL connection
+        try:
+            from sqlalchemy import create_engine
+            test_engine = create_engine(postgres_url, connect_args={'connect_timeout': 5})
+            with test_engine.connect() as conn:
+                print("✅ Successfully connected to PostgreSQL database")
+            return postgres_url
+        except Exception as e:
+            print(f"❌ Error connecting to PostgreSQL: {str(e)}")
+            print("Falling back to SQLite database")
+    else:
+        print("No PostgreSQL URL found in environment variables")
     
     # Fallback to SQLite
     db_path = os.path.join(PERSISTENT_DB_DIR, 'documents.db')
@@ -187,10 +200,32 @@ engine = create_engine(database_url, **engine_params)
 
 # Create all tables
 try:
+    print("Attempting to create database tables...")
+    # First check if tables already exist
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    print(f"Existing tables: {existing_tables}")
+    
+    # Create tables that don't exist
     Base.metadata.create_all(engine)
-    print("Database tables created successfully")
+    
+    # Verify tables were created
+    inspector = inspect(engine)
+    tables_after = inspector.get_table_names()
+    print(f"Tables after creation: {tables_after}")
+    print(f"✅ Database tables created/verified successfully")
+    
+    # Test query to ensure database is working
+    with Session() as session:
+        # Count documents
+        doc_count = session.query(func.count(Document.id)).scalar()
+        print(f"Document count in database: {doc_count}")
+        
+        # Count user tokens
+        user_count = session.query(func.count(UserToken.id)).scalar()
+        print(f"User count in database: {user_count}")
 except Exception as e:
-    print(f"Error creating database tables: {str(e)}")
+    print(f"❌ Error creating/verifying database tables: {str(e)}")
     import traceback
     print(traceback.format_exc())
 

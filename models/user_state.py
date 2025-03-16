@@ -232,29 +232,53 @@ class UserState:
             phone: The user's phone number
             
         Returns:
-            bool: True if authorized, False otherwise
+            bool: True if the user is authorized, False otherwise
         """
         try:
-            # Get credentials
-            creds = self.get_credentials(phone)
+            print(f"[DEBUG] Checking authorization for user: {phone}")
             
+            # Check if we have credentials in the cache
+            if phone in self.credentials_cache:
+                print(f"[DEBUG] Found credentials in cache for {phone}")
+                credentials = self.credentials_cache[phone]
+            else:
+                print(f"[DEBUG] No credentials in cache for {phone}, retrieving from database")
+                credentials = self.get_credentials(phone)
+                
+            if not credentials:
+                print(f"[DEBUG] No credentials found for {phone}")
+                return False
+                
             # Check if credentials are valid
-            if creds and not creds.expired:
+            if credentials.valid:
+                print(f"[DEBUG] Credentials for {phone} are valid")
                 return True
                 
-            # Try to refresh token if expired
-            if creds and creds.expired and creds.refresh_token:
+            # Try to refresh if expired
+            if credentials.expired and credentials.refresh_token:
+                print(f"[DEBUG] Credentials for {phone} are expired, attempting to refresh")
                 try:
-                    creds.refresh(Request())
-                    self.store_tokens(phone, creds.to_json())
+                    credentials.refresh(Request())
+                    # Store the refreshed tokens
+                    self.store_tokens(phone, {
+                        'token': credentials.token,
+                        'refresh_token': credentials.refresh_token,
+                        'token_uri': credentials.token_uri,
+                        'client_id': credentials.client_id,
+                        'client_secret': credentials.client_secret,
+                        'scopes': credentials.scopes,
+                        'expiry': credentials.expiry.isoformat() if credentials.expiry else None
+                    })
+                    print(f"[DEBUG] Successfully refreshed credentials for {phone}")
                     return True
                 except Exception as e:
-                    logger.error(f"Error refreshing token: {str(e)}")
+                    print(f"[DEBUG] Error refreshing credentials for {phone}: {str(e)}")
                     return False
-                    
+            
+            print(f"[DEBUG] Credentials for {phone} are not valid and could not be refreshed")
             return False
         except Exception as e:
-            logger.error(f"Error checking authorization: {str(e)}")
+            print(f"[DEBUG] Error checking authorization: {str(e)}")
             return False
     
     def store_auth_code(self, code, state):
