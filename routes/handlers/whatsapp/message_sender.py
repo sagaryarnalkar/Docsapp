@@ -1,8 +1,8 @@
 """
 WhatsApp Message Sender
 ----------------------
-This module handles sending messages to WhatsApp users with deduplication
-to prevent sending the same message multiple times.
+This module handles sending messages to WhatsApp users without deduplication
+to ensure all messages are delivered.
 """
 
 import json
@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 class MessageSender:
     """
-    Handles sending messages to WhatsApp users with deduplication.
+    Handles sending messages to WhatsApp users.
     
     This class is responsible for:
     1. Sending text messages to WhatsApp users
-    2. Preventing duplicate messages from being sent
-    3. Handling API errors and token expiration
+    2. Handling API errors and token expiration
+    3. Implementing retry logic for failed messages
     """
     
     def __init__(self, access_token=None, phone_number_id=None, api_version="v22.0"):
@@ -44,7 +44,6 @@ class MessageSender:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.access_token}"
         }
-        self.sent_messages = {}  # Track sent messages to prevent duplicates
         self.token_valid = bool(self.access_token and not self.access_token.startswith('YOUR_') and len(self.access_token) > 20)
         self.debug_mode = True   # Enable debug mode for detailed logging
         
@@ -58,7 +57,7 @@ class MessageSender:
         logger.info(f"[DEBUG] Phone Number ID: {phone_number_id}")
         logger.info(f"[DEBUG] Token valid: {self.token_valid}")
         
-    async def send_message(self, to_number, message, message_type=None, bypass_deduplication=False, max_retries=3):
+    async def send_message(self, to_number, message, message_type=None, bypass_deduplication=True, max_retries=3):
         """
         Send a message to a WhatsApp user.
         
@@ -66,7 +65,7 @@ class MessageSender:
             to_number: The recipient's phone number
             message: The message text to send
             message_type: Optional type of message (e.g., "list_command")
-            bypass_deduplication: Whether to bypass deduplication checks
+            bypass_deduplication: Whether to bypass deduplication checks (default: True)
             max_retries: Maximum number of retry attempts
             
         Returns:
@@ -80,21 +79,16 @@ class MessageSender:
             print(f"[DEBUG] MESSAGE SENDER START - {message_hash}")
             print(f"[DEBUG] To: {to_number}")
             print(f"[DEBUG] Message Type: {message_type}")
-            print(f"[DEBUG] Bypass Deduplication: {bypass_deduplication}")
             print(f"[DEBUG] Message Length: {len(message)} characters")
             print(f"[DEBUG] Message Preview: {message[:50]}...")
             print(f"==================================================")
             
-            # Check if this is a command response that should bypass deduplication
-            is_command_response = message_type in ["list_command", "help_command", "find_command", "ask_command"]
+            # Always add a timestamp to ensure uniqueness
+            timestamp = int(time.time())
+            readable_time = datetime.now().strftime("%H:%M:%S")
             
-            # ALWAYS force uniqueness for command responses
-            if is_command_response or bypass_deduplication:
-                print(f"[DEBUG] {message_hash} - Command response or bypass flag set, forcing unique message")
-                # Add a timestamp to force uniqueness if not already present
-                timestamp = int(time.time())
-                # Add a more visible timestamp format for debugging
-                readable_time = datetime.now().strftime("%H:%M:%S")
+            # Only add timestamp if not already present
+            if "Timestamp:" not in message and "(as of " not in message:
                 message = f"{message}\n\nTimestamp: {timestamp} ({readable_time})"
                 print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
             
@@ -142,20 +136,6 @@ class MessageSender:
                                     response_data = json.loads(response_text)
                                     message_id = response_data.get('messages', [{}])[0].get('id')
                                     print(f"[DEBUG] {message_hash} - Message sent successfully! Message ID: {message_id}")
-                                    
-                                    # Track this message as sent
-                                    if message_type:
-                                        print(f"[DEBUG] {message_hash} - Tracking message type: {message_type}")
-                                        # Track in Redis if available
-                                        try:
-                                            redis_client = self._get_redis_client()
-                                            if redis_client:
-                                                key = f"sent:{to_number}:{message_type}:{int(time.time())}"
-                                                redis_client.set(key, message_id, ex=3600)  # Expire after 1 hour
-                                                print(f"[DEBUG] {message_hash} - Tracked in Redis with key: {key}")
-                                        except Exception as redis_err:
-                                            print(f"[DEBUG] {message_hash} - Redis tracking error: {str(redis_err)}")
-                                    
                                     success = True
                                     break  # Exit the retry loop on success
                                 except Exception as parse_err:
@@ -271,31 +251,3 @@ class MessageSender:
             import traceback
             logger.error(f"[DEBUG] Mark as read traceback: {traceback.format_exc()}")
             return False 
-
-    def _get_redis_client(self):
-        """Get a Redis client for tracking messages."""
-        try:
-            import os
-            import redis
-            
-            redis_url = os.environ.get('REDIS_URL')
-            if not redis_url:
-                print("[DEBUG] No Redis URL found in environment variables")
-                return None
-                
-            redis_client = redis.Redis.from_url(
-                redis_url,
-                socket_timeout=2,
-                socket_connect_timeout=2,
-                decode_responses=True
-            )
-            
-            # Test the connection
-            redis_client.ping()
-            return redis_client
-        except ImportError:
-            print("[DEBUG] Redis package not installed")
-            return None
-        except Exception as e:
-            print(f"[DEBUG] Error connecting to Redis: {str(e)}")
-            return None 

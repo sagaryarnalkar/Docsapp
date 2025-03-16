@@ -530,12 +530,11 @@ class WhatsAppHandler:
                 print(f"[DEBUG] Command {command_id} failed with status {result[1]}, sending direct error message")
                 error_msg = f"❌ Sorry, there was an issue processing your command. Please try again. (ID: {command_id})"
                 
-                # Force bypass deduplication for error messages
+                # Send error message without bypass_deduplication parameter
                 await self.message_sender.send_message(
                     from_number,
                     error_msg,
-                    message_type="command_error",
-                    bypass_deduplication=True
+                    message_type="command_error"
                 )
         except Exception as e:
             logger.error(f"Error in async text command processing: {str(e)}")
@@ -556,12 +555,11 @@ class WhatsAppHandler:
                     if attempt > 0:
                         error_msg += f" (Retry {attempt+1}/{max_retries})"
                     
-                    # Force bypass deduplication for error messages
+                    # Send error message without bypass_deduplication parameter
                     send_result = await self.message_sender.send_message(
                         from_number,
                         error_msg,
-                        message_type="command_error",
-                        bypass_deduplication=True
+                        message_type="command_error"
                     )
                     
                     if send_result:

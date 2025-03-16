@@ -211,12 +211,11 @@ class CommandProcessor:
             logger.info(f"[DEBUG] Sending list command response to {from_number}")
             print(f"[DEBUG] {command_id} - Sending list response with length {len(message)}")
             
-            # Force bypass deduplication for list commands
+            # Send the message
             send_result = await self.message_sender.send_message(
                 from_number, 
                 message, 
-                message_type="list_command",
-                bypass_deduplication=True  # Force bypass
+                message_type="list_command"
             )
             
             logger.info(f"[DEBUG] List command response send result: {send_result}")
@@ -232,8 +231,7 @@ class CommandProcessor:
                 send_result = await self.message_sender.send_message(
                     from_number,
                     alt_message,
-                    message_type="list_command_retry",
-                    bypass_deduplication=True
+                    message_type="list_command_retry"
                 )
                 print(f"[DEBUG] {command_id} - Alternative message send result: {send_result}")
             
@@ -246,8 +244,7 @@ class CommandProcessor:
                 await self.message_sender.send_message(
                     from_number, 
                     error_msg, 
-                    message_type="error_message",
-                    bypass_deduplication=True
+                    message_type="error_message"
                 )
             except Exception as send_err:
                 print(f"[DEBUG] {command_id} - Error sending error message: {str(send_err)}")

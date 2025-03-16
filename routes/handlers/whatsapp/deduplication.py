@@ -28,17 +28,24 @@ class DeduplicationManager:
         self.processing_documents = {}  # Track documents currently being processed
         self.last_cleanup_time = time.time()  # Track last cleanup time
         
-    def is_duplicate_message(self, from_number, message_id):
+    def is_duplicate_message(self, from_number, message_id, message_type=None):
         """
         Check if a message is a duplicate.
         
         Args:
             from_number: The sender's phone number
             message_id: The WhatsApp message ID
+            message_type: Optional type of message (e.g., "list_command")
             
         Returns:
             bool: True if the message is a duplicate, False otherwise
         """
+        # NEVER deduplicate outgoing messages (command responses)
+        # This ensures all outgoing messages are always sent
+        if message_type is not None:
+            print(f"[DEBUG] Message is a {message_type} - BYPASSING DEDUPLICATION FOR OUTGOING MESSAGE")
+            return False
+            
         # Create a more robust message key that includes the from_number
         message_key = f"{from_number}:{message_id}"
         current_time = int(time.time())
@@ -107,17 +114,11 @@ class DeduplicationManager:
         if not file_id:
             return False
             
-        # Create a unique key for tracking this document processing
-        processing_key = f"processing:{from_number}:{file_id}"
+        # Create a unique key for this document and user
+        processing_key = f"{from_number}:{file_id}"
         
-        # Check if this document is already being processed
-        if processing_key in self.processing_documents:
-            time_since_started = int(time.time()) - self.processing_documents[processing_key]
-            print(f"Document {file_id} is already being processed "
-                  f"(started {time_since_started}s ago)")
-            return True
-            
-        return False
+        # Check if this document is currently being processed
+        return processing_key in self.processing_documents
         
     def mark_document_processing(self, from_number, file_id):
         """
@@ -133,11 +134,14 @@ class DeduplicationManager:
         if not file_id:
             return None
             
-        # Create a unique key for tracking this document processing
-        processing_key = f"processing:{from_number}:{file_id}"
+        current_time = int(time.time())
         
-        # Mark as processing to avoid duplicate processing
-        self.processing_documents[processing_key] = int(time.time())
+        # Create a unique key for this document and user
+        processing_key = f"{from_number}:{file_id}"
+        
+        # Mark this document as being processed
+        self.processing_documents[processing_key] = current_time
+        
         return processing_key
         
     def mark_document_processed(self, processing_key):
@@ -147,33 +151,41 @@ class DeduplicationManager:
         Args:
             processing_key: The processing key for this document
         """
-        if processing_key and processing_key in self.processing_documents:
+        if processing_key in self.processing_documents:
             del self.processing_documents[processing_key]
             
     def cleanup(self):
-        """
-        Clean up old tracking data to prevent memory leaks.
+        """Clean up old tracking data to prevent memory leaks."""
+        current_time = int(time.time())
         
-        This method should be called periodically to remove old entries
-        from the tracking dictionaries.
-        """
-        current_time = time.time()
-        # Only clean up every 5 minutes to avoid excessive processing
-        if current_time - self.last_cleanup_time < 300:  # 5 minutes
+        # Only clean up every hour
+        if current_time - self.last_cleanup_time < 3600:
             return
             
-        # Clean up old processed documents (older than 30 minutes)
-        cutoff_time = current_time - 1800  # 30 minutes
-        self.processed_messages = {k:v for k,v in self.processed_messages.items() if v > cutoff_time}
-        self.processed_documents = {k:v for k,v in self.processed_documents.items() if v > cutoff_time}
-        
-        # Clean up very old processing documents (older than 2 hours)
-        # This is a safety measure in case a document gets stuck in processing
-        processing_cutoff_time = current_time - 7200  # 2 hours
-        self.processing_documents = {k:v for k,v in self.processing_documents.items() if v > processing_cutoff_time}
-        
         self.last_cleanup_time = current_time
-        print(f"Cleaned up tracking dictionaries. Remaining items: "
-              f"processed_messages={len(self.processed_messages)}, "
-              f"processed_documents={len(self.processed_documents)}, "
-              f"processing_documents={len(self.processing_documents)}") 
+        
+        # Clean up processed messages older than 10 minutes
+        cutoff_time = current_time - 600
+        self.processed_messages = {
+            k: v for k, v in self.processed_messages.items()
+            if v > cutoff_time
+        }
+        
+        # Clean up processed documents older than 1 day
+        cutoff_time = current_time - 86400
+        self.processed_documents = {
+            k: v for k, v in self.processed_documents.items()
+            if v > cutoff_time
+        }
+        
+        # Clean up processing documents older than 1 hour
+        cutoff_time = current_time - 3600
+        self.processing_documents = {
+            k: v for k, v in self.processing_documents.items()
+            if v > cutoff_time
+        }
+        
+        logger.info(f"Cleaned up deduplication tracking data. "
+                   f"Messages: {len(self.processed_messages)}, "
+                   f"Documents: {len(self.processed_documents)}, "
+                   f"Processing: {len(self.processing_documents)}") 

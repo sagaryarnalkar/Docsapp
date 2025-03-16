@@ -128,9 +128,10 @@ class RedisDeduplicationManager:
         print(f"[DEBUG] Message Type: {message_type}")
         print(f"==================================================")
         
-        # Special handling for command responses - NEVER deduplicate these
-        if message_type in ["list_command", "help_command", "find_command", "ask_command"]:
-            print(f"[DEBUG] Message is a {message_type} response - BYPASSING DEDUPLICATION")
+        # NEVER deduplicate outgoing messages (command responses)
+        # This ensures all outgoing messages are always sent
+        if message_type is not None:
+            print(f"[DEBUG] Message is a {message_type} - BYPASSING DEDUPLICATION FOR OUTGOING MESSAGE")
             # Still track it for debugging purposes
             self.redis.set(f"cmd:{message_key}", current_time, ex=600)
             return False
