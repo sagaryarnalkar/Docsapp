@@ -16,6 +16,8 @@ from routes.handlers.whatsapp_handler import WhatsAppHandler, WhatsAppHandlerErr
 from dotenv import load_dotenv
 import uuid  # Add at top with other imports
 import time
+# Import debug routes
+from debug_routes import register_debug_routes
 
 # At the top with your other imports
 from config import (
@@ -30,6 +32,7 @@ from config import (
 # Import database modules for initialization check
 from models.database import get_session, get_database_url, migrate_sqlite_to_postgres
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 
 # At the very top of the file, after imports
 VERSION = "v1.0.2"  # Increment this each time we deploy
@@ -97,7 +100,7 @@ print(f"Database URL: {database_url.split('@')[1] if '@' in database_url else da
 try:
     # Test database connection
     session = get_session()
-    session.execute("SELECT 1")
+    session.execute(text("SELECT 1"))
     session.close()
     print("✅ Database connection successful")
     
@@ -546,7 +549,7 @@ def test_database():
     try:
         # Test database connection
         session = get_session()
-        result = session.execute("SELECT 1 as test").fetchone()
+        result = session.execute(text("SELECT 1 as test")).fetchone()
         session.close()
         
         # Check Redis connection
@@ -623,6 +626,9 @@ def test_redis():
             "message": str(e),
             "traceback": traceback.format_exc()
         }, 500
+
+# Register debug routes
+register_debug_routes(app)
 
 if __name__ == "__main__":
     app.run(debug=True)
