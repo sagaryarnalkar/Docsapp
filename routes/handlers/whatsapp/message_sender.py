@@ -284,3 +284,80 @@ class MessageSender:
             import traceback
             logger.error(f"[DEBUG] Mark as read traceback: {traceback.format_exc()}")
             return False 
+
+    async def send_message_direct(self, to_number, message, message_type=None):
+        """
+        Send a message directly to a WhatsApp user with minimal processing.
+        This uses the exact same approach as the sign-in messages which are working.
+        
+        Args:
+            to_number: The recipient's phone number
+            message: The message text to send
+            message_type: Optional type of message (for logging only)
+            
+        Returns:
+            bool: Whether the message was sent successfully
+        """
+        try:
+            # Generate a unique hash for this message for tracking in logs
+            message_hash = hashlib.md5(f"{to_number}:{message[:20]}:{int(time.time())}".encode()).hexdigest()[:8]
+            
+            print(f"\n==================================================")
+            print(f"[DEBUG] DIRECT MESSAGE SENDER - {message_hash}")
+            print(f"[DEBUG] To: {to_number}")
+            print(f"[DEBUG] Message Type: {message_type or 'direct_message'}")
+            print(f"[DEBUG] Message Length: {len(message)} characters")
+            print(f"[DEBUG] Message Preview: {message[:50]}...")
+            
+            # Always add a timestamp to ensure uniqueness
+            timestamp = int(time.time())
+            readable_time = datetime.now().strftime("%H:%M:%S")
+            
+            # Only add timestamp if not already present
+            if "Timestamp:" not in message and "(as of " not in message:
+                message = f"{message}\n\nTimestamp: {timestamp} ({readable_time})"
+                print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
+            
+            # Prepare the API request
+            url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.access_token}"
+            }
+            
+            data = {
+                'messaging_product': 'whatsapp',
+                'to': to_number,
+                'type': 'text',
+                'text': {'body': message}
+            }
+            
+            print(f"[DEBUG] {message_hash} - Sending direct message to WhatsApp API")
+            print(f"[DEBUG] {message_hash} - URL: {url}")
+            
+            # Send the message
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=data, timeout=30) as response:
+                    response_text = await response.text()
+                    print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
+                    print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
+                    
+                    if response.status == 200:
+                        try:
+                            response_data = json.loads(response_text)
+                            message_id = response_data.get('messages', [{}])[0].get('id')
+                            print(f"[DEBUG] {message_hash} - Direct message sent successfully! Message ID: {message_id}")
+                            return True
+                        except Exception as parse_err:
+                            print(f"[DEBUG] {message_hash} - Error parsing response: {str(parse_err)}")
+                            return True  # Assume success if status is 200
+                    else:
+                        print(f"[DEBUG] {message_hash} - Failed to send direct message. Response: {response_text}")
+                        return False
+                        
+        except Exception as e:
+            print(f"[ERROR] Error sending direct message: {str(e)}")
+            import traceback
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            return False 
