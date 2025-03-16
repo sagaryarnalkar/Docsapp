@@ -39,7 +39,7 @@ class MessageSender:
         self.access_token = access_token or os.environ.get('WHATSAPP_ACCESS_TOKEN')
         self.phone_number_id = phone_number_id or os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
         self.api_version = api_version
-        self.base_url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
+        self.base_url = f"https://graph.facebook.com/{api_version}/{self.phone_number_id}/messages"
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.access_token}"
