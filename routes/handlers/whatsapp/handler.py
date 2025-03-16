@@ -510,18 +510,67 @@ class WhatsAppHandler:
             message_text: The message text
         """
         try:
+            # Generate a unique ID for this command processing
+            command_id = f"{int(time.time())}-{hash(message_text) % 10000:04d}"
+            print(f"[DEBUG] Processing text command asynchronously - ID: {command_id}")
+            print(f"[DEBUG] From: {from_number}")
+            print(f"[DEBUG] Text: '{message_text}'")
+            
+            # Add a small delay to ensure the 200 response has been sent back to WhatsApp
+            # This helps prevent race conditions where the response is sent before the 200 acknowledgment
+            await asyncio.sleep(0.5)
+            
+            # Process the command
             result = await self.command_processor.handle_command(from_number, message_text)
             logger.info(f"Async text command processing completed: {result}")
+            print(f"[DEBUG] Command {command_id} processing result: {result}")
+            
+            # If the command processing returned a failure status code, try to send a direct message
+            if isinstance(result, tuple) and len(result) > 1 and result[1] >= 400:
+                print(f"[DEBUG] Command {command_id} failed with status {result[1]}, sending direct error message")
+                error_msg = f"❌ Sorry, there was an issue processing your command. Please try again. (ID: {command_id})"
+                
+                # Force bypass deduplication for error messages
+                await self.message_sender.send_message(
+                    from_number,
+                    error_msg,
+                    message_type="command_error",
+                    bypass_deduplication=True
+                )
         except Exception as e:
             logger.error(f"Error in async text command processing: {str(e)}")
             import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            error_trace = traceback.format_exc()
+            logger.error(f"Traceback: {error_trace}")
+            print(f"[ERROR] Command processing error: {str(e)}")
+            print(f"[ERROR] Traceback: {error_trace}")
             
-            # Send error message to user
-            try:
-                await self.message_sender.send_message(
-                    from_number, 
-                    "❌ Sorry, I couldn't process your command. Please try again later."
-                )
-            except Exception as send_err:
-                logger.error(f"Error sending error message: {str(send_err)}") 
+            # Generate a unique error ID
+            error_id = f"{int(time.time())}-{hash(str(e)) % 10000:04d}"
+            
+            # Send error message to user with multiple attempts
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    error_msg = f"❌ Sorry, I couldn't process your command due to an error. Please try again later. (Error ID: {error_id})"
+                    if attempt > 0:
+                        error_msg += f" (Retry {attempt+1}/{max_retries})"
+                    
+                    # Force bypass deduplication for error messages
+                    send_result = await self.message_sender.send_message(
+                        from_number,
+                        error_msg,
+                        message_type="command_error",
+                        bypass_deduplication=True
+                    )
+                    
+                    if send_result:
+                        print(f"[DEBUG] Successfully sent error message on attempt {attempt+1}")
+                        break
+                    else:
+                        print(f"[DEBUG] Failed to send error message on attempt {attempt+1}, retrying...")
+                        await asyncio.sleep(1)  # Wait before retrying
+                except Exception as send_err:
+                    logger.error(f"Error sending error message (attempt {attempt+1}): {str(send_err)}")
+                    print(f"[ERROR] Failed to send error message: {str(send_err)}")
+                    await asyncio.sleep(1)  # Wait before retrying 

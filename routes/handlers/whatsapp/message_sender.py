@@ -10,6 +10,9 @@ import time
 import logging
 import aiohttp
 import hashlib
+import os
+import asyncio
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -23,30 +26,30 @@ class MessageSender:
     3. Handling API errors and token expiration
     """
     
-    def __init__(self, api_version, phone_number_id, access_token):
+    def __init__(self, access_token=None, phone_number_id=None, api_version="v22.0"):
         """
         Initialize the message sender.
         
         Args:
-            api_version: WhatsApp API version
+            access_token: WhatsApp API access token
             phone_number_id: WhatsApp phone number ID
-            access_token: WhatsApp access token
+            api_version: WhatsApp API version
         """
+        # Get credentials from environment if not provided
+        self.access_token = access_token or os.environ.get('WHATSAPP_ACCESS_TOKEN')
+        self.phone_number_id = phone_number_id or os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
         self.api_version = api_version
-        self.phone_number_id = phone_number_id
-        self.access_token = access_token
         self.base_url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
         self.headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {access_token}"
+            "Authorization": f"Bearer {self.access_token}"
         }
         self.sent_messages = {}  # Track sent messages to prevent duplicates
-        self.token_valid = True  # Track if the token is valid
+        self.token_valid = bool(self.access_token and not self.access_token.startswith('YOUR_') and len(self.access_token) > 20)
         self.debug_mode = True   # Enable debug mode for detailed logging
         
         # Check if the token is obviously invalid
-        if "EXPIRED_TOKEN" in access_token or "REPLACE" in access_token:
-            self.token_valid = False
+        if not self.token_valid:
             logger.error("⚠️ WhatsApp access token appears to be a placeholder or expired!")
             print("⚠️ WhatsApp access token appears to be a placeholder or expired!")
             print("Please update the WHATSAPP_ACCESS_TOKEN in your .env file")
@@ -55,7 +58,7 @@ class MessageSender:
         logger.info(f"[DEBUG] Phone Number ID: {phone_number_id}")
         logger.info(f"[DEBUG] Token valid: {self.token_valid}")
         
-    async def send_message(self, to_number, message, message_type=None, bypass_deduplication=False):
+    async def send_message(self, to_number, message, message_type=None, bypass_deduplication=False, max_retries=3):
         """
         Send a message to a WhatsApp user.
         
@@ -64,6 +67,7 @@ class MessageSender:
             message: The message text to send
             message_type: Optional type of message (e.g., "list_command")
             bypass_deduplication: Whether to bypass deduplication checks
+            max_retries: Maximum number of retry attempts
             
         Returns:
             bool: Whether the message was sent successfully
@@ -84,13 +88,15 @@ class MessageSender:
             # Check if this is a command response that should bypass deduplication
             is_command_response = message_type in ["list_command", "help_command", "find_command", "ask_command"]
             
+            # ALWAYS force uniqueness for command responses
             if is_command_response or bypass_deduplication:
                 print(f"[DEBUG] {message_hash} - Command response or bypass flag set, forcing unique message")
                 # Add a timestamp to force uniqueness if not already present
-                if "Timestamp:" not in message and "(as of " not in message and "(Check: " not in message:
-                    timestamp = int(time.time())
-                    message = f"{message}\n\nTimestamp: {timestamp}"
-                    print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
+                timestamp = int(time.time())
+                # Add a more visible timestamp format for debugging
+                readable_time = datetime.now().strftime("%H:%M:%S")
+                message = f"{message}\n\nTimestamp: {timestamp} ({readable_time})"
+                print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
             
             # Prepare the API request
             url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
@@ -111,55 +117,96 @@ class MessageSender:
             print(f"[DEBUG] {message_hash} - URL: {url}")
             print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
             
-            # Send the message
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=data) as response:
-                    response_text = await response.text()
-                    print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
-                    print(f"[DEBUG] {message_hash} - Response Headers: {dict(response.headers)}")
-                    print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
-                    
-                    if response.status == 200:
-                        try:
-                            response_data = json.loads(response_text)
-                            message_id = response_data.get('messages', [{}])[0].get('id')
-                            print(f"[DEBUG] {message_hash} - Message sent successfully! Message ID: {message_id}")
+            # Implement retry logic
+            retry_count = 0
+            success = False
+            last_error = None
+            
+            while retry_count < max_retries and not success:
+                if retry_count > 0:
+                    print(f"[DEBUG] {message_hash} - Retry attempt {retry_count}/{max_retries}")
+                    # Add a small delay between retries with exponential backoff
+                    await asyncio.sleep(2 ** retry_count)
+                
+                try:
+                    # Send the message
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, headers=headers, json=data, timeout=30) as response:
+                            response_text = await response.text()
+                            print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
+                            print(f"[DEBUG] {message_hash} - Response Headers: {dict(response.headers)}")
+                            print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
                             
-                            # Track this message as sent
-                            if message_type:
-                                print(f"[DEBUG] {message_hash} - Tracking message type: {message_type}")
-                                # Track in Redis if available
+                            if response.status == 200:
                                 try:
-                                    redis_client = self._get_redis_client()
-                                    if redis_client:
-                                        key = f"sent:{to_number}:{message_type}:{int(time.time())}"
-                                        redis_client.set(key, message_id, ex=3600)  # Expire after 1 hour
-                                        print(f"[DEBUG] {message_hash} - Tracked in Redis with key: {key}")
-                                except Exception as redis_err:
-                                    print(f"[DEBUG] {message_hash} - Redis tracking error: {str(redis_err)}")
-                            
-                            return True
-                        except Exception as parse_err:
-                            print(f"[DEBUG] {message_hash} - Error parsing response: {str(parse_err)}")
-                            return True  # Assume success if status is 200
-                    else:
-                        print(f"[DEBUG] {message_hash} - Failed to send message. Response: {response_text}")
-                        
-                        # Check for token expiration
-                        try:
-                            error_data = json.loads(response_text)
-                            error_message = error_data.get('error', {}).get('message', '')
-                            error_code = error_data.get('error', {}).get('code', '')
-                            
-                            print(f"[DEBUG] {message_hash} - Error Code: {error_code}")
-                            print(f"[DEBUG] {message_hash} - Error Message: {error_message}")
-                            
-                            if 'access token' in error_message.lower() or error_code == 190:
-                                print(f"[DEBUG] {message_hash} - ⚠️ WhatsApp access token has expired or is invalid!")
-                        except Exception as e:
-                            print(f"[DEBUG] {message_hash} - Error parsing error response: {str(e)}")
-                        
-                        return False
+                                    response_data = json.loads(response_text)
+                                    message_id = response_data.get('messages', [{}])[0].get('id')
+                                    print(f"[DEBUG] {message_hash} - Message sent successfully! Message ID: {message_id}")
+                                    
+                                    # Track this message as sent
+                                    if message_type:
+                                        print(f"[DEBUG] {message_hash} - Tracking message type: {message_type}")
+                                        # Track in Redis if available
+                                        try:
+                                            redis_client = self._get_redis_client()
+                                            if redis_client:
+                                                key = f"sent:{to_number}:{message_type}:{int(time.time())}"
+                                                redis_client.set(key, message_id, ex=3600)  # Expire after 1 hour
+                                                print(f"[DEBUG] {message_hash} - Tracked in Redis with key: {key}")
+                                        except Exception as redis_err:
+                                            print(f"[DEBUG] {message_hash} - Redis tracking error: {str(redis_err)}")
+                                    
+                                    success = True
+                                    break  # Exit the retry loop on success
+                                except Exception as parse_err:
+                                    print(f"[DEBUG] {message_hash} - Error parsing response: {str(parse_err)}")
+                                    success = True  # Assume success if status is 200
+                                    break  # Exit the retry loop on success
+                            else:
+                                print(f"[DEBUG] {message_hash} - Failed to send message. Response: {response_text}")
+                                
+                                # Check for token expiration
+                                try:
+                                    error_data = json.loads(response_text)
+                                    error_message = error_data.get('error', {}).get('message', '')
+                                    error_code = error_data.get('error', {}).get('code', '')
+                                    
+                                    print(f"[DEBUG] {message_hash} - Error Code: {error_code}")
+                                    print(f"[DEBUG] {message_hash} - Error Message: {error_message}")
+                                    
+                                    if 'access token' in error_message.lower() or error_code == 190:
+                                        print(f"[DEBUG] {message_hash} - ⚠️ WhatsApp access token has expired or is invalid!")
+                                        # Don't retry token errors
+                                        break
+                                    
+                                    # Store the error for logging
+                                    last_error = f"Error {error_code}: {error_message}"
+                                except Exception as e:
+                                    print(f"[DEBUG] {message_hash} - Error parsing error response: {str(e)}")
+                                    last_error = f"HTTP {response.status}: {response_text}"
+                                
+                                # Continue to retry for non-token errors
+                except Exception as request_err:
+                    print(f"[DEBUG] {message_hash} - Request error: {str(request_err)}")
+                    last_error = str(request_err)
+                
+                retry_count += 1
+            
+            # Log the final outcome
+            if success:
+                print(f"[DEBUG] {message_hash} - Message delivery successful after {retry_count} retries")
+                return True
+            else:
+                print(f"[DEBUG] {message_hash} - Message delivery failed after {retry_count} retries. Last error: {last_error}")
+                
+                # Log to a persistent file for debugging
+                try:
+                    with open("message_delivery_failures.log", "a") as f:
+                        f.write(f"{datetime.now().isoformat()} - To: {to_number}, Type: {message_type}, Error: {last_error}\n")
+                except Exception as log_err:
+                    print(f"[DEBUG] {message_hash} - Error writing to failure log: {str(log_err)}")
+                
+                return False
                         
         except Exception as e:
             print(f"[ERROR] Error sending message: {str(e)}")

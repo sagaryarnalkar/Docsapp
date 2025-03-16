@@ -181,6 +181,8 @@ class CommandProcessor:
             tuple: (response_message, status_code)
         """
         logger.info(f"[DEBUG] Processing list command for {from_number}")
+        command_id = hashlib.md5(f"list:{from_number}:{int(time.time())}".encode()).hexdigest()[:8]
+        print(f"[DEBUG] List command ID: {command_id}")
         
         try:
             # Get documents from docs_app
@@ -202,20 +204,54 @@ class CommandProcessor:
                 message = "You don't have any documents yet. Send me a file to get started!"
                 logger.info(f"[DEBUG] No documents found for {from_number}")
             
+            # Add a unique identifier to the message to prevent deduplication
+            unique_id = f"list-{command_id}"
+            message = f"{message}\n\nCommand ID: {unique_id}"
+            
             logger.info(f"[DEBUG] Sending list command response to {from_number}")
-            # Pass the message_type parameter to ensure it bypasses deduplication
+            print(f"[DEBUG] {command_id} - Sending list response with length {len(message)}")
+            
+            # Force bypass deduplication for list commands
             send_result = await self.message_sender.send_message(
                 from_number, 
                 message, 
-                message_type="list_command"
+                message_type="list_command",
+                bypass_deduplication=True  # Force bypass
             )
+            
             logger.info(f"[DEBUG] List command response send result: {send_result}")
+            print(f"[DEBUG] {command_id} - List command response send result: {send_result}")
+            
+            # If sending failed, try an alternative approach
+            if not send_result:
+                print(f"[DEBUG] {command_id} - First attempt failed, trying alternative approach")
+                # Try sending a simpler message
+                alt_message = f"List command processed. You have {len(doc_list) if doc_list else 0} documents."
+                alt_message += f"\n\nRetry ID: {unique_id}-retry"
+                
+                send_result = await self.message_sender.send_message(
+                    from_number,
+                    alt_message,
+                    message_type="list_command_retry",
+                    bypass_deduplication=True
+                )
+                print(f"[DEBUG] {command_id} - Alternative message send result: {send_result}")
             
             return "List command processed", 200
         except Exception as e:
             logger.error(f"[DEBUG] Error in _handle_list_command: {str(e)}", exc_info=True)
-            error_msg = "❌ Error retrieving your documents. Please try again."
-            await self.message_sender.send_message(from_number, error_msg, message_type="error_message")
+            error_msg = f"❌ Error retrieving your documents. Please try again. (Error ID: {command_id})"
+            
+            try:
+                await self.message_sender.send_message(
+                    from_number, 
+                    error_msg, 
+                    message_type="error_message",
+                    bypass_deduplication=True
+                )
+            except Exception as send_err:
+                print(f"[DEBUG] {command_id} - Error sending error message: {str(send_err)}")
+            
             return "List command error", 500
         
     async def _handle_find_command(self, from_number, query):
