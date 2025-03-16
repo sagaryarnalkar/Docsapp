@@ -71,7 +71,7 @@ class BaseCommandHandler:
         
     async def send_response(self, from_number, message, message_type, command_id):
         """
-        Send a response to the user.
+        Send a response to the user using the same method as sign-in messages.
         
         Args:
             from_number: The recipient's phone number
@@ -86,10 +86,13 @@ class BaseCommandHandler:
             logger.info(f"[DEBUG] Sending {message_type} response to {from_number}")
             print(f"[DEBUG] {command_id} - Sending {message_type} response with length {len(message)}")
             
-            send_result = await self.message_sender.send_message_direct(
+            # Use the regular send_message method which is known to work for sign-in messages
+            send_result = await self.message_sender.send_message(
                 from_number,
                 message,
-                message_type=message_type
+                message_type=message_type,
+                bypass_deduplication=True,  # Explicitly set to True
+                max_retries=3
             )
             
             logger.info(f"[DEBUG] {message_type} response send result: {send_result}")
@@ -114,10 +117,13 @@ class BaseCommandHandler:
             bool: Whether the message was sent successfully
         """
         try:
-            return await self.message_sender.send_message_direct(
+            # Use the regular send_message method which is known to work for sign-in messages
+            return await self.message_sender.send_message(
                 from_number,
                 error_message,
-                message_type="error_message"
+                message_type="error_message",
+                bypass_deduplication=True,
+                max_retries=3
             )
         except Exception as e:
             print(f"[DEBUG] {command_id} - Error sending error message: {str(e)}")
