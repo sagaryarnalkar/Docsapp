@@ -40,7 +40,14 @@ class MessageSender:
         self.phone_number_id = phone_number_id or os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
         self.api_version = api_version or os.environ.get('WHATSAPP_API_VERSION', 'v22.0')
         
-        # Fix: Ensure we're using the correct URL structure with API version
+        # Fix for swapped environment variables
+        # If access_token starts with 'v' and api_version starts with 'EAA', they're swapped
+        if self.access_token and self.api_version:
+            if self.access_token.startswith('v') and len(self.access_token) < 10 and self.api_version.startswith('EAA') and len(self.api_version) > 20:
+                print("DETECTED SWAPPED ENVIRONMENT VARIABLES - FIXING AUTOMATICALLY")
+                self.access_token, self.api_version = self.api_version, self.access_token
+        
+        # Ensure we're using the correct URL structure with API version
         self.base_url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
         
         self.headers = {
