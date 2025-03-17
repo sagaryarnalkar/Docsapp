@@ -186,9 +186,9 @@ def before_request():
                 print(f"[{request.request_id}] Error reading request data: {str(e)}")
         
         if request.form:
-                print(f"[{request.request_id}] Form Data: {dict(request.form)}")
+            print(f"[{request.request_id}] Form Data: {dict(request.form)}")
         if request.args:
-                print(f"[{request.request_id}] Query Args: {dict(request.args)}")
+            print(f"[{request.request_id}] Query Args: {dict(request.args)}")
     except Exception as e:
         print(f"Error in before_request: {str(e)}")
         import traceback
