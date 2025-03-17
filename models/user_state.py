@@ -1,3 +1,10 @@
+"""
+User State Module
+---------------------------
+This module provides the UserState class that manages user authentication and state.
+It uses modular components for token storage, credential management, and OAuth flow handling.
+"""
+
 import os
 import json
 import time
@@ -7,7 +14,12 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from config import SCOPES, OAUTH_REDIRECT_URI, GOOGLE_APPLICATION_CREDENTIALS
-from models.database import UserToken, Session, get_session
+from models.database import UserToken, Session, get_session, DatabasePool
+
+# Import the new modular components
+from models.auth.token_storage import TokenStorage
+from models.auth.credentials import CredentialManager
+from models.auth.oauth_handler import OAuthHandler
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -15,352 +27,85 @@ logger = logging.getLogger(__name__)
 class UserState:
     """
     Manages user state, authentication, and token storage.
-    Supports both SQLite direct access (legacy) and SQLAlchemy ORM (new).
+    Uses modular components while maintaining backward compatibility.
     """
     def __init__(self):
         """Initialize the user state manager"""
+        # For backward compatibility
         self.auth_codes = {}  # Temporary storage for auth codes
         self.credentials_cache = {}  # In-memory cache for credentials
         self.last_cleanup = time.time()
+        
+        # Initialize database pool for legacy SQLite access
+        self.db_pool = DatabasePool("users.db")
+        
+        # Initialize the new modular components
+        self.token_storage = TokenStorage(self.db_pool)
+        self.credential_manager = CredentialManager(self.token_storage)
+        self.oauth_handler = OAuthHandler(self.token_storage, self.credential_manager)
+        
+        # Initialize database for backward compatibility
         self.init_users_db()
         
     def init_users_db(self):
         """Initialize the users database if it doesn't exist"""
-        try:
-            # Check if we can use the new ORM approach
-            session = get_session()
-            session.close()
-            self.use_orm = True
-            logger.info("Using ORM for user token storage")
-        except Exception as e:
-            # Fall back to direct SQLite if ORM fails
-            self.use_orm = False
-            logger.warning(f"Falling back to direct SQLite access: {str(e)}")
-            
-            # Legacy SQLite initialization
-            from models.database import DatabasePool
-            self.db_pool = DatabasePool("users.db")
-            
-        with self.db_pool.get_cursor() as cursor:
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    phone_number TEXT PRIMARY KEY,
-                    tokens TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
+        # This is now handled by TokenStorage, but kept for backward compatibility
+        self.token_storage._initialize_storage()
         logger.info("Users database initialized")
-    
+
     def store_tokens(self, phone_number, tokens):
-        """
-        Store OAuth tokens for a user
-        
-        Args:
-            phone_number: The user's phone number
-            tokens: OAuth tokens as string or dict
-        """
-        try:
-            # Convert tokens to string if it's a dict
-            if isinstance(tokens, dict):
-                tokens_str = json.dumps(tokens)
-            else:
-                tokens_str = tokens
-                
-            if self.use_orm:
-                # Use SQLAlchemy ORM
-                session = get_session()
-                try:
-                    # Check if user exists
-                    user_token = session.query(UserToken).filter_by(phone_number=phone_number).first()
-                    
-                    if user_token:
-                        # Update existing user
-                        user_token.tokens = tokens_str
-                        user_token.updated_at = datetime.utcnow()
-                    else:
-                        # Create new user
-                        user_token = UserToken(
-                            phone_number=phone_number,
-                            tokens=tokens_str
-                        )
-                        session.add(user_token)
-                        
-                    session.commit()
-                    logger.info(f"Stored tokens for user {phone_number} using ORM")
-                except Exception as e:
-                    session.rollback()
-                    raise e
-                finally:
-                    session.close()
-            else:
-                # Legacy SQLite approach
-                with self.db_pool.get_cursor() as cursor:
-                    cursor.execute('''
-                        INSERT INTO users (phone_number, tokens, updated_at)
-                        VALUES (?, ?, CURRENT_TIMESTAMP)
-                        ON CONFLICT(phone_number) DO UPDATE SET
-                        tokens = excluded.tokens,
-                        updated_at = CURRENT_TIMESTAMP
-                        ''', (phone_number, tokens_str))
-                    logger.info(f"Stored tokens for user {phone_number} using direct SQLite")
-                    
-            # Update the in-memory cache
-            self.credentials_cache[phone_number] = self._create_credentials(json.loads(tokens_str) if isinstance(tokens_str, str) else tokens_str)
-            return True
-        except Exception as e:
-            logger.error(f"Error storing tokens: {str(e)}")
-            return False
+        """Store OAuth tokens for a user"""
+        return self.token_storage.store_tokens(phone_number, tokens)
     
     def get_tokens(self, phone_number):
-        """
-        Get OAuth tokens for a user
-        
-        Args:
-            phone_number: The user's phone number
-            
-        Returns:
-            dict: OAuth tokens or None if not found
-        """
-        try:
-            if self.use_orm:
-                # Use SQLAlchemy ORM
-                session = get_session()
-                try:
-                    user_token = session.query(UserToken).filter_by(phone_number=phone_number).first()
-                    if user_token:
-                        return json.loads(user_token.tokens)
-                    return None
-                finally:
-                    session.close()
-            else:
-                # Legacy SQLite approach
-                with self.db_pool.get_cursor() as cursor:
-                    cursor.execute('SELECT tokens FROM users WHERE phone_number = ?', (phone_number,))
-                    result = cursor.fetchone()
-                    if result:
-                        return json.loads(result[0])
-                    return None
-        except Exception as e:
-            logger.error(f"Error getting tokens: {str(e)}")
-            return None
+        """Get OAuth tokens for a user"""
+        return self.token_storage.get_tokens(phone_number)
     
     def get_credentials(self, phone_number):
-        """
-        Get Google OAuth credentials for a user
-        
-        Args:
-            phone_number: The user's phone number
-            
-        Returns:
-            Credentials: Google OAuth credentials or None if not found
-        """
-        # Check if we have cached credentials
-        if phone_number in self.credentials_cache:
-            creds = self.credentials_cache[phone_number]
-            # Check if credentials are valid
-            if creds and not creds.expired:
-                return creds
-                
-        # Get tokens from database
-        tokens = self.get_tokens(phone_number)
-        if not tokens:
-            logger.warning(f"No tokens found for user {phone_number}")
-            return None
-            
-        try:
-            # Create credentials from tokens
-            creds = self._create_credentials(tokens)
-            
-            # Refresh token if expired
-            if creds and creds.expired and creds.refresh_token:
-                logger.info(f"Refreshing expired token for user {phone_number}")
-                creds.refresh(Request())
-                # Store refreshed tokens
-                self.store_tokens(phone_number, creds.to_json())
-                
-            # Cache credentials
-            self.credentials_cache[phone_number] = creds
-            
-            # Clean up cache periodically
-            self._cleanup_cache()
-            
-            return creds
-        except Exception as e:
-            logger.error(f"Error creating credentials: {str(e)}")
-            return None
+        """Get OAuth credentials for a user"""
+        return self.credential_manager.get_credentials(phone_number)
     
-    def _create_credentials(self, tokens):
-        """
-        Create Google OAuth credentials from tokens
-        
-        Args:
-            tokens: OAuth tokens as dict
-            
-        Returns:
-            Credentials: Google OAuth credentials
-        """
-        try:
-            if isinstance(tokens, str):
-                tokens = json.loads(tokens)
-                
-            return Credentials(
-                token=tokens.get('token') or tokens.get('access_token'),
-                refresh_token=tokens.get('refresh_token'),
-                token_uri=tokens.get('token_uri'),
-                client_id=tokens.get('client_id'),
-                client_secret=tokens.get('client_secret'),
-                scopes=tokens.get('scopes') or SCOPES
-            )
-        except Exception as e:
-            logger.error(f"Error creating credentials: {str(e)}")
-            return None
-    
-    def _cleanup_cache(self):
-        """Clean up the credentials cache periodically"""
-        current_time = time.time()
-        if current_time - self.last_cleanup > 3600:  # Clean up every hour
-            logger.info("Cleaning up credentials cache")
-            self.credentials_cache = {}
-            self.last_cleanup = current_time
-
     def is_authorized(self, phone):
-        """
-        Check if a user is authorized
-        
-        Args:
-            phone: The user's phone number
-            
-        Returns:
-            bool: True if the user is authorized, False otherwise
-        """
-        try:
-            print(f"[DEBUG] Checking authorization for user: {phone}")
-            
-            # Check if we have credentials in the cache
-            if phone in self.credentials_cache:
-                print(f"[DEBUG] Found credentials in cache for {phone}")
-                credentials = self.credentials_cache[phone]
-            else:
-                print(f"[DEBUG] No credentials in cache for {phone}, retrieving from database")
-                credentials = self.get_credentials(phone)
-                
-            if not credentials:
-                print(f"[DEBUG] No credentials found for {phone}")
-                return False
-                
-            # Check if credentials are valid
-            if credentials.valid:
-                print(f"[DEBUG] Credentials for {phone} are valid")
-                return True
-                
-            # Try to refresh if expired
-            if credentials.expired and credentials.refresh_token:
-                print(f"[DEBUG] Credentials for {phone} are expired, attempting to refresh")
-                try:
-                    credentials.refresh(Request())
-                    # Store the refreshed tokens
-                    self.store_tokens(phone, {
-                        'token': credentials.token,
-                        'refresh_token': credentials.refresh_token,
-                        'token_uri': credentials.token_uri,
-                        'client_id': credentials.client_id,
-                        'client_secret': credentials.client_secret,
-                        'scopes': credentials.scopes,
-                        'expiry': credentials.expiry.isoformat() if credentials.expiry else None
-                    })
-                    print(f"[DEBUG] Successfully refreshed credentials for {phone}")
-                    return True
-                except Exception as e:
-                    print(f"[DEBUG] Error refreshing credentials for {phone}: {str(e)}")
-                    return False
-            
-            print(f"[DEBUG] Credentials for {phone} are not valid and could not be refreshed")
-            return False
-        except Exception as e:
-            print(f"[DEBUG] Error checking authorization: {str(e)}")
-            return False
-
+        """Check if a user is authorized"""
+        return self.credential_manager.is_authorized(phone)
+    
     def store_auth_code(self, code, state):
-        """
-        Store an authorization code from OAuth callback
-        
-        Args:
-            code: The authorization code
-            state: The state parameter (contains phone number)
-        """
-        try:
-            if state:
-                self.auth_codes[state] = {
-                    'code': code,
-                    'timestamp': time.time()
-                }
-                logger.info(f"Stored auth code for state {state}")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Error storing auth code: {str(e)}")
-            return False
+        """Store an OAuth authorization code"""
+        return self.oauth_handler.store_auth_code(code, state)
     
     def get_auth_code(self, state):
-        """
-        Get an authorization code for a state
-        
-        Args:
-            state: The state parameter (contains phone number)
-            
-        Returns:
-            str: The authorization code or None if not found
-        """
-        try:
-            if state in self.auth_codes:
-                # Check if code is still valid (10 minutes)
-                if time.time() - self.auth_codes[state]['timestamp'] < 600:
-                    return self.auth_codes[state]['code']
-                # Remove expired code
-                del self.auth_codes[state]
-            return None
-        except Exception as e:
-            logger.error(f"Error getting auth code: {str(e)}")
-            return None
+        """Get an OAuth authorization code"""
+        return self.oauth_handler.get_auth_code(state)
     
     def get_credentials_from_database(self, phone):
-        """
-        Get credentials directly from database (for debugging)
+        """Get credentials from the database (legacy method)"""
+        tokens = self.get_tokens(phone)
+        if not tokens:
+            return None
         
-        Args:
-            phone: The user's phone number
+        return self._create_credentials(tokens)
+    
+    def _create_credentials(self, tokens):
+        """Create credentials from tokens (legacy method)"""
+        if not tokens:
+            return None
             
-        Returns:
-            dict: Raw credentials data or None if not found
-        """
         try:
-            if self.use_orm:
-                # Use SQLAlchemy ORM
-                session = get_session()
-                try:
-                    user_token = session.query(UserToken).filter_by(phone_number=phone).first()
-                    if user_token:
-                        return {
-                            'tokens': json.loads(user_token.tokens),
-                            'created_at': user_token.created_at,
-                            'updated_at': user_token.updated_at
-                        }
-                    return None
-                finally:
-                    session.close()
-            else:
-                # Legacy SQLite approach
-                with self.db_pool.get_cursor() as cursor:
-                    cursor.execute('SELECT tokens, created_at, updated_at FROM users WHERE phone_number = ?', (phone,))
-                    result = cursor.fetchone()
-                    if result:
-                        return {
-                            'tokens': json.loads(result[0]),
-                            'created_at': result[1],
-                            'updated_at': result[2]
-                        }
-                    return None
+            token_data = json.loads(tokens)
+            credentials = Credentials(
+                token=token_data.get('token'),
+                refresh_token=token_data.get('refresh_token'),
+                token_uri=token_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+                client_id=token_data.get('client_id'),
+                client_secret=token_data.get('client_secret'),
+                scopes=token_data.get('scopes', SCOPES)
+            )
+            
+            # Check if token is expired and refresh if needed
+            if credentials.expired and credentials.refresh_token:
+                credentials.refresh(Request())
+                
+            return credentials
         except Exception as e:
-            logger.error(f"Error getting credentials from database: {str(e)}")
+            logger.error(f"Error creating credentials: {str(e)}")
             return None

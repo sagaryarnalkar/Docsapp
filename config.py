@@ -1,3 +1,9 @@
+"""
+Configuration Module
+------------------
+This module contains configuration settings for the DocsApp application.
+"""
+
 import os
 from dotenv import load_dotenv
 
@@ -14,6 +20,7 @@ DB_DIR = os.path.join(PERSISTENT_ROOT, 'db')
 
 # WhatsApp Configuration
 WHATSAPP_API_VERSION = os.getenv('WHATSAPP_API_VERSION', 'v17.0')
+WHATSAPP_API_URL = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"
 WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
 WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN')
 WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv('WHATSAPP_BUSINESS_ACCOUNT_ID')
@@ -25,6 +32,8 @@ GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', '/e
 
 # OAuth Configuration
 OAUTH_REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 'https://docsapp-20br.onrender.com/oauth2callback')
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # Google OAuth Configuration
 SCOPES = [
@@ -34,6 +43,18 @@ SCOPES = [
     'https://www.googleapis.com/auth/userinfo.profile',
     'openid'
 ]
+
+# Database configuration
+DATABASE_PATH = os.path.join(DB_DIR, "database.db")
+
+# Logging configuration
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_FILE = os.path.join(LOGS_DIR, "app.log")
+
+# Application configuration
+DEBUG = os.getenv("FLASK_ENV") == "development"
+PORT = int(os.getenv("PORT", 5000))
+HOST = os.getenv("HOST", "0.0.0.0")
 
 # Create necessary directories
 print("\n=== Creating Persistent Directories ===")

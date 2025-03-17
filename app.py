@@ -1,4 +1,10 @@
-from flask import Flask, send_from_directory, request, jsonify
+"""Main Application Module
+--------------------------------
+This is the main entry point for the DocsApp application.
+It initializes the Flask application and sets up all necessary components.
+"""
+
+from flask import Flask, send_from_directory, request, jsonify, g
 import logging
 import os
 import sys
@@ -26,7 +32,9 @@ from config import (
     WHATSAPP_API_VERSION,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_ACCESS_TOKEN,
-    WHATSAPP_BUSINESS_ACCOUNT_ID
+    WHATSAPP_BUSINESS_ACCOUNT_ID,
+    LOG_LEVEL,
+    LOG_FILE
 )
 
 # Import database modules for initialization check
@@ -35,7 +43,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
 
 # At the very top of the file, after imports
-VERSION = "v1.0.2"  # Increment this each time we deploy
+VERSION = "v1.1.0"  # Increment this each time we deploy
 
 # Configure oauthlib to handle HTTPS behind proxy
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -161,51 +169,80 @@ whatsapp_handler = WhatsAppHandler(docs_app, pending_descriptions, user_state)  
 # Add after initializing other objects
 processed_messages = {}
 
-@app.before_request
-def before_request():
-    """Log details of every incoming request"""
-    try:
-        # Generate unique request ID
-        request.request_id = str(uuid.uuid4())
-        print(f"\n{'='*50}")
-        print(f"REQUEST ID: {request.request_id}")
-        print(f"PROCESSING REQUEST - SERVER VERSION {VERSION}")
-        print(f"TIME: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Method: {request.method}")
-        print(f"URL: {request.url}")
-        print(f"Headers: {dict(request.headers)}")
-        print(f"{'='*50}\n")
-        
-        # Log request body for POST requests
-        if request.method == 'POST':
-            try:
-                raw_data = request.get_data()
-                print(f"[{request.request_id}] Raw request data length: {len(raw_data)} bytes")
-                print(f"[{request.request_id}] Raw request data: {raw_data.decode('utf-8')}")
-            except Exception as e:
-                print(f"[{request.request_id}] Error reading request data: {str(e)}")
-        
-        if request.form:
-            print(f"[{request.request_id}] Form Data: {dict(request.form)}")
-        if request.args:
-            print(f"[{request.request_id}] Query Args: {dict(request.args)}")
-    except Exception as e:
-        print(f"Error in before_request: {str(e)}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
+# Load environment variables
+load_dotenv()
 
-@app.after_request
-def after_request(response):
-    """Log after request processing"""
-    try:
-        request_id = getattr(request, 'request_id', 'NO_ID')
-        print(f"\n[{request_id}] === After Request ===")
-        print(f"[{request_id}] Response Status: {response.status_code}")
-        print(f"[{request_id}] Response Headers: {dict(response.headers)}")
+# Set up middleware functions
+def setup_middleware(app):
+    """
+    Set up middleware for the Flask application.
+    
+    Args:
+        app: The Flask application
+    """
+    
+    @app.before_request
+    def before_request():
+        """
+        Middleware executed before each request.
+        Sets up request timing and logging.
+        """
+        g.start_time = time.time()
+        
+        # Log request details
+        if request.path != '/health':  # Skip logging for health checks
+            logging.info(f"Request: {request.method} {request.path}")
+            if request.json:
+                logging.debug(f"Request JSON: {request.json}")
+    
+    @app.after_request
+    def after_request(response):
+        """
+        Middleware executed after each request.
+        Logs response timing and status.
+        
+        Args:
+            response: The Flask response object
+            
+        Returns:
+            The response object
+        """
+        if hasattr(g, 'start_time'):
+            elapsed_time = time.time() - g.start_time
+            
+            # Log response details
+            if request.path != '/health':  # Skip logging for health checks
+                logging.info(f"Response: {request.method} {request.path} - Status: {response.status_code} - Time: {elapsed_time:.4f}s")
+        
         return response
-    except Exception as e:
-        print(f"Error in after_request: {str(e)}")
-        return response
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        """
+        Global exception handler.
+        Logs exceptions and returns an appropriate response.
+        
+        Args:
+            e: The exception that was raised
+            
+        Returns:
+            Error response
+        """
+        # Log the exception
+        logging.error(f"Unhandled exception: {str(e)}")
+        logging.error(traceback.format_exc())
+        
+        # Return error response
+        return {
+            "error": "Internal server error",
+            "message": str(e) if os.getenv("FLASK_ENV") == "development" else "An unexpected error occurred"
+        }, 500
+
+# Set up middleware
+setup_middleware(app)
+
+# Register debug routes
+register_debug_routes(app)
 
 @app.route("/")
 def home():
@@ -626,9 +663,6 @@ def test_redis():
             "message": str(e),
             "traceback": traceback.format_exc()
         }, 500
-
-# Register debug routes
-register_debug_routes(app)
 
 if __name__ == "__main__":
     app.run(debug=True)
