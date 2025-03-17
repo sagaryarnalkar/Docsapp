@@ -50,7 +50,7 @@ class UserState:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-                logger.info("Users database initialized")
+        logger.info("Users database initialized")
     
     def store_tokens(self, phone_number, tokens):
         """
@@ -95,14 +95,14 @@ class UserState:
                     session.close()
             else:
                 # Legacy SQLite approach
-        with self.db_pool.get_cursor() as cursor:
-            cursor.execute('''
-                    INSERT INTO users (phone_number, tokens, updated_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(phone_number) DO UPDATE SET
-                    tokens = excluded.tokens,
-                    updated_at = CURRENT_TIMESTAMP
-                    ''', (phone_number, tokens_str))
+                with self.db_pool.get_cursor() as cursor:
+                    cursor.execute('''
+                        INSERT INTO users (phone_number, tokens, updated_at)
+                        VALUES (?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(phone_number) DO UPDATE SET
+                        tokens = excluded.tokens,
+                        updated_at = CURRENT_TIMESTAMP
+                        ''', (phone_number, tokens_str))
                     logger.info(f"Stored tokens for user {phone_number} using direct SQLite")
                     
             # Update the in-memory cache
