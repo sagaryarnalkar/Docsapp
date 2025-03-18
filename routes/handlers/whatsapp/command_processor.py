@@ -182,6 +182,30 @@ class CommandProcessor:
             elif command_intent == "list":
                 extreme_debug(f"❗❗❗ LIST COMMAND BRANCH ENTERED ❗❗❗")
                 print(f"[DEBUG-CMD] {cmd_trace_id} Processing list command")
+                
+                # ULTRA BASIC EMERGENCY HANDLER - BYPASS EVERYTHING AND SEND MESSAGE DIRECTLY
+                try:
+                    extreme_debug(f"❗❗❗ EMERGENCY LIST RESPONSE - DIRECT EXECUTION ❗❗❗")
+                    # Just send a direct message as proof of execution
+                    timestamp = int(time.time())
+                    ultra_simple_msg = f"EMERGENCY Direct Response from CommandProcessor: This bypasses the list handler completely. Time: {timestamp}"
+                    
+                    # Use direct message sender to maximize chances of success
+                    extreme_debug(f"❗❗❗ Sending ultra simple message to {from_number} ❗❗❗")
+                    await self.message_sender.send_message(
+                        from_number, 
+                        ultra_simple_msg,
+                        message_type="emergency_cmd_processor_direct", 
+                        bypass_deduplication=True
+                    )
+                    extreme_debug(f"❗❗❗ Ultra simple message sent! ❗❗❗")
+                    return "Emergency direct list response sent", 200
+                except Exception as emerg_err:
+                    extreme_debug(f"❗❗❗ EMERGENCY HANDLER FAILED: {str(emerg_err)} ❗❗❗")
+                    extreme_debug(f"❗❗❗ TRACE: {traceback.format_exc()} ❗❗❗")
+                    # Continue to regular handler logic if emergency fails
+                
+                # CONTINUE WITH NORMAL HANDLER LOGIC BELOW (now a fallback)
                 if self.list_handler is None:
                     extreme_debug(f"❗❗❗ LIST HANDLER IS NONE! ❗❗❗")
                     print(f"[DEBUG-CMD] {cmd_trace_id} ERROR: list_handler is None!")
