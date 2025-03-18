@@ -11,6 +11,7 @@ import sys
 # Add these to your imports
 import json
 import requests
+import traceback  # Add traceback import for error handling
 from datetime import timedelta, datetime
 from config import TEMP_DIR, BASE_DIR
 # Remove webhook imports since we handle it in this file now
@@ -125,7 +126,6 @@ except OperationalError as e:
     print("Application will continue with fallback to SQLite if available")
 except Exception as e:
     print(f"❌ Unexpected database error: {str(e)}")
-    import traceback
     print(traceback.format_exc())
 
 # Check Redis connection
@@ -195,8 +195,14 @@ def setup_middleware(app):
         # Log request details
         if request.path != '/health':  # Skip logging for health checks
             logging.info(f"Request: {request.method} {request.path}")
-            if request.json:
-                logging.debug(f"Request JSON: {request.json}")
+            # Safely check for JSON content
+            if request.is_json and request.get_data(as_text=True):
+                try:
+                    json_data = request.get_json(silent=True)
+                    if json_data:
+                        logging.debug(f"Request JSON: {json_data}")
+                except Exception as e:
+                    logging.warning(f"Error parsing request JSON: {str(e)}")
     
     @app.after_request
     def after_request(response):
@@ -377,7 +383,6 @@ async def whatsapp_route():
                 print(f"\n[{request_id}] === Error processing message ===")
                 print(f"[{request_id}] Error type: {type(e).__name__}")
                 print(f"[{request_id}] Error message: {str(e)}")
-                import traceback
                 print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
                 
                 # Only send error message if it wasn't already handled by the WhatsApp handler
@@ -408,7 +413,6 @@ async def whatsapp_route():
         print(f"\n[{request_id}] === Webhook Error ===")
         print(f"[{request_id}] Error type: {type(e).__name__}")
         print(f"[{request_id}] Error message: {str(e)}")
-        import traceback
         print(f"[{request_id}] Traceback:\n{traceback.format_exc()}")
         return jsonify({
             "status": "error",
@@ -455,7 +459,6 @@ def oauth2callback():
 
     except Exception as e:
         print(f"\nERROR in oauth2callback: {str(e)}")
-        import traceback
         print(f"Traceback:\n{traceback.format_exc()}")
         return "Authorization failed - internal error", 500
 
@@ -521,7 +524,6 @@ def test_whatsapp():
         return f"<pre>{html_output}</pre>"
 
     except Exception as e:
-        import traceback
         error_info = f"Error: {str(e)}\n\nTraceback:\n{traceback.format_exc()}\n\nDebug Info:\n" + "\n".join(output)
         print(f"\n=== Test WhatsApp Error ===\n{error_info}")
         return f"<pre>{error_info}</pre>"
@@ -580,7 +582,6 @@ async def test_webhook():
 
     except Exception as e:
         print(f"Test Error: {str(e)}")
-        import traceback
         print(traceback.format_exc())
         return jsonify({
             "status": "error",
@@ -625,7 +626,7 @@ def test_database():
             "redis": redis_info
         })
     except Exception as e:
-        import traceback
+        print(traceback.format_exc())
         return jsonify({
             "status": "error",
             "error": str(e),
@@ -666,7 +667,7 @@ def test_redis():
             "match": get_result == test_value
         }, 200
     except Exception as e:
-        import traceback
+        print(traceback.format_exc())
         return {
             "status": "error",
             "message": str(e),
