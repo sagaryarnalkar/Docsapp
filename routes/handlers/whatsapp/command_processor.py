@@ -16,9 +16,23 @@ from .commands.help_command import HelpCommandHandler
 from .commands.list_command import ListCommandHandler
 from .commands.find_command import FindCommandHandler
 from .commands.ask_command import AskCommandHandler
-from ...whatsapp_constants import WHATSAPP_WELCOME_MESSAGE
+# Define the welcome message directly here instead of importing
+# from ...whatsapp_constants import WHATSAPP_WELCOME_MESSAGE
 
 logger = logging.getLogger(__name__)
+
+# Welcome message defined directly to avoid import issues
+WHATSAPP_WELCOME_MESSAGE = (
+    "🌟 *Welcome to Docverse!* 🌟\n\n"
+    "Here's what you can do:\n\n"
+    "📋 *Available Commands:*\n"
+    "• Send any document to store it\n"
+    "• *list* - View your stored documents\n"
+    "• *find [text]* - Search for documents\n"
+    "• *ask [question]* - Ask questions about your documents\n"
+    "• *help* - Show all commands\n\n"
+    "Need help? Just type 'help' anytime!"
+)
 
 class CommandProcessor:
     """
