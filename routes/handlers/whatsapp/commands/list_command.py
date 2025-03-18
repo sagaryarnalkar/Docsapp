@@ -1,24 +1,24 @@
 """
-List Command Handler
------------------
-This module handles the 'list' command for WhatsApp users.
+List Command Handler for WhatsApp
+------------------------------
+This module handles the 'list' command to display the user's documents.
 """
 
 import logging
 import traceback
 import time
-from .base_command import BaseCommandHandler
+import hashlib
+import uuid
+import json
+from ..commands.base_command import BaseCommandHandler
 
 logger = logging.getLogger(__name__)
 
 class ListCommandHandler(BaseCommandHandler):
     """
-    Handles the 'list' command for WhatsApp users.
+    Handler for the 'list' command.
     
-    This class is responsible for:
-    1. Retrieving the user's documents from the docs_app
-    2. Formatting the document list
-    3. Sending the document list to the user
+    This command lists all documents stored by the user.
     """
     
     async def handle(self, from_number):
@@ -26,124 +26,122 @@ class ListCommandHandler(BaseCommandHandler):
         Handle the 'list' command.
         
         Args:
-            from_number: The sender's phone number
+            from_number: The user's phone number
             
         Returns:
-            tuple: (response_message, status_code)
+            tuple: (message, status_code)
         """
-        logger.info(f"[DEBUG] Processing list command for {from_number}")
+        # Generate a unique ID for this command execution
         command_id = self.generate_command_id("list", from_number)
-        print(f"[DEBUG] List command ID: {command_id}")
-        print(f"[DEBUG] {command_id} - List handler docs_app: {self.docs_app}")
-        print(f"[DEBUG] {command_id} - List handler message_sender: {self.message_sender}")
-        print(f"[DEBUG] {command_id} - Message sender type: {type(self.message_sender)}")
+        print(f"\n==================================================")
+        print(f"[DEBUG] LIST COMMAND EXECUTION START - {command_id}")
+        print(f"[DEBUG] From: {from_number}")
+        print(f"[DEBUG] Time: {int(time.time())}")
+        print(f"[DEBUG] List handler: {self}")
+        print(f"[DEBUG] List handler docs_app: {self.docs_app}")
+        print(f"[DEBUG] List handler type(docs_app): {type(self.docs_app)}")
+        print(f"[DEBUG] List handler message_sender: {self.message_sender}")
+        print(f"==================================================")
         
         try:
-            # Get documents from docs_app
-            logger.info(f"[DEBUG] Calling docs_app.list_documents for {from_number}")
-            print(f"[DEBUG] {command_id} - Calling docs_app.list_documents for {from_number}")
+            print(f"[DEBUG] {command_id} - Starting docs_app.list_documents")
+            print(f"[DEBUG] {command_id} - docs_app methods: {dir(self.docs_app)}")
             
-            # Add extra logging for docs_app
-            print(f"[DEBUG] {command_id} - DocsApp type: {type(self.docs_app)}")
-            
+            # Try to print some information about the docs_app object
             try:
-                doc_list, file_ids = self.docs_app.list_documents(from_number)
-                logger.info(f"[DEBUG] docs_app.list_documents returned {len(doc_list)} documents and {len(file_ids)} file IDs")
-                print(f"[DEBUG] {command_id} - docs_app.list_documents returned {len(doc_list)} documents and {len(file_ids)} file IDs")
-            except Exception as list_err:
-                print(f"[DEBUG] {command_id} - Error in docs_app.list_documents: {str(list_err)}")
-                print(f"[DEBUG] {command_id} - Traceback: {traceback.format_exc()}")
-                # Provide empty lists as fallback
-                doc_list, file_ids = [], []
+                print(f"[DEBUG] {command_id} - docs_app.__dict__: {self.docs_app.__dict__}")
+            except Exception as dict_err:
+                print(f"[DEBUG] {command_id} - Error accessing docs_app.__dict__: {str(dict_err)}")
             
-            if doc_list:
-                # Format document list
-                message_parts = ["📚 Your Documents:\n"]
-                
-                # Add each document to the message
-                for i, doc in enumerate(doc_list):
-                    print(f"[DEBUG] {command_id} - Document {i}: {doc[:50]}...")
-                    message_parts.append(doc)
-                
-                message = "\n".join(message_parts)
-                logger.info(f"[DEBUG] Found {len(doc_list)} documents for {from_number}")
-                logger.info(f"[DEBUG] Message preview: {message[:100]}...")
-                print(f"[DEBUG] {command_id} - Found {len(doc_list)} documents for {from_number}")
-                print(f"[DEBUG] {command_id} - Message preview: {message[:100]}...")
+            # Safely attempt to get documents, with very detailed error handling
+            documents = []
+            try:
+                print(f"[DEBUG] {command_id} - About to call docs_app.list_documents({from_number})")
+                documents = self.docs_app.list_documents(from_number)
+                print(f"[DEBUG] {command_id} - Retrieved documents: {documents}")
+                print(f"[DEBUG] {command_id} - Document count: {len(documents)}")
+                print(f"[DEBUG] {command_id} - Document types: {[type(doc) for doc in documents]}")
+            except AttributeError as attr_err:
+                print(f"[DEBUG] {command_id} - AttributeError calling list_documents: {str(attr_err)}")
+                print(f"[DEBUG] {command_id} - AttributeError traceback: {traceback.format_exc()}")
+                documents = []
+            except TypeError as type_err:
+                print(f"[DEBUG] {command_id} - TypeError calling list_documents: {str(type_err)}")
+                print(f"[DEBUG] {command_id} - TypeError traceback: {traceback.format_exc()}")
+                documents = []
+            except Exception as doc_err:
+                print(f"[DEBUG] {command_id} - General exception calling list_documents: {str(doc_err)}")
+                print(f"[DEBUG] {command_id} - Exception traceback: {traceback.format_exc()}")
+                documents = []
+            
+            # Build the response message
+            print(f"[DEBUG] {command_id} - Building response message")
+            if documents:
+                print(f"[DEBUG] {command_id} - Documents found: {len(documents)}")
+                message = "📄 *Your Documents:*\n\n"
+                for i, doc in enumerate(documents, 1):
+                    # Safely extract document info with error handling
+                    try:
+                        doc_id = doc.get('id', 'unknown-id')
+                        doc_name = doc.get('name', 'Unnamed Document')
+                        doc_type = doc.get('type', 'Unknown Type')
+                        doc_date = doc.get('upload_date', 'Unknown Date')
+                        
+                        message += f"{i}. *{doc_name}*\n"
+                        message += f"   Type: {doc_type}\n"
+                        message += f"   ID: {doc_id}\n"
+                        message += f"   Date: {doc_date}\n\n"
+                    except Exception as format_err:
+                        print(f"[DEBUG] {command_id} - Error formatting document {i}: {str(format_err)}")
+                        message += f"{i}. Error displaying document\n\n"
             else:
-                message = "You don't have any documents yet. Send me a file to get started!"
-                logger.info(f"[DEBUG] No documents found for {from_number}")
-                print(f"[DEBUG] {command_id} - No documents found for {from_number}")
+                print(f"[DEBUG] {command_id} - No documents found")
+                message = "📂 You don't have any documents stored yet. Send a document to store it."
             
-            # Add a unique timestamp
+            # Add a unique timestamp to prevent duplicate message detection
             timestamp = int(time.time())
-            message += f"\n\nRequest Time: {timestamp}"
+            message += f"\n\n_List generated at: {timestamp}_"
             
-            # Add a unique identifier to prevent deduplication
-            message = self.add_unique_identifier(message, "list", command_id)
-            print(f"[DEBUG] {command_id} - Final message with identifier: {message[:100]}...")
+            # Send the response and record the result
+            print(f"[DEBUG] {command_id} - Sending list response")
+            success = await self.send_response(from_number, message, "list_result", command_id)
+            print(f"[DEBUG] {command_id} - Send result: {success}")
             
-            # Send the document list
-            print(f"[DEBUG] {command_id} - Calling send_response")
-            send_result = await self.send_response(
-                from_number,
-                message,
-                "list_command",
-                command_id
-            )
-            print(f"[DEBUG] {command_id} - send_response returned: {send_result}")
-            
-            # If sending failed, try an alternative approach
-            if not send_result:
-                print(f"[DEBUG] {command_id} - First attempt failed, trying alternative approach")
-                # Try sending a simpler message
-                alt_message = f"List command processed. You have {len(doc_list) if doc_list else 0} documents."
-                alt_message = self.add_unique_identifier(alt_message, "list", f"{command_id}-retry")
-                print(f"[DEBUG] {command_id} - Alternative message: {alt_message}")
-                
-                # Directly use the message_sender
+            if success:
+                print(f"[DEBUG] {command_id} - List command completed successfully")
+                return "List command processed successfully", 200
+            else:
+                print(f"[DEBUG] {command_id} - Failed to send list response")
+                # Try sending a direct error message as fallback
                 try:
-                    direct_result = await self.message_sender.send_message(
-                        from_number,
-                        alt_message,
-                        message_type="list_command_direct",
-                        bypass_deduplication=True
-                    )
-                    print(f"[DEBUG] {command_id} - Direct message sender result: {direct_result}")
-                    send_result = direct_result
-                except Exception as direct_err:
-                    print(f"[DEBUG] {command_id} - Error with direct message sending: {str(direct_err)}")
-                    print(f"[DEBUG] {command_id} - Direct message traceback: {traceback.format_exc()}")
-            
-            print(f"[DEBUG] {command_id} - List command completed successfully")
-            return "List command processed", 200
+                    error_message = "❌ Sorry, I couldn't retrieve your document list. Please try again later."
+                    await self.send_error_message(from_number, error_message, command_id)
+                except Exception as send_err:
+                    print(f"[DEBUG] {command_id} - Failed to send error message: {str(send_err)}")
+                return "Failed to send list response", 500
+                
         except Exception as e:
             print(f"[DEBUG] {command_id} - List command failed with error: {str(e)}")
             print(f"[DEBUG] {command_id} - Traceback: {traceback.format_exc()}")
             
+            # Try to send an error message
             try:
-                print(f"[DEBUG] {command_id} - Sending error message")
-                error_msg = f"❌ Error retrieving your documents. Please try again. (Error ID: {command_id})"
-                await self.send_error_message(
-                    from_number,
-                    error_msg,
-                    command_id
-                )
-                print(f"[DEBUG] {command_id} - Error message sent")
+                error_message = f"❌ Sorry, an error occurred while getting your documents. Please try again."
+                await self.send_error_message(from_number, error_message, command_id)
             except Exception as send_err:
-                print(f"[DEBUG] {command_id} - Error sending error message: {str(send_err)}")
+                print(f"[DEBUG] {command_id} - Failed to send error message: {str(send_err)}")
                 print(f"[DEBUG] {command_id} - Error message traceback: {traceback.format_exc()}")
                 
-                # Try one last direct approach
+                # Last resort - try direct message send
                 try:
-                    last_chance_msg = f"Sorry, I encountered an issue with the list command. (Error ID: {command_id})"
+                    print(f"[DEBUG] {command_id} - Attempting direct message send as last resort")
                     await self.message_sender.send_message(
                         from_number,
-                        last_chance_msg,
-                        message_type="error_direct",
+                        "❌ Error retrieving your documents. Please try again.",
+                        message_type="error",
                         bypass_deduplication=True
                     )
-                except Exception as last_err:
-                    print(f"[DEBUG] {command_id} - Final error attempt failed: {str(last_err)}")
-            
-            return "List command error", 500 
+                except Exception as direct_err:
+                    print(f"[DEBUG] {command_id} - Direct message also failed: {str(direct_err)}")
+                
+            return "Error processing list command", 500 
