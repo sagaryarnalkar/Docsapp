@@ -1,9 +1,25 @@
 ---
-description:
-globs:
+description: For modifying any files
+globs: 
 ---
 
 # Your rule content
+We are running the code on Render, dont make locally running files
+
+You will not create fix files when you are not able to get access to a larger file
+
+We are committing and pushing changes on branch main, then we redeploy latest code on render.
+
+All files must have a description about what it does, each function must have a description.
+
+Maintain a file llm-context.txt that has the brief overview of what we are working on so that anytime we change model - the new LLM can understand what we have been working on.
+
+Write simple and clear code; avoid unnecessary complexity.
+
+For reading files use the read_file tool with smaller line ranges
+For editing files use the edit_file tool with precise edits
+Avoid using PowerShell commands for file operations
+
 
 - You can @ files here
 - You can use markdown but dont have to

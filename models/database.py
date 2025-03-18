@@ -209,8 +209,17 @@ try:
     existing_tables = inspector.get_table_names()
     print(f"Existing tables: {existing_tables}")
     
-    # Create tables that don't exist
-    Base.metadata.create_all(engine, checkfirst=True)
+    # Use try/except for each table to handle already exists errors
+    for table in Base.metadata.sorted_tables:
+        try:
+            if table.name not in existing_tables:
+                table.create(engine)
+                print(f"Created table: {table.name}")
+            else:
+                print(f"Table already exists: {table.name}")
+        except Exception as table_err:
+            # Just log the error but continue with other tables
+            print(f"Error creating table {table.name}: {str(table_err)}")
     
     # Verify tables were created
     inspector = inspect(engine)
