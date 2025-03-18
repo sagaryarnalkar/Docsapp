@@ -13,6 +13,9 @@ import hashlib
 import os
 import asyncio
 from datetime import datetime
+from http import HTTPStatus
+from config import WHATSAPP_API_URL, WHATSAPP_PHONE_NUMBER_ID
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +69,13 @@ class MessageSender:
         logger.info(f"[DEBUG] MessageSender initialized with API version {api_version}")
         logger.info(f"[DEBUG] Phone Number ID: {phone_number_id}")
         logger.info(f"[DEBUG] Token valid: {self.token_valid}")
+        
+        # Track recently sent messages to prevent duplicates
+        self._recent_messages = {}
+        self._deduplication_window = 60  # seconds
+        
+        logger.info(f"[DEBUG] MessageSender initialized with API URL: {self.base_url}")
+        print(f"[DEBUG] MessageSender initialized with API URL: {self.base_url}")
         
     async def send_message(self, to_number, message, message_type=None, bypass_deduplication=True, max_retries=3):
         """
@@ -136,6 +146,24 @@ class MessageSender:
             print(f"[DEBUG] {message_hash} -   Content-Type: {headers['Content-Type']}")
             print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
+            
+            # Check for duplicate messages
+            current_time = time.time()
+            if not bypass_deduplication and message_hash in self._recent_messages:
+                last_sent = self._recent_messages[message_hash]
+                time_diff = current_time - last_sent
+                
+                if time_diff < self._deduplication_window:
+                    print(f"[DEBUG] Duplicate message detected! Last sent {time_diff:.2f}s ago. Skipping.")
+                    logger.warning(f"[DEBUG] Duplicate message detected! Last sent {time_diff:.2f}s ago. Skipping.")
+                    return False
+            
+            # Clean up old messages
+            self._cleanup_old_messages(current_time)
+            
+            # Add message to recent messages
+            if not bypass_deduplication:
+                self._recent_messages[message_hash] = current_time
             
             # Implement retry logic
             retry_count = 0
@@ -361,3 +389,25 @@ class MessageSender:
             import traceback
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             return False 
+
+    def _cleanup_old_messages(self, current_time):
+        """
+        Remove old messages from the deduplication cache.
+        
+        Args:
+            current_time: The current time
+        """
+        # Remove messages older than the deduplication window
+        old_messages = [
+            msg_hash for msg_hash, sent_time in self._recent_messages.items()
+            if current_time - sent_time > self._deduplication_window
+        ]
+        
+        if old_messages:
+            print(f"[DEBUG] Cleaning up {len(old_messages)} old messages from deduplication cache")
+            for msg_hash in old_messages:
+                del self._recent_messages[msg_hash]
+                
+        # Log cache size periodically
+        if len(self._recent_messages) > 0 and len(self._recent_messages) % 10 == 0:
+            print(f"[DEBUG] Current deduplication cache size: {len(self._recent_messages)} messages") 

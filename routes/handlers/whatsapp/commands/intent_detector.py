@@ -1,7 +1,7 @@
 """
-Intent Detector
-------------
-This module handles detecting command intents from natural language.
+Intent Detector for WhatsApp Commands
+------------------------------------
+This module handles the detection of command intents from natural language.
 """
 
 import logging
@@ -11,89 +11,75 @@ logger = logging.getLogger(__name__)
 class IntentDetector:
     """
     Detects command intents from natural language.
-    
-    This class is responsible for:
-    1. Detecting exact command matches
-    2. Detecting command prefixes
-    3. Detecting natural language command intents
     """
     
-    def __init__(self):
-        """Initialize the intent detector."""
-        # Define natural language phrases for each command
-        self.help_phrases = ['help me', 'what can you do', 'how does this work', 'commands', 'instructions']
-        self.list_phrases = ['show me', 'list', 'documents', 'files', 'what do i have']
-        self.find_phrases = ['find', 'search', 'look for', 'where is']
-        self.ask_phrases = ['ask', 'question', 'tell me about', 'what is', 'how to']
-        
+    # Command phrases for exact matching
+    HELP_PHRASES = ["help", "commands", "?", "menu", "options"]
+    LIST_PHRASES = ["list", "documents", "files", "show", "view", "show documents", "view documents"]
+    FIND_PHRASES = ["find", "search", "locate", "get"]
+    ASK_PHRASES = ["ask", "question", "tell me", "explain", "summarize", "how", "what", "why", "when", "where", "who", "which", "is", "are", "can", "do", "does", "will", "should"]
+    NEW_DOCUMENT_PHRASES = ["new", "new document", "start over", "reset", "clear"]
+    
     def detect_intent(self, text):
         """
-        Detect command intent from natural language.
+        Detect the intent of a command.
         
         Args:
-            text: The user's message
+            text: The command text
             
         Returns:
-            dict: The detected command intent with type and parameters, or None if no intent was detected
+            str: The detected intent (help, list, find, ask, or None)
         """
-        logger.info(f"[DEBUG] Detecting intent for: '{text}'")
+        print(f"[DEBUG] Intent detector processing: '{text}'")
         
         # Normalize text
         text = text.strip().lower()
         
-        # Check for exact matches
-        if text == 'help':
-            logger.info("[DEBUG] Detected exact match for 'help' command")
-            return {'type': 'help'}
-        elif text == 'list' or text == 'show documents' or text == 'show my documents':
-            logger.info("[DEBUG] Detected exact match for 'list' command")
-            return {'type': 'list'}
+        # First check for exact command matches
+        if text in self.HELP_PHRASES:
+            print(f"[DEBUG] Exact match found for 'help' command: '{text}'")
+            return "help"
             
-        # Check for prefix matches
-        if text.startswith('find '):
-            query = text[5:].strip()
-            logger.info(f"[DEBUG] Detected 'find' command with query: '{query}'")
-            return {'type': 'find', 'query': query}
-        elif text.startswith('/ask '):
-            question = text[5:].strip()
-            logger.info(f"[DEBUG] Detected '/ask' command with question: '{question}'")
-            return {'type': 'ask', 'question': question}
-        elif text.startswith('delete '):
-            document_id = text[7:].strip()
-            logger.info(f"[DEBUG] Detected 'delete' command with document ID: '{document_id}'")
-            return {'type': 'delete', 'document_id': document_id}
+        if text in self.LIST_PHRASES:
+            print(f"[DEBUG] Exact match found for 'list' command: '{text}'")
+            return "list"
             
-        # Check for natural language matches
-        
-        # Check for help intent
-        if any(phrase in text for phrase in self.help_phrases):
-            logger.info("[DEBUG] Detected natural language 'help' command")
-            return {'type': 'help'}
+        if text in self.NEW_DOCUMENT_PHRASES:
+            print(f"[DEBUG] Exact match found for 'new_document' command: '{text}'")
+            return "new_document"
             
-        # Check for list intent
-        if any(phrase in text for phrase in self.list_phrases):
-            logger.info("[DEBUG] Detected natural language 'list' command")
-            return {'type': 'list'}
+        # Check for prefix matches (e.g., "find document about...")
+        for prefix in self.FIND_PHRASES:
+            if text.startswith(prefix):
+                print(f"[DEBUG] Prefix match found for 'find' command: '{text}'")
+                return "find"
+                
+        for prefix in self.ASK_PHRASES:
+            if text.startswith(prefix):
+                print(f"[DEBUG] Prefix match found for 'ask' command: '{text}'")
+                return "ask"
+                
+        # Check for natural language patterns
+        if any(phrase in text for phrase in self.HELP_PHRASES):
+            print(f"[DEBUG] Natural language match for 'help' command: '{text}'")
+            return "help"
             
-        # Check for find intent with query
-        for phrase in self.find_phrases:
-            if phrase in text:
-                # Extract the query after the phrase
-                query_start = text.find(phrase) + len(phrase)
-                query = text[query_start:].strip()
-                if query:
-                    logger.info(f"[DEBUG] Detected natural language 'find' command with query: '{query}'")
-                    return {'type': 'find', 'query': query}
-                    
-        # Check for ask intent with question
-        for phrase in self.ask_phrases:
-            if phrase in text:
-                # Extract the question after the phrase
-                question_start = text.find(phrase) + len(phrase)
-                question = text[question_start:].strip()
-                if question:
-                    logger.info(f"[DEBUG] Detected natural language 'ask' command with question: '{question}'")
-                    return {'type': 'ask', 'question': question}
-                    
-        logger.info("[DEBUG] No command intent detected")
+        if any(phrase in text for phrase in self.LIST_PHRASES):
+            print(f"[DEBUG] Natural language match for 'list' command: '{text}'")
+            return "list"
+            
+        if any(phrase in text for phrase in self.FIND_PHRASES):
+            print(f"[DEBUG] Natural language match for 'find' command: '{text}'")
+            return "find"
+            
+        if any(phrase in text for phrase in self.ASK_PHRASES):
+            print(f"[DEBUG] Natural language match for 'ask' command: '{text}'")
+            return "ask"
+            
+        if any(phrase in text for phrase in self.NEW_DOCUMENT_PHRASES):
+            print(f"[DEBUG] Natural language match for 'new_document' command: '{text}'")
+            return "new_document"
+            
+        # No intent detected
+        print(f"[DEBUG] No intent detected for: '{text}'")
         return None 
