@@ -10,6 +10,7 @@ import uuid
 import time
 import hashlib
 import random
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -92,17 +93,94 @@ class BaseCommandHandler:
             # Add a timestamp to the log for tracking
             log_timestamp = int(time.time())
             
-            # Send the message
-            success = await self.message_sender.send_message(
-                to_number,
-                message,
-                message_type=message_type,
-                bypass_deduplication=False
-            )
+            # First attempt - try with standard message_sender method
+            try:
+                print(f"[DEBUG] {command_id} - First attempt: Using standard send_message method")
+                success = await self.message_sender.send_message(
+                    to_number,
+                    message,
+                    message_type=message_type,
+                    bypass_deduplication=False
+                )
+                print(f"[DEBUG] {command_id} - First attempt result: {success}")
+                
+                if success:
+                    return True
+            except Exception as first_err:
+                print(f"[DEBUG] {command_id} - First attempt failed: {str(first_err)}")
+                print(f"[DEBUG] {command_id} - First attempt traceback: {traceback.format_exc()}")
+                success = False
             
-            duration = int(time.time()) - log_timestamp
-            print(f"[DEBUG] {command_id} - Response sent: {success} (took {duration}s)")
-            return success
+            # Second attempt - try with bypass_deduplication=True and different message
+            if not success:
+                try:
+                    print(f"[DEBUG] {command_id} - Second attempt: Using bypass_deduplication=True")
+                    # Add unique identifier to message
+                    timestamp = int(time.time())
+                    retry_message = f"{message}\n\nTimestamp: {timestamp}"
+                    
+                    success = await self.message_sender.send_message(
+                        to_number,
+                        retry_message,
+                        message_type=f"{message_type}_retry",
+                        bypass_deduplication=True
+                    )
+                    print(f"[DEBUG] {command_id} - Second attempt result: {success}")
+                    
+                    if success:
+                        return True
+                except Exception as second_err:
+                    print(f"[DEBUG] {command_id} - Second attempt failed: {str(second_err)}")
+                    print(f"[DEBUG] {command_id} - Second attempt traceback: {traceback.format_exc()}")
+            
+            # Third attempt - try direct API call as last resort
+            if not success:
+                try:
+                    print(f"[DEBUG] {command_id} - Third attempt: Using direct API call")
+                    headers = {
+                        "Authorization": f"Bearer {self.message_sender.access_token}",
+                        "Content-Type": "application/json"
+                    }
+                    
+                    timestamp = int(time.time())
+                    direct_message = f"{message}\n\nDirect Timestamp: {timestamp}"
+                    
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        payload = {
+                            "messaging_product": "whatsapp",
+                            "to": to_number,
+                            "type": "text",
+                            "text": {
+                                "body": direct_message
+                            }
+                        }
+                        
+                        print(f"[DEBUG] {command_id} - Direct API URL: {self.message_sender.base_url}")
+                        print(f"[DEBUG] {command_id} - Direct API payload: {json.dumps(payload)[:200]}...")
+                        
+                        async with session.post(
+                            self.message_sender.base_url,
+                            json=payload,
+                            headers=headers,
+                            timeout=30
+                        ) as response:
+                            status_code = response.status
+                            response_text = await response.text()
+                            print(f"[DEBUG] {command_id} - Direct API response status: {status_code}")
+                            print(f"[DEBUG] {command_id} - Direct API response: {response_text[:200]}...")
+                            
+                            if status_code in (200, 201):
+                                print(f"[DEBUG] {command_id} - Direct API call succeeded")
+                                return True
+                except Exception as direct_err:
+                    print(f"[DEBUG] {command_id} - Direct API call failed: {str(direct_err)}")
+                    print(f"[DEBUG] {command_id} - Direct API call traceback: {traceback.format_exc()}")
+            
+            # All attempts failed
+            print(f"[DEBUG] {command_id} - All message sending attempts failed")
+            return False
+                
         except Exception as e:
             print(f"[DEBUG] {command_id} - Error sending response: {str(e)}")
             print(f"[DEBUG] {command_id} - Send error traceback: {traceback.format_exc()}")
