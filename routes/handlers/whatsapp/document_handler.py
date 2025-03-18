@@ -9,7 +9,7 @@ import asyncio
 from typing import Dict, Any, Optional, Tuple, Union
 
 from models import DocsApp
-from services.whatsapp import WhatsAppMessageSender
+from .document.message_sender import WhatsAppMessageSender
 from .document import DocumentProcessor
 
 logger = logging.getLogger(__name__)
