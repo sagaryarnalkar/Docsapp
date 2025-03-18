@@ -520,30 +520,78 @@ class WhatsAppHandler:
         try:
             # Generate a unique ID for this command processing
             command_id = f"{int(time.time())}-{hash(message_text) % 10000:04d}"
-            print(f"[DEBUG] Processing text command asynchronously - ID: {command_id}")
-            print(f"[DEBUG] From: {from_number}")
-            print(f"[DEBUG] Text: '{message_text}'")
+            print(f"\n====== ASYNC COMMAND PROCESSING: {command_id} ======")
+            print(f"[ASYNC] Processing text command asynchronously - ID: {command_id}")
+            print(f"[ASYNC] From: {from_number}")
+            print(f"[ASYNC] Text: '{message_text}'")
+            print(f"[ASYNC] Is 'List' command: {message_text.strip().lower() == 'list'}")
+            print(f"[ASYNC] Command processor: {self.command_processor}")
+            print(f"[ASYNC] Command processor type: {type(self.command_processor)}")
+            print(f"[ASYNC] Command processor methods: {dir(self.command_processor)}")
+            
+            # Check docs_app
+            print(f"[ASYNC] docs_app: {self.docs_app}")
+            print(f"[ASYNC] docs_app type: {type(self.docs_app)}")
+            if self.docs_app:
+                try:
+                    print(f"[ASYNC] docs_app methods: {dir(self.docs_app)}")
+                    print(f"[ASYNC] Has list_documents: {'list_documents' in dir(self.docs_app)}")
+                except Exception as docs_err:
+                    print(f"[ASYNC] Error inspecting docs_app: {str(docs_err)}")
+            else:
+                print(f"[ASYNC] WARNING: docs_app is None!")
             
             # Add a small delay to ensure the 200 response has been sent back to WhatsApp
             # This helps prevent race conditions where the response is sent before the 200 acknowledgment
             await asyncio.sleep(0.5)
             
-            # Process the command
-            result = await self.command_processor.handle_command(from_number, message_text)
-            logger.info(f"Async text command processing completed: {result}")
-            print(f"[DEBUG] Command {command_id} processing result: {result}")
+            try:
+                print(f"[ASYNC] Calling command_processor.handle_command({from_number}, {message_text})")
+                result_future = self.command_processor.handle_command(from_number, message_text)
+                if not asyncio.iscoroutine(result_future):
+                    print(f"[ASYNC] WARNING: handle_command did not return a coroutine object! Got {type(result_future)}")
+                    result = result_future  # Not awaitable, just use the value
+                else:
+                    print(f"[ASYNC] Awaiting coroutine result...")
+                    result = await result_future
+                
+                print(f"[ASYNC] handle_command completed with result: {result}")
+                logger.info(f"Async text command processing completed: {result}")
+            except Exception as cmd_err:
+                print(f"[ASYNC] Error calling command_processor.handle_command: {str(cmd_err)}")
+                print(f"[ASYNC] Error traceback: {traceback.format_exc()}")
+                result = (f"Error: {str(cmd_err)}", 500)
             
             # If the command processing returned a failure status code, try to send a direct message
             if isinstance(result, tuple) and len(result) > 1 and result[1] >= 400:
-                print(f"[DEBUG] Command {command_id} failed with status {result[1]}, sending direct error message")
+                print(f"[ASYNC] Command {command_id} failed with status {result[1]}, sending direct error message")
                 error_msg = f"❌ Sorry, there was an issue processing your command. Please try again. (ID: {command_id})"
                 
-                # Send error message without bypass_deduplication parameter
-                await self.message_sender.send_message(
-                    from_number,
-                    error_msg,
-                    message_type="command_error"
-                )
+                # Try all available message sending methods
+                try:
+                    # First attempt - regular message_sender
+                    print(f"[ASYNC] Sending error message via message_sender.send_message")
+                    send_result = await self.message_sender.send_message(
+                        from_number,
+                        error_msg,
+                        message_type="command_error",
+                        bypass_deduplication=True
+                    )
+                    
+                    if not send_result:
+                        print(f"[ASYNC] Regular send_message failed, trying send_direct_message")
+                        # Second attempt - direct message
+                        try:
+                            send_result = await self.message_sender.send_direct_message(
+                                from_number,
+                                error_msg,
+                                message_type="direct_error"
+                            )
+                            print(f"[ASYNC] Direct message result: {send_result}")
+                        except Exception as direct_err:
+                            print(f"[ASYNC] Direct message error: {str(direct_err)}")
+                except Exception as send_err:
+                    print(f"[ASYNC] Error sending error message: {str(send_err)}")
         except Exception as e:
             logger.error(f"Error in async text command processing: {str(e)}")
             import traceback
@@ -563,12 +611,30 @@ class WhatsAppHandler:
                     if attempt > 0:
                         error_msg += f" (Retry {attempt+1}/{max_retries})"
                     
-                    # Send error message without bypass_deduplication parameter
-                    send_result = await self.message_sender.send_message(
-                        from_number,
-                        error_msg,
-                        message_type="command_error"
-                    )
+                    # Try both regular and direct message sending
+                    send_result = False
+                    
+                    # First attempt - regular message sender
+                    try:
+                        send_result = await self.message_sender.send_message(
+                            from_number,
+                            error_msg,
+                            message_type="command_error",
+                            bypass_deduplication=True
+                        )
+                    except Exception as reg_err:
+                        print(f"[ERROR] Regular send failed: {str(reg_err)}")
+                    
+                    # If regular send failed, try direct message
+                    if not send_result:
+                        try:
+                            send_result = await self.message_sender.send_direct_message(
+                                from_number,
+                                error_msg,
+                                message_type="direct_error"
+                            )
+                        except Exception as direct_err:
+                            print(f"[ERROR] Direct send failed: {str(direct_err)}")
                     
                     if send_result:
                         print(f"[DEBUG] Successfully sent error message on attempt {attempt+1}")
