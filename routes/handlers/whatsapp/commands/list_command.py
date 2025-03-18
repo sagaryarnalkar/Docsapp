@@ -31,23 +31,20 @@ class ListCommandHandler(BaseCommandHandler):
         Returns:
             tuple: (message, status_code)
         """
-        # LINE-BY-LINE DEBUGGING - CREATE LOG FILE DIRECTLY
-        log_file = "list_command_debug.log"
+        # LINE-BY-LINE DEBUGGING WITH PRINT STATEMENTS FOR RENDER
         def log_step(step):
-            """Write a step to the log file"""
-            with open(log_file, "a") as f:
-                f.write(f"{time.time()}: STEP {step}\n")
-            print(f"[LINE-DEBUG] STEP {step}")
+            """Print a step to stdout for Render logs"""
+            print(f"🔍🔍🔍 [RENDER-DEBUG] STEP {step} 🔍🔍🔍")
         
         log_step("1 - Function entry")
         
         # Generate a unique ID for this command execution
         try:
             command_id = self.generate_command_id("list", from_number)
-            log_step("2 - Generated command ID")
+            log_step("2 - Generated command ID: " + command_id)
         except Exception as gen_err:
-            with open(log_file, "a") as f:
-                f.write(f"ERROR IN STEP 2: {str(gen_err)}\n{traceback.format_exc()}\n")
+            print(f"❌❌❌ ERROR IN STEP 2: {str(gen_err)} ❌❌❌")
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             return "Error generating command ID", 500
         
         try:
@@ -57,14 +54,14 @@ class ListCommandHandler(BaseCommandHandler):
             print(f"[DEBUG] Time: {int(time.time())}")
             log_step("3 - Printed debug headers")
         except Exception as print_err:
-            with open(log_file, "a") as f:
-                f.write(f"ERROR IN STEP 3: {str(print_err)}\n{traceback.format_exc()}\n")
+            print(f"❌❌❌ ERROR IN STEP 3: {str(print_err)} ❌❌❌")
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             return "Error in debug logging", 500
         
         try:
             # ULTRA SIMPLIFIED: Create pre-defined response
             log_step("4 - Starting to build message")
-            message = f"📄 *Your Documents (Line-Debugged Fixed Response)*\n\n"
+            message = f"📄 *Your Documents (Render Debug Version)*\n\n"
             message += f"1. *Sample Document 1*\n"
             message += f"   Type: PDF\n"
             message += f"   ID: sample-doc-1\n\n"
@@ -80,13 +77,16 @@ class ListCommandHandler(BaseCommandHandler):
             print(f"[DEBUG] {command_id} - Sending direct fixed response")
             log_step("6 - About to try message sending")
         except Exception as msg_err:
-            with open(log_file, "a") as f:
-                f.write(f"ERROR IN STEPS 4-6: {str(msg_err)}\n{traceback.format_exc()}\n")
+            print(f"❌❌❌ ERROR IN STEPS 4-6: {str(msg_err)} ❌❌❌")
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             return "Error building message", 500
             
         # ATTEMPT 1: Super simplified direct message
         try:
             log_step("7 - Attempting most basic message send")
+            print(f"[DEBUG] Message sender type: {type(self.message_sender)}")
+            print(f"[DEBUG] Message sender methods: {dir(self.message_sender)}")
+            
             success = await self.message_sender.send_message(
                 from_number,
                 "This is a test message from List command",
@@ -99,9 +99,8 @@ class ListCommandHandler(BaseCommandHandler):
                 log_step("9 - Basic message succeeded, returning early")
                 return "Test message sent", 200
         except Exception as basic_err:
-            with open(log_file, "a") as f:
-                f.write(f"ERROR IN BASIC MESSAGE: {str(basic_err)}\n{traceback.format_exc()}\n")
-            log_step(f"ERROR in basic message: {str(basic_err)}")
+            print(f"❌❌❌ ERROR IN BASIC MESSAGE: {str(basic_err)} ❌❌❌")
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             # Continue to next approach
         
         # ATTEMPT 2: Try direct API call
@@ -123,17 +122,18 @@ class ListCommandHandler(BaseCommandHandler):
                         access_token = self.message_sender.access_token
                         token_length = len(access_token) if access_token else 0
                         log_step(f"14 - Got access token, length: {token_length}")
+                        print(f"[DEBUG] Access token first 10 chars: {access_token[:10] if access_token else 'NONE'}")
                     except Exception as token_err:
-                        with open(log_file, "a") as f:
-                            f.write(f"ERROR GETTING TOKEN: {str(token_err)}\n{traceback.format_exc()}\n")
+                        print(f"❌❌❌ ERROR GETTING TOKEN: {str(token_err)} ❌❌❌")
+                        print(f"❌ TRACEBACK: {traceback.format_exc()}")
                         # Try hardcoded token from environment
                         try:
                             import os
                             access_token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
                             log_step(f"14.1 - Using token from environment, length: {len(access_token)}")
                         except Exception as env_err:
-                            with open(log_file, "a") as f:
-                                f.write(f"ERROR GETTING ENV TOKEN: {str(env_err)}\n{traceback.format_exc()}\n")
+                            print(f"❌❌❌ ERROR GETTING ENV TOKEN: {str(env_err)} ❌❌❌")
+                            print(f"❌ TRACEBACK: {traceback.format_exc()}")
                             log_step("14.2 - Failed to get token from environment")
                             raise Exception("Could not get access token")
                             
@@ -156,11 +156,10 @@ class ListCommandHandler(BaseCommandHandler):
                     }
                     log_step("17 - Created payload")
                     
-                    # Super basic payload for troubleshooting
-                    with open(log_file, "a") as f:
-                        f.write(f"API URL: {api_url}\n")
-                        f.write(f"To: {from_number}\n")
-                        f.write(f"Payload: {json.dumps(payload)}\n")
+                    # Print payload for debugging
+                    print(f"[DEBUG] API URL: {api_url}")
+                    print(f"[DEBUG] To: {from_number}")
+                    print(f"[DEBUG] Payload: {json.dumps(payload)}")
                     
                     log_step("18 - About to create aiohttp session")
                     async with aiohttp.ClientSession() as session:
@@ -176,8 +175,7 @@ class ListCommandHandler(BaseCommandHandler):
                             resp_text = await response.text()
                             log_step(f"23 - Response text: {resp_text[:100]}")
                             
-                            with open(log_file, "a") as f:
-                                f.write(f"RESPONSE: status={status_code}, text={resp_text}\n")
+                            print(f"[DEBUG] RESPONSE: status={status_code}, text={resp_text}")
                             
                             print(f"[DEBUG] {command_id} - API response: {status_code} {resp_text}")
                             
@@ -188,19 +186,19 @@ class ListCommandHandler(BaseCommandHandler):
                                 log_step(f"24 - Request failed: {status_code}")
                                 raise Exception(f"API error: {status_code} {resp_text}")
                 except Exception as inner_err:
-                    with open(log_file, "a") as f:
-                        f.write(f"INNER ERROR: {str(inner_err)}\n{traceback.format_exc()}\n")
+                    print(f"❌❌❌ INNER ERROR: {str(inner_err)} ❌❌❌")
+                    print(f"❌ TRACEBACK: {traceback.format_exc()}")
                     log_step(f"Inner error: {str(inner_err)}")
                     raise inner_err
             except Exception as api_err:
-                with open(log_file, "a") as f:
-                    f.write(f"API ERROR: {str(api_err)}\n{traceback.format_exc()}\n")
+                print(f"❌❌❌ API ERROR: {str(api_err)} ❌❌❌")
+                print(f"❌ TRACEBACK: {traceback.format_exc()}")
                 log_step(f"25 - API error: {str(api_err)}")
                 print(f"[DEBUG] {command_id} - Direct API failed: {str(api_err)}")
                 raise api_err
         except Exception as direct_err:
-            with open(log_file, "a") as f:
-                f.write(f"DIRECT API ERROR: {str(direct_err)}\n{traceback.format_exc()}\n")
+            print(f"❌❌❌ DIRECT API ERROR: {str(direct_err)} ❌❌❌")
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             log_step(f"26 - Direct API attempt failed: {str(direct_err)}")
             # Continue to next approach
                 
@@ -227,13 +225,13 @@ class ListCommandHandler(BaseCommandHandler):
                     log_step("30 - Fallback failed")
                     return "Failed to send fallback response", 500
             except Exception as fallback_err:
-                with open(log_file, "a") as f:
-                    f.write(f"FALLBACK ERROR: {str(fallback_err)}\n{traceback.format_exc()}\n")
+                print(f"❌❌❌ FALLBACK ERROR: {str(fallback_err)} ❌❌❌")
+                print(f"❌ TRACEBACK: {traceback.format_exc()}")
                 log_step(f"31 - Fallback error: {str(fallback_err)}")
                 print(f"[DEBUG] {command_id} - Fallback failed: {str(fallback_err)}")
                 raise fallback_err
         except Exception as last_err:
-            with open(log_file, "a") as f:
-                f.write(f"FINAL ERROR: {str(last_err)}\n{traceback.format_exc()}\n")
+            print(f"❌❌❌ FINAL ERROR: {str(last_err)} ❌❌❌")
+            print(f"❌ TRACEBACK: {traceback.format_exc()}")
             log_step(f"32 - All approaches failed")
             return "All message sending approaches failed", 500 
