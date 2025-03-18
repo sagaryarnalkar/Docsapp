@@ -11,6 +11,17 @@ import time
 import hashlib
 import random
 import json
+import sys
+
+# EXTREME EMERGENCY DEBUG - USE DIRECT PRINTS
+# Create function to log to stderr (by default) instead of stdout
+def extreme_debug(message):
+    sys.stderr.write(f"⚠️⚠️⚠️ BASE_CMD: {message}\n")
+    sys.stderr.flush()
+    # Also print to stdout
+    print(f"⚠️⚠️⚠️ BASE_CMD: {message}")
+
+extreme_debug("BASE COMMAND HANDLER LOADED - V2 AGGRESSIVE DEBUGGING")
 
 logger = logging.getLogger(__name__)
 
