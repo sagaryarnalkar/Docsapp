@@ -120,7 +120,7 @@ class AuthHandler:
                     # Ensure directory exists
                     os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
                     with open(temp_file_path, 'w') as f:
-                f.write(user_phone)
+                        f.write(user_phone)
                     print(f"Stored user data at: {temp_file_path}")
                 except Exception as e:
                     print(f"Failed to store at {temp_file_path}: {str(e)}")
@@ -256,7 +256,7 @@ class AuthHandler:
             
             try:
                 # Fetch token using the callback URL
-            flow.fetch_token(authorization_response=request_url)
+                flow.fetch_token(authorization_response=request_url)
                 print("Successfully fetched token")
             except Exception as token_error:
                 # Check if it's a scope mismatch error
