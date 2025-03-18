@@ -1,26 +1,21 @@
 """
-WhatsApp Routes
+WhatsApp Routes for Flask
 --------------
-This module defines the routes for handling WhatsApp messages.
+This module defines the Flask route helper functions for handling WhatsApp messages.
 """
 
 import logging
 import json
 import asyncio
+import threading
 from typing import Dict, Any, Optional, List
 
-from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from flask import request, jsonify
 
 from models import DocsApp
 from routes.handlers.whatsapp.document_handler import WhatsAppDocumentHandler
 
 logger = logging.getLogger(__name__)
-
-router = APIRouter(
-    prefix="/whatsapp",
-    tags=["whatsapp"],
-)
 
 # Global DocsApp instance
 _docs_app = None
@@ -56,35 +51,53 @@ def is_document_message(message: Dict[str, Any]) -> bool:
     
     return False
 
-# Routes
-@router.post("/webhook")
-async def webhook(request: Request, background_tasks: BackgroundTasks, docs_app: DocsApp = Depends(get_docs_app)):
+def register_whatsapp_routes(app):
     """
-    Handle incoming messages from WhatsApp.
+    Register WhatsApp webhook routes with Flask.
+    
+    Args:
+        app: Flask application
     """
-    try:
-        # Parse the incoming webhook payload
-        payload = await request.json()
-        logger.debug(f"Received WhatsApp webhook: {json.dumps(payload)}")
-        
-        # Handle verification challenge
-        if 'hub.challenge' in request.query_params:
-            challenge = request.query_params['hub.challenge']
-            logger.info(f"Returning challenge: {challenge}")
-            return JSONResponse(content=int(challenge))
-        
-        # Process the message in the background
-        background_tasks.add_task(process_message, payload, docs_app)
-        
-        # Return immediately to acknowledge receipt
-        return JSONResponse(content={"status": "processing"})
-        
-    except Exception as e:
-        logger.error(f"Error handling WhatsApp webhook: {str(e)}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+    @app.route("/webhook", methods=["GET", "POST"])
+    def whatsapp_webhook():
+        """
+        Handle incoming messages from WhatsApp.
+        """
+        try:
+            # Handle GET request for webhook verification
+            if request.method == "GET":
+                # Handle verification challenge
+                challenge = request.args.get("hub.challenge")
+                if challenge:
+                    logger.info(f"Returning challenge: {challenge}")
+                    return challenge
+                return "OK"
+            
+            # Parse the incoming webhook payload for POST requests
+            payload = request.json
+            logger.debug(f"Received WhatsApp webhook: {json.dumps(payload)}")
+            
+            # Process the message in the background
+            docs_app = get_docs_app()
+            
+            def run_async_process():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(process_message(payload, docs_app))
+                loop.close()
+                
+            thread = threading.Thread(target=run_async_process)
+            thread.daemon = True
+            thread.start()
+            
+            # Return immediately to acknowledge receipt
+            return jsonify({"status": "processing"})
+            
+        except Exception as e:
+            logger.error(f"Error handling WhatsApp webhook: {str(e)}", exc_info=True)
+            return jsonify({
+                "error": str(e)
+            }), 500
 
 async def process_message(payload: Dict[str, Any], docs_app: DocsApp):
     """
