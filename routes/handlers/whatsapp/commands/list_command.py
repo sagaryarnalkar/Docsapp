@@ -53,6 +53,20 @@ class ListCommandHandler(BaseCommandHandler):
             except Exception as dict_err:
                 print(f"[DEBUG] {command_id} - Error accessing docs_app.__dict__: {str(dict_err)}")
             
+            # ⚠️⚠️⚠️ DIRECT MESSAGE ATTEMPT FOR DEBUGGING ⚠️⚠️⚠️
+            try:
+                debug_msg = f"🧪 DEBUG: List command handler called for {from_number} at {time.time()}"
+                print(f"[DEBUG] {command_id} - Sending direct debug message before any processing")
+                await self.message_sender.send_message(
+                    from_number,
+                    debug_msg,
+                    message_type="debug",
+                    bypass_deduplication=True
+                )
+                print(f"[DEBUG] {command_id} - Direct debug message sent")
+            except Exception as debug_msg_err:
+                print(f"[DEBUG] {command_id} - Failed to send direct debug message: {str(debug_msg_err)}")
+            
             # Safely attempt to get documents, with very detailed error handling
             documents = []
             try:
@@ -61,18 +75,75 @@ class ListCommandHandler(BaseCommandHandler):
                 print(f"[DEBUG] {command_id} - Retrieved documents: {documents}")
                 print(f"[DEBUG] {command_id} - Document count: {len(documents)}")
                 print(f"[DEBUG] {command_id} - Document types: {[type(doc) for doc in documents]}")
+                
+                # ⚠️⚠️⚠️ Detailed document inspection ⚠️⚠️⚠️
+                for i, doc in enumerate(documents):
+                    print(f"[DEBUG] {command_id} - Document {i} details:")
+                    print(f"[DEBUG] {command_id} - Document {i} keys: {doc.keys() if hasattr(doc, 'keys') else 'Not a dict'}")
+                    print(f"[DEBUG] {command_id} - Document {i} raw: {doc}")
+                    
+                # ⚠️⚠️⚠️ DIRECT MESSAGE ATTEMPT WITH DOCUMENT COUNT ⚠️⚠️⚠️
+                try:
+                    debug_msg = f"🧪 DEBUG: Found {len(documents)} documents for {from_number}"
+                    await self.message_sender.send_message(
+                        from_number,
+                        debug_msg,
+                        message_type="debug_count",
+                        bypass_deduplication=True
+                    )
+                except Exception as count_msg_err:
+                    print(f"[DEBUG] {command_id} - Failed to send document count message: {str(count_msg_err)}")
+                
             except AttributeError as attr_err:
                 print(f"[DEBUG] {command_id} - AttributeError calling get_user_documents: {str(attr_err)}")
                 print(f"[DEBUG] {command_id} - AttributeError traceback: {traceback.format_exc()}")
                 documents = []
+                
+                # ⚠️⚠️⚠️ DIRECT ERROR MESSAGE ATTEMPT ⚠️⚠️⚠️
+                try:
+                    error_msg = f"🧪 DEBUG ERROR: AttributeError: {str(attr_err)}"
+                    await self.message_sender.send_message(
+                        from_number,
+                        error_msg,
+                        message_type="debug_error",
+                        bypass_deduplication=True
+                    )
+                except Exception as err_msg_err:
+                    print(f"[DEBUG] {command_id} - Failed to send attribute error message: {str(err_msg_err)}")
+                
             except TypeError as type_err:
                 print(f"[DEBUG] {command_id} - TypeError calling get_user_documents: {str(type_err)}")
                 print(f"[DEBUG] {command_id} - TypeError traceback: {traceback.format_exc()}")
                 documents = []
+                
+                # ⚠️⚠️⚠️ DIRECT ERROR MESSAGE ATTEMPT ⚠️⚠️⚠️
+                try:
+                    error_msg = f"🧪 DEBUG ERROR: TypeError: {str(type_err)}"
+                    await self.message_sender.send_message(
+                        from_number,
+                        error_msg,
+                        message_type="debug_error",
+                        bypass_deduplication=True
+                    )
+                except Exception as err_msg_err:
+                    print(f"[DEBUG] {command_id} - Failed to send type error message: {str(err_msg_err)}")
+                
             except Exception as doc_err:
                 print(f"[DEBUG] {command_id} - General exception calling get_user_documents: {str(doc_err)}")
                 print(f"[DEBUG] {command_id} - Exception traceback: {traceback.format_exc()}")
                 documents = []
+                
+                # ⚠️⚠️⚠️ DIRECT ERROR MESSAGE ATTEMPT ⚠️⚠️⚠️
+                try:
+                    error_msg = f"🧪 DEBUG ERROR: General Exception: {str(doc_err)}"
+                    await self.message_sender.send_message(
+                        from_number,
+                        error_msg,
+                        message_type="debug_error",
+                        bypass_deduplication=True
+                    )
+                except Exception as err_msg_err:
+                    print(f"[DEBUG] {command_id} - Failed to send general error message: {str(err_msg_err)}")
             
             # Build the response message
             print(f"[DEBUG] {command_id} - Building response message")
@@ -101,6 +172,21 @@ class ListCommandHandler(BaseCommandHandler):
             # Add a unique timestamp to prevent duplicate message detection
             timestamp = int(time.time())
             message += f"\n\n_List generated at: {timestamp}_"
+            
+            # ⚠️⚠️⚠️ DIRECT FINAL MESSAGE ATTEMPT ⚠️⚠️⚠️
+            try:
+                print(f"[DEBUG] {command_id} - Trying direct message send before normal flow")
+                await self.message_sender.send_message(
+                    from_number,
+                    message,
+                    message_type="list_direct",
+                    bypass_deduplication=True
+                )
+                print(f"[DEBUG] {command_id} - Direct message sent successfully")
+                return "List command direct message sent", 200
+            except Exception as direct_err:
+                print(f"[DEBUG] {command_id} - Direct message failed: {str(direct_err)}")
+                print(f"[DEBUG] {command_id} - Continuing with normal flow")
             
             # Send the response and record the result
             print(f"[DEBUG] {command_id} - Sending list response")
