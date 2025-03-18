@@ -531,6 +531,36 @@ class WhatsAppHandler:
         
         write_emergency_log(f"STARTING _process_text_command_async with {from_number}, message: {message_text}")
         
+        # EXTREME EMERGENCY TEST - Try sending a message directly from the handler, before the command processor
+        try:
+            # Only do this for List command
+            if message_text.strip().lower() == 'list':
+                print(f"🚨🚨🚨 DIRECT HANDLER MESSAGE ATTEMPT - BYPASSING COMMAND PROCESSOR 🚨🚨🚨")
+                write_emergency_log(f"DIRECT HANDLER MESSAGE ATTEMPT - BYPASSING COMMAND PROCESSOR")
+                
+                # Send a message that's as simple as possible
+                timestamp = int(time.time())
+                direct_message = f"Direct message from handler (bypasses command processor): {timestamp}"
+                
+                # Try direct send
+                try:
+                    send_result = await self.message_sender.send_message(
+                        from_number,
+                        direct_message,
+                        message_type="handler_direct_test",
+                        bypass_deduplication=True
+                    )
+                    print(f"🚨🚨🚨 DIRECT MESSAGE ATTEMPT RESULT: {send_result} 🚨🚨🚨")
+                    write_emergency_log(f"DIRECT MESSAGE RESULT: {send_result}")
+                except Exception as direct_err:
+                    err_text = f"Direct message error: {str(direct_err)}"
+                    print(f"🚨🚨🚨 {err_text} 🚨🚨🚨")
+                    write_emergency_log(err_text)
+                    write_emergency_log(f"TRACE: {traceback.format_exc()}")
+        except Exception as extreme_err:
+            print(f"🚨🚨🚨 EXTREME EMERGENCY TEST FAILED: {str(extreme_err)} 🚨🚨🚨")
+            write_emergency_log(f"EXTREME TEST FAILED: {str(extreme_err)}\n{traceback.format_exc()}")
+        
         try:
             # Generate a unique ID for this command processing
             command_id = f"{int(time.time())}-{hash(message_text) % 10000:04d}"
