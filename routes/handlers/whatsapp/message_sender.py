@@ -16,6 +16,7 @@ from datetime import datetime
 from http import HTTPStatus
 from config import WHATSAPP_API_URL, WHATSAPP_PHONE_NUMBER_ID
 import traceback
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -77,19 +78,19 @@ class MessageSender:
         logger.info(f"[DEBUG] MessageSender initialized with API URL: {self.base_url}")
         print(f"[DEBUG] MessageSender initialized with API URL: {self.base_url}")
         
-    async def send_message(self, to_number, message, message_type=None, bypass_deduplication=True, max_retries=3):
+    async def send_message(self, to_number, message, message_type="text", bypass_deduplication=False, max_retries=3):
         """
         Send a message to a WhatsApp user.
         
         Args:
             to_number: The recipient's phone number
-            message: The message text to send
-            message_type: Optional type of message (e.g., "list_command")
-            bypass_deduplication: Whether to bypass deduplication checks (default: True)
+            message: The message to send
+            message_type: The type of message (for logging)
+            bypass_deduplication: Whether to bypass deduplication checks
             max_retries: Maximum number of retry attempts
             
         Returns:
-            bool: Whether the message was sent successfully
+            bool: True if the message was sent successfully, False otherwise
         """
         try:
             # IMPORTANT: Force bypass_deduplication to True for ALL outgoing messages
@@ -410,4 +411,97 @@ class MessageSender:
                 
         # Log cache size periodically
         if len(self._recent_messages) > 0 and len(self._recent_messages) % 10 == 0:
-            print(f"[DEBUG] Current deduplication cache size: {len(self._recent_messages)} messages") 
+            print(f"[DEBUG] Current deduplication cache size: {len(self._recent_messages)} messages")
+
+    async def send_direct_message(self, to_number, message, message_type="direct"):
+        """
+        Send a message directly to WhatsApp API, bypassing all abstractions.
+        This is a last-resort method for when the main send_message method fails.
+        
+        Args:
+            to_number: The recipient's phone number
+            message: The message to send
+            message_type: The type of message (for logging)
+            
+        Returns:
+            bool: True if the message was sent successfully, False otherwise
+        """
+        # Generate a unique ID for tracking this direct message
+        message_id = f"direct-{int(time.time())}-{random.randint(1000, 9999)}"
+        print(f"\n====== DIRECT MESSAGE ATTEMPT {message_id} ======")
+        print(f"[DIRECT] {message_id} - Sending direct message to {to_number}")
+        print(f"[DIRECT] {message_id} - Message type: {message_type}")
+        print(f"[DIRECT] {message_id} - Message preview: {message[:100]}...")
+        
+        try:
+            # Add a timestamp to ensure uniqueness
+            timestamp = int(time.time())
+            message_with_timestamp = f"{message}\n\n⏰ {timestamp}"
+            
+            # Prepare the direct API request
+            headers = {
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Construct the payload directly
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": to_number,
+                "type": "text",
+                "text": {
+                    "body": message_with_timestamp
+                }
+            }
+            
+            print(f"[DIRECT] {message_id} - API URL: {self.base_url}")
+            print(f"[DIRECT] {message_id} - Headers (partial): Authorization: Bearer {self.access_token[:5]}...")
+            print(f"[DIRECT] {message_id} - Payload: {json.dumps(payload)[:200]}...")
+            
+            # Make the API request
+            async with aiohttp.ClientSession() as session:
+                start_time = time.time()
+                async with session.post(
+                    self.base_url,
+                    json=payload,
+                    headers=headers,
+                    timeout=30  # 30 second timeout
+                ) as response:
+                    end_time = time.time()
+                    elapsed = round(end_time - start_time, 2)
+                    
+                    status_code = response.status
+                    response_text = await response.text()
+                    
+                    print(f"[DIRECT] {message_id} - Response status: {status_code} (took {elapsed}s)")
+                    print(f"[DIRECT] {message_id} - Response: {response_text[:200]}...")
+                    
+                    # Check if the request was successful
+                    if status_code in (200, 201):
+                        print(f"[DIRECT] {message_id} - Message sent successfully!")
+                        
+                        # Try to parse and log the message ID
+                        try:
+                            response_json = json.loads(response_text)
+                            wa_message_id = response_json.get("messages", [{}])[0].get("id", "unknown")
+                            print(f"[DIRECT] {message_id} - WhatsApp message ID: {wa_message_id}")
+                        except Exception as json_err:
+                            print(f"[DIRECT] {message_id} - Could not parse message ID: {str(json_err)}")
+                            
+                        return True
+                    else:
+                        # Request failed
+                        print(f"[DIRECT] {message_id} - Failed to send message: {status_code}")
+                        print(f"[DIRECT] {message_id} - Error response: {response_text}")
+                        return False
+                        
+        except aiohttp.ClientError as client_err:
+            print(f"[DIRECT] {message_id} - HTTP client error: {str(client_err)}")
+            return False
+        except asyncio.TimeoutError:
+            print(f"[DIRECT] {message_id} - Request timed out after 30 seconds")
+            return False
+        except Exception as e:
+            print(f"[DIRECT] {message_id} - Unexpected error: {str(e)}")
+            print(f"[DIRECT] {message_id} - Traceback: {traceback.format_exc()}")
+            return False 
