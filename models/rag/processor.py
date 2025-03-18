@@ -13,11 +13,13 @@ from typing import Dict, List, Optional, Any
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.cloud import storage
+from google.cloud import documentai
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from .text_chunker import TextChunker
 from .embedding_generator import EmbeddingGenerator
+from .document_processor import DocumentProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +66,18 @@ class RAGProcessor:
             self._init_storage_client()
             self._init_vertex_ai()
             self._init_drive_service()
+            self._init_document_ai()
             
             # Set up RAG components
             self.text_chunker = TextChunker()
             self.embedding_generator = EmbeddingGenerator(self.project_id, self.location)
+            self.document_processor = DocumentProcessor(
+                self.drive_service, 
+                self.document_ai_client,
+                self.project_id,
+                self.location,
+                self.storage_client
+            )
             
             # Mark as available
             self.is_available = True
@@ -148,11 +158,119 @@ class RAGProcessor:
             logger.error(f"Error initializing Drive service: {str(e)}")
             raise RAGProcessorError(f"Failed to initialize Drive service: {str(e)}")
     
-    # Placeholder methods to be implemented in future PRs
+    def _init_document_ai(self):
+        """Initialize Document AI client"""
+        try:
+            self.document_ai_client = documentai.DocumentProcessorServiceClient(
+                client_options={"api_endpoint": f"{self.location}-documentai.googleapis.com"}
+            )
+            print("✅ Successfully initialized Document AI client")
+        except Exception as e:
+            logger.error(f"Error initializing Document AI client: {str(e)}")
+            print(f"⚠️ Document AI initialization failed, OCR functionality will be limited")
+            self.document_ai_client = None
+    
     async def process_document_async(self, file_id, mime_type, user_phone):
-        """Process a document asynchronously"""
-        raise NotImplementedError("To be implemented")
+        """
+        Process a document asynchronously
+        
+        Args:
+            file_id: Google Drive file ID
+            mime_type: MIME type of the document
+            user_phone: User phone number
+            
+        Returns:
+            Dictionary with processing results
+        """
+        try:
+            print(f"\n=== Processing Document ===")
+            print(f"File ID: {file_id}")
+            print(f"MIME Type: {mime_type}")
+            print(f"User: {user_phone}")
+            
+            if not self.is_available:
+                return {
+                    'status': 'error',
+                    'error': 'RAG processor not available'
+                }
+            
+            # Process the document using our document processor
+            result = await self.document_processor.process_document(file_id, mime_type, user_phone)
+            
+            # For now, we return a simple success result
+            # In a full implementation, we would:
+            # 1. Chunk the extracted text
+            # 2. Generate embeddings for the chunks
+            # 3. Store the chunks and embeddings in a vector store
+            
+            if result['status'] == 'success':
+                return {
+                    'status': 'success',
+                    'file_id': file_id,
+                    'data_store_id': f"temp-store-{file_id[:8]}",  # Placeholder
+                    'document_id': f"doc-{file_id[:8]}"           # Placeholder
+                }
+            else:
+                return {
+                    'status': 'error',
+                    'error': result.get('error', 'Unknown error processing document')
+                }
+                
+        except Exception as e:
+            logger.error(f"Error processing document: {str(e)}")
+            import traceback
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            return {
+                'status': 'error',
+                'error': str(e)
+            }
     
     async def ask_question_async(self, question, user_phone):
-        """Answer a question using RAG"""
-        raise NotImplementedError("To be implemented") 
+        """
+        Answer a question using RAG
+        
+        Args:
+            question: User's question
+            user_phone: User phone number
+            
+        Returns:
+            Dictionary with answer results
+        """
+        try:
+            print(f"\n=== Answering Question ===")
+            print(f"Question: {question}")
+            print(f"User: {user_phone}")
+            
+            if not self.is_available:
+                return {
+                    'status': 'error',
+                    'error': 'RAG processor not available'
+                }
+            
+            # For now, we return a simple response
+            # In a full implementation, we would:
+            # 1. Retrieve relevant document chunks based on the question
+            # 2. Create a prompt with the question and retrieved chunks
+            # 3. Generate an answer using the language model
+            
+            # Simple direct call to language model
+            prompt = f"Please answer this question: {question}\n\n" + \
+                     "If you don't know the answer, just say so."
+                     
+            response = self.language_model.generate_content(prompt)
+            answer = response.text
+            
+            return {
+                'status': 'success',
+                'answer': answer,
+                'sources': []  # Would include document sources in full implementation
+            }
+                
+        except Exception as e:
+            logger.error(f"Error answering question: {str(e)}")
+            import traceback
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            return {
+                'status': 'error',
+                'error': str(e)
+            } 
