@@ -16,7 +16,6 @@ from .commands.help_command import HelpCommandHandler
 from .commands.list_command import ListCommandHandler
 from .commands.find_command import FindCommandHandler
 from .commands.ask_command import AskCommandHandler
-from .commands.new_document_command import NewDocumentCommandHandler
 from ..whatsapp_constants import WHATSAPP_WELCOME_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -62,9 +61,6 @@ class CommandProcessor:
         
         self.ask_handler = AskCommandHandler(docs_app, message_sender)
         print(f"[DEBUG] Initialized AskCommandHandler: {self.ask_handler}")
-        
-        self.new_document_handler = NewDocumentCommandHandler(docs_app, message_sender)
-        print(f"[DEBUG] Initialized NewDocumentHandler: {self.new_document_handler}")
         
         self.logger = logging.getLogger(__name__)
         
@@ -128,8 +124,14 @@ class CommandProcessor:
                 return await self.ask_handler.handle(from_number, question)
                 
             elif command_intent == "new_document":
-                print(f"[DEBUG] Executing new_document command with {self.new_document_handler}")
-                return await self.new_document_handler.handle(from_number)
+                print(f"[DEBUG] New document command detected but handler not implemented")
+                await self.message_sender.send_message(
+                    from_number,
+                    "Creating new documents is not implemented yet. Please try using 'help' for available commands.",
+                    message_type="info",
+                    bypass_deduplication=True
+                )
+                return "New document command not implemented", 200
                 
             else:
                 # Unknown command intent, send welcome message
