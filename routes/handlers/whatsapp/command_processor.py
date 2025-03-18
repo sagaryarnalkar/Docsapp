@@ -67,6 +67,7 @@ class CommandProcessor:
         try:
             print(f"[DEBUG-INIT] docs_app methods: {dir(docs_app)}")
             print(f"[DEBUG-INIT] docs_app has list_documents: {'list_documents' in dir(docs_app)}")
+            print(f"[DEBUG-INIT] docs_app has get_user_documents: {'get_user_documents' in dir(docs_app)}")
         except Exception as init_err:
             print(f"[DEBUG-INIT] Error inspecting docs_app: {str(init_err)}")
         
@@ -159,6 +160,46 @@ class CommandProcessor:
                 print(f"[DEBUG-CMD] {cmd_trace_id} Processing list command")
                 if self.list_handler is None:
                     print(f"[DEBUG-CMD] {cmd_trace_id} ERROR: list_handler is None!")
+                    # FALLBACK FOR LIST COMMAND
+                    try:
+                        print(f"[DEBUG-CMD] {cmd_trace_id} Attempting direct message for list command fallback")
+                        # Try to get documents directly from docs_app
+                        try:
+                            documents = await self.docs_app.get_user_documents(from_number)
+                            doc_count = len(documents) if documents else 0
+                            print(f"[DEBUG-CMD] {cmd_trace_id} Got {doc_count} documents directly")
+                            
+                            message = "📄 *Your Documents:*\n\n"
+                            if documents:
+                                for i, doc in enumerate(documents, 1):
+                                    doc_name = doc.get('name', 'Unnamed Document')
+                                    doc_type = doc.get('type', 'Unknown Type')
+                                    message += f"{i}. *{doc_name}* ({doc_type})\n"
+                            else:
+                                message = "📂 You don't have any documents stored yet. Send a document to store it."
+                            
+                            # Add timestamp to prevent deduplication
+                            message += f"\n\n_Generated at: {int(time.time())}_"
+                            
+                            # Send directly
+                            await self.message_sender.send_message(
+                                from_number,
+                                message,
+                                message_type="list_fallback",
+                                bypass_deduplication=True
+                            )
+                            return "List command fallback sent", 200
+                        except Exception as direct_docs_err:
+                            print(f"[DEBUG-CMD] {cmd_trace_id} Direct document retrieval failed: {str(direct_docs_err)}")
+                            await self.message_sender.send_message(
+                                from_number,
+                                "❌ Sorry, I couldn't retrieve your documents. Please try again later.",
+                                message_type="error",
+                                bypass_deduplication=True
+                            )
+                    except Exception as fallback_err:
+                        print(f"[DEBUG-CMD] {cmd_trace_id} List fallback failed: {str(fallback_err)}")
+                    
                     return "List handler unavailable", 500
                     
                 # Extra debugging on list_handler
@@ -173,8 +214,20 @@ class CommandProcessor:
                     print(f"[DEBUG-CMD] {cmd_trace_id} Handle method exists: {handle_method}")
                     print(f"[DEBUG-CMD] {cmd_trace_id} Handle method signature: {inspect.signature(handle_method)}")
                     
-                    # Call the handle method
-                    print(f"[DEBUG-CMD] {cmd_trace_id} Calling list_handler.handle({from_number})")
+                    # Try direct message before calling handle
+                    try:
+                        direct_msg = f"🧪 DIRECT DEBUG from command_processor before calling list_handler.handle"
+                        await self.message_sender.send_message(
+                            from_number,
+                            direct_msg,
+                            message_type="list_pre",
+                            bypass_deduplication=True
+                        )
+                    except Exception as pre_msg_err:
+                        print(f"[DEBUG-CMD] {cmd_trace_id} Failed to send pre-handle message: {str(pre_msg_err)}")
+                    
+                    # Call the handle method with proper await
+                    print(f"[DEBUG-CMD] {cmd_trace_id} Awaiting list_handler.handle({from_number})")
                     result = await self.list_handler.handle(from_number)
                     print(f"[DEBUG-CMD] {cmd_trace_id} List command result: {result}")
                     return result
@@ -249,12 +302,12 @@ class CommandProcessor:
             try:
                 error_message = f"❌ Sorry, I couldn't process your command. Please try again or type 'help' for assistance."
                 await self.message_sender.send_message(
-                    from_number,
+                    from_number, 
                     error_message,
                     message_type="error",
                     bypass_deduplication=True
                 )
-            except Exception as send_err:
-                print(f"[DEBUG-CMD] {cmd_trace_id} Error sending error message: {str(send_err)}")
+            except Exception as err_msg_err:
+                print(f"[DEBUG-CMD] {cmd_trace_id} Failed to send error message: {str(err_msg_err)}")
             
-            return "Command processing error", 500 
+            return "Error processing command", 500 
