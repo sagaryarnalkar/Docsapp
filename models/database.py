@@ -210,7 +210,7 @@ try:
     print(f"Existing tables: {existing_tables}")
     
     # Create tables that don't exist
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine, checkfirst=True)
     
     # Verify tables were created
     inspector = inspect(engine)

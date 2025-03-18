@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import io
 import logging
@@ -34,10 +34,10 @@ class DocsApp:
                 location=GOOGLE_CLOUD_LOCATION,
                 credentials_path=GOOGLE_APPLICATION_CREDENTIALS
             )
-            print("✅ RAG processor initialized successfully")
+            print("âœ… RAG processor initialized successfully")
             
         except Exception as e:
-            print(f"❌ Error initializing DocsApp: {str(e)}")
+            print(f"âŒ Error initializing DocsApp: {str(e)}")
             import traceback
             print(f"Traceback:\n{traceback.format_exc()}")
             self.rag_processor = None
@@ -142,7 +142,7 @@ class DocsApp:
             print("Uploading file to Drive...")
             try:
                 # Upload file to Drive with specific permissions
-            file_metadata = {
+                file_metadata = {
                     'name': filename,
                     'parents': [folder_id],
                     'appProperties': {
@@ -157,11 +157,11 @@ class DocsApp:
                 )
                 
                 file = service.files().create(
-                body=file_metadata,
-                media_body=media,
+                    body=file_metadata,
+                    media_body=media,
                     fields='id, mimeType',
                     supportsAllDrives=True
-            ).execute()
+                ).execute()
 
                 print(f"File uploaded to Drive with ID: {file['id']}")
                 print(f"MIME Type: {file.get('mimeType')}")
@@ -173,9 +173,9 @@ class DocsApp:
                         fields='id, name, mimeType',
                         supportsAllDrives=True
                     ).execute()
-                    print(f"✅ File verification successful: {verification.get('name')}")
+                    print(f"âœ… File verification successful: {verification.get('name')}")
                 except Exception as ve:
-                    print(f"❌ File verification failed: {str(ve)}")
+                    print(f"âŒ File verification failed: {str(ve)}")
                     return False
                 
                 # Set file permissions to ensure access
@@ -191,9 +191,9 @@ class DocsApp:
                         fields='id',
                         supportsAllDrives=True
                     ).execute()
-                    print("✅ File permissions set successfully")
+                    print("âœ… File permissions set successfully")
                 except Exception as pe:
-                    print(f"❌ Error setting file permissions: {str(pe)}")
+                    print(f"âŒ Error setting file permissions: {str(pe)}")
                     return False
                 
             except Exception as e:
@@ -281,7 +281,7 @@ class DocsApp:
             
             # Check if RAG processor is initialized
             if self.rag_processor is None:
-                print("❌ RAG processor is not initialized")
+                print("âŒ RAG processor is not initialized")
                 return {
                     "status": "error",
                     "message": "Document Q&A feature is not available at the moment. Please try again later."
@@ -289,7 +289,7 @@ class DocsApp:
             
             # Verify that query_documents method exists
             if not hasattr(self.rag_processor, 'query_documents'):
-                print("❌ RAG processor does not have query_documents method")
+                print("âŒ RAG processor does not have query_documents method")
                 print(f"RAG processor type: {type(self.rag_processor)}")
                 print(f"RAG processor attributes: {dir(self.rag_processor)}")
                 return {
