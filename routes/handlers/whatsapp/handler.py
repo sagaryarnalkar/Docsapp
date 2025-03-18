@@ -18,7 +18,7 @@ from config import (
 )
 from routes.handlers.auth_handler import AuthHandler
 from .message_sender import MessageSender
-from .document_processor import DocumentProcessor, WhatsAppHandlerError
+from .document_processor import WhatsAppDocumentProcessor, WhatsAppHandlerError
 from .command_processor import CommandProcessor
 from .deduplication import DeduplicationManager
 
@@ -91,7 +91,7 @@ class WhatsAppHandler:
         self.command_processor = CommandProcessor(docs_app, self.message_sender)
         
         # Initialize document processor with message sender and deduplication
-        self.document_processor = DocumentProcessor(docs_app, self.message_sender, self.deduplication)
+        self.document_processor = WhatsAppDocumentProcessor(docs_app, self.message_sender, self.deduplication)
         
         # Check if RAG processor is available
         self.rag_processor = docs_app.rag_processor if docs_app else None

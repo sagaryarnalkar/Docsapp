@@ -19,6 +19,7 @@ from models.user_state import UserState
 from models.docs_app import DocsApp
 from routes.handlers import AuthHandler, MediaHandler, DocumentHandler, CommandHandler
 from routes.handlers.whatsapp_handler import WhatsAppHandler, WhatsAppHandlerError
+from routes.api_registration import register_fastapi_routes, register_whatsapp_webhook
 from dotenv import load_dotenv
 import uuid  # Add at top with other imports
 import time
@@ -243,6 +244,10 @@ setup_middleware(app)
 
 # Register debug routes
 register_debug_routes(app)
+
+# After setting up middleware but before defining routes
+register_fastapi_routes(app)
+register_whatsapp_webhook(app)
 
 @app.route("/")
 def home():
