@@ -517,6 +517,20 @@ class WhatsAppHandler:
             from_number: The sender's phone number
             message_text: The message text
         """
+        # SUPER EMERGENCY ERROR CAPTURE - Write errors to a file
+        import os
+        error_log_path = os.path.join(os.getcwd(), 'whatsapp_error.log')
+        
+        def write_emergency_log(message):
+            """Write a message to the emergency log file"""
+            try:
+                with open(error_log_path, 'a') as f:
+                    f.write(f"{time.time()}: {message}\n")
+            except Exception as log_err:
+                print(f"Failed to write to emergency log: {str(log_err)}")
+        
+        write_emergency_log(f"STARTING _process_text_command_async with {from_number}, message: {message_text}")
+        
         try:
             # Generate a unique ID for this command processing
             command_id = f"{int(time.time())}-{hash(message_text) % 10000:04d}"
@@ -549,18 +563,29 @@ class WhatsAppHandler:
             # 🚨🚨🚨 EMERGENCY DIRECT HANDLING FOR LIST COMMAND 🚨🚨🚨
             is_list_command = message_text.strip().lower() == 'list'
             if is_list_command:
+                write_emergency_log("Entering emergency List command handler")
                 print(f"🔹 [LATEST-DEBUG] ⚠️ EMERGENCY DIRECT HANDLING FOR LIST COMMAND ⚠️")
                 try:
                     # Get WhatsApp API credentials from the message_sender
-                    phone_number_id = self.message_sender.phone_number_id
-                    access_token = self.message_sender.access_token
-                    api_version = self.message_sender.api_version
-                    
-                    print(f"🔹 [LATEST-DEBUG] API credentials - Version: {api_version}, Phone ID: {phone_number_id}")
-                    print(f"🔹 [LATEST-DEBUG] Token length: {len(access_token) if access_token else 'None'}")
+                    write_emergency_log("Getting API credentials")
+                    try:
+                        phone_number_id = self.message_sender.phone_number_id
+                        access_token = self.message_sender.access_token
+                        api_version = self.message_sender.api_version
+                        
+                        write_emergency_log(f"Got credentials: API v{api_version}, Phone ID: {phone_number_id}, Token length: {len(access_token) if access_token else 'None'}")
+                        print(f"🔹 [LATEST-DEBUG] API credentials - Version: {api_version}, Phone ID: {phone_number_id}")
+                        print(f"🔹 [LATEST-DEBUG] Token length: {len(access_token) if access_token else 'None'}")
+                    except Exception as cred_err:
+                        error_msg = f"Error getting API credentials: {str(cred_err)}"
+                        write_emergency_log(error_msg)
+                        print(f"🔹 [LATEST-DEBUG] {error_msg}")
+                        import traceback
+                        write_emergency_log(f"Credential error traceback: {traceback.format_exc()}")
                     
                     # Try to send a direct message first - bypass all message_sender logic
                     try:
+                        write_emergency_log("Attempting super direct message")
                         print(f"🔹 [LATEST-DEBUG] SUPER DIRECT MESSAGE - List Command detected")
                         
                         # Direct API call with minimal dependencies
@@ -585,6 +610,9 @@ class WhatsAppHandler:
                             "text": {"body": direct_debug_msg}
                         }
                         
+                        write_emergency_log(f"Sending API request to {api_url}")
+                        write_emergency_log(f"Payload: {json.dumps(payload)}")
+                        
                         async with aiohttp.ClientSession() as session:
                             print(f"🔹 [LATEST-DEBUG] Sending direct WhatsApp API request")
                             print(f"🔹 [LATEST-DEBUG] API URL: {api_url}")
@@ -595,54 +623,101 @@ class WhatsAppHandler:
                                 async with session.post(api_url, json=payload, headers=headers) as response:
                                     status = response.status
                                     resp_text = await response.text()
+                                    write_emergency_log(f"API response status: {status}, response: {resp_text}")
                                     print(f"🔹 [LATEST-DEBUG] Direct API response status: {status}")
                                     print(f"🔹 [LATEST-DEBUG] Direct API response: {resp_text}")
                             except Exception as req_err:
-                                print(f"🔹 [LATEST-DEBUG] Direct API request error: {str(req_err)}")
+                                error_msg = f"Direct API request error: {str(req_err)}"
+                                write_emergency_log(error_msg)
+                                write_emergency_log(f"Request error traceback: {traceback.format_exc()}")
+                                print(f"🔹 [LATEST-DEBUG] {error_msg}")
                     except Exception as super_direct_err:
-                        print(f"🔹 [LATEST-DEBUG] Super direct message failed: {str(super_direct_err)}")
+                        error_msg = f"Super direct message failed: {str(super_direct_err)}"
+                        write_emergency_log(error_msg)
+                        write_emergency_log(f"Super direct traceback: {traceback.format_exc()}")
+                        print(f"🔹 [LATEST-DEBUG] {error_msg}")
                         print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
                     
                     # Now try to get documents directly
                     try:
+                        write_emergency_log("Attempting to get documents directly")
                         print(f"🔹 [LATEST-DEBUG] Calling docs_app.get_user_documents directly (SYNC)")
                         
                         # IMPORTANT CHANGE: get_user_documents might need to be called synchronously
                         documents = None
                         error_msg = None
                         
+                        write_emergency_log(f"docs_app: {self.docs_app}, type: {type(self.docs_app) if self.docs_app else 'None'}")
+                        if hasattr(self.docs_app, 'get_user_documents'):
+                            write_emergency_log("docs_app has get_user_documents method")
+                        else:
+                            write_emergency_log("ERROR: docs_app does not have get_user_documents method")
+                            
                         try:
                             # Try synchronous call first
+                            write_emergency_log(f"Attempting synchronous get_user_documents({from_number})")
                             documents = self.docs_app.get_user_documents(from_number)
+                            write_emergency_log("Sync call succeeded")
                             print(f"🔹 [LATEST-DEBUG] Sync call succeeded")
                         except AttributeError as attr_err:
-                            print(f"🔹 [LATEST-DEBUG] AttributeError in sync call: {str(attr_err)}")
-                            error_msg = f"AttributeError: {str(attr_err)}"
+                            error_msg = f"AttributeError in sync call: {str(attr_err)}"
+                            write_emergency_log(error_msg)
+                            write_emergency_log(f"AttributeError traceback: {traceback.format_exc()}")
+                            print(f"🔹 [LATEST-DEBUG] {error_msg}")
                         except TypeError as type_err:
-                            print(f"🔹 [LATEST-DEBUG] TypeError in sync call: {str(type_err)}")
-                            error_msg = f"TypeError: {str(type_err)}"
+                            error_msg = f"TypeError in sync call: {str(type_err)}"
+                            write_emergency_log(error_msg)
+                            write_emergency_log(f"TypeError traceback: {traceback.format_exc()}")
+                            print(f"🔹 [LATEST-DEBUG] {error_msg}")
                         except Exception as sync_err:
-                            print(f"🔹 [LATEST-DEBUG] Sync get_user_documents failed: {str(sync_err)}")
+                            error_msg = f"Sync get_user_documents failed: {str(sync_err)}"
+                            write_emergency_log(error_msg)
+                            write_emergency_log(f"Sync error traceback: {traceback.format_exc()}")
+                            print(f"🔹 [LATEST-DEBUG] {error_msg}")
                             print(f"🔹 [LATEST-DEBUG] Trying async call...")
                             error_msg = f"SyncError: {str(sync_err)}"
                             
                             # Fallback to async call
                             try:
-                                documents = await self.docs_app.get_user_documents(from_number)
+                                write_emergency_log(f"Attempting async get_user_documents({from_number})")
+                                
+                                # Special handling for possibly coroutine functions
+                                try:
+                                    result = self.docs_app.get_user_documents(from_number)
+                                    if asyncio.iscoroutine(result):
+                                        write_emergency_log("Result is a coroutine, awaiting it")
+                                        documents = await result
+                                    else:
+                                        write_emergency_log("Result is not a coroutine")
+                                        documents = result
+                                except Exception as special_err:
+                                    write_emergency_log(f"Special coroutine handling failed: {str(special_err)}")
+                                    write_emergency_log(f"Special error traceback: {traceback.format_exc()}")
+                                    
+                                    # Try standard await
+                                    write_emergency_log("Falling back to standard await")
+                                    documents = await self.docs_app.get_user_documents(from_number)
+                                
+                                write_emergency_log("Async call succeeded")
                                 print(f"🔹 [LATEST-DEBUG] Async call succeeded")
                                 error_msg = None  # Clear error message on success
                             except Exception as async_err:
-                                print(f"🔹 [LATEST-DEBUG] Async get_user_documents also failed: {str(async_err)}")
+                                error_msg = f"Async get_user_documents also failed: {str(async_err)}"
+                                write_emergency_log(error_msg)
+                                write_emergency_log(f"Async error traceback: {traceback.format_exc()}")
+                                print(f"🔹 [LATEST-DEBUG] {error_msg}")
                                 print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
                                 error_msg = f"AsyncError: {str(async_err)}"
                         
                         # If we couldn't get documents at all, send error message
                         if documents is None:
+                            write_emergency_log(f"Failed to get documents: {error_msg}")
                             print(f"🔹 [LATEST-DEBUG] Failed to get documents: {error_msg}")
                             docs_error_msg = f"🧪 DEBUG: Failed to get documents. Error: {error_msg if error_msg else 'Unknown'}"
                             
                             # Try direct message
                             try:
+                                write_emergency_log(f"Sending error message: {docs_error_msg}")
                                 await self.message_sender.send_message(
                                     from_number,
                                     docs_error_msg,
@@ -650,9 +725,13 @@ class WhatsAppHandler:
                                     bypass_deduplication=True
                                 )
                             except Exception as err_msg_err:
-                                print(f"🔹 [LATEST-DEBUG] Failed to send error message: {str(err_msg_err)}")
+                                error_msg = f"Failed to send error message: {str(err_msg_err)}"
+                                write_emergency_log(error_msg)
+                                write_emergency_log(f"Error message error traceback: {traceback.format_exc()}")
+                                print(f"🔹 [LATEST-DEBUG] {error_msg}")
                         else:
                             doc_count = len(documents) if documents else 0
+                            write_emergency_log(f"Got {doc_count} documents directly: {documents}")
                             print(f"🔹 [LATEST-DEBUG] Got {doc_count} documents directly: {documents}")
                             
                             message = f"📄 *Your Documents (Emergency Mode):*\n\n"
@@ -664,7 +743,9 @@ class WhatsAppHandler:
                                         doc_id = doc.get('id', 'unknown')
                                         message += f"{i}. *{doc_name}*\n   Type: {doc_type}\n   ID: {doc_id}\n\n"
                                     except Exception as format_err:
-                                        print(f"🔹 [LATEST-DEBUG] Error formatting document {i}: {str(format_err)}")
+                                        error_msg = f"Error formatting document {i}: {str(format_err)}"
+                                        write_emergency_log(error_msg)
+                                        print(f"🔹 [LATEST-DEBUG] {error_msg}")
                                         message += f"{i}. Error formatting document\n\n"
                             else:
                                 message = "📂 You don't have any documents stored yet. Send a document to store it."
@@ -675,6 +756,7 @@ class WhatsAppHandler:
                             
                             # Send through message_sender (more reliable than direct API)
                             try:
+                                write_emergency_log(f"Sending document list through message_sender: {message[:100]}...")
                                 print(f"🔹 [LATEST-DEBUG] Sending message through message_sender")
                                 send_result = await self.message_sender.send_message(
                                     from_number,
@@ -682,13 +764,18 @@ class WhatsAppHandler:
                                     message_type="list_emergency_result",
                                     bypass_deduplication=True
                                 )
+                                write_emergency_log(f"Message sent result: {send_result}")
                                 print(f"🔹 [LATEST-DEBUG] Message sent result: {send_result}")
                             except Exception as send_err:
-                                print(f"🔹 [LATEST-DEBUG] Error sending through message_sender: {str(send_err)}")
+                                error_msg = f"Error sending through message_sender: {str(send_err)}"
+                                write_emergency_log(error_msg)
+                                write_emergency_log(f"Message send error traceback: {traceback.format_exc()}")
+                                print(f"🔹 [LATEST-DEBUG] {error_msg}")
                                 print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
                                 
                                 # Try fallback direct API call
                                 try:
+                                    write_emergency_log("Attempting fallback direct API call")
                                     api_url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
                                     headers = {
                                         "Authorization": f"Bearer {access_token}",
@@ -704,20 +791,29 @@ class WhatsAppHandler:
                                     }
                                     
                                     async with aiohttp.ClientSession() as session:
+                                        write_emergency_log("Sending document list via direct API call")
                                         print(f"🔹 [LATEST-DEBUG] Sending document list via direct API call")
                                         async with session.post(api_url, json=payload, headers=headers) as response:
                                             status = response.status
                                             resp_text = await response.text()
+                                            write_emergency_log(f"Document list API response status: {status}, response: {resp_text}")
                                             print(f"🔹 [LATEST-DEBUG] Document list API response status: {status}")
                                             print(f"🔹 [LATEST-DEBUG] Document list API response: {resp_text}")
                                 except Exception as direct_api_err:
-                                    print(f"🔹 [LATEST-DEBUG] Document list API error: {str(direct_api_err)}")
+                                    error_msg = f"Document list API error: {str(direct_api_err)}"
+                                    write_emergency_log(error_msg)
+                                    write_emergency_log(f"Direct API error traceback: {traceback.format_exc()}")
+                                    print(f"🔹 [LATEST-DEBUG] {error_msg}")
                                     print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
                         
                         # Try to continue with normal command processing
+                        write_emergency_log("Emergency handling completed, continuing with normal command processing")
                         print(f"🔹 [LATEST-DEBUG] Continuing with normal command processing...")
                     except Exception as direct_docs_err:
-                        print(f"🔹 [LATEST-DEBUG] Emergency document retrieval failed: {str(direct_docs_err)}")
+                        error_msg = f"Emergency document retrieval failed: {str(direct_docs_err)}"
+                        write_emergency_log(error_msg)
+                        write_emergency_log(f"Document retrieval error traceback: {traceback.format_exc()}")
+                        print(f"🔹 [LATEST-DEBUG] {error_msg}")
                         print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
                         
                         # Send error message
@@ -726,6 +822,7 @@ class WhatsAppHandler:
                             timestamp = int(time.time())
                             error_msg += f"\n\nTimestamp: {timestamp}"
                             
+                            write_emergency_log(f"Sending final error message: {error_msg}")
                             await self.message_sender.send_message(
                                 from_number,
                                 error_msg,
@@ -733,12 +830,32 @@ class WhatsAppHandler:
                                 bypass_deduplication=True
                             )
                         except Exception as error_send_err:
-                            print(f"🔹 [LATEST-DEBUG] Error message send failed: {str(error_send_err)}")
+                            error_msg = f"Error message send failed: {str(error_send_err)}"
+                            write_emergency_log(error_msg)
+                            write_emergency_log(f"Error send traceback: {traceback.format_exc()}")
+                            print(f"🔹 [LATEST-DEBUG] {error_msg}")
                 except Exception as emergency_err:
-                    print(f"🔹 [LATEST-DEBUG] Emergency handler failed: {str(emergency_err)}")
+                    error_msg = f"Emergency handler failed: {str(emergency_err)}"
+                    write_emergency_log(error_msg)
+                    write_emergency_log(f"Emergency handler traceback: {traceback.format_exc()}")
+                    print(f"🔹 [LATEST-DEBUG] {error_msg}")
                     print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
+                    
+                    # Last resort direct error
+                    try:
+                        super_error = f"🚨 CRITICAL ERROR in emergency handler: {str(emergency_err)[:100]}"
+                        write_emergency_log(f"Sending super error: {super_error}")
+                        await self.message_sender.send_message(
+                            from_number,
+                            super_error,
+                            message_type="critical_error",
+                            bypass_deduplication=True
+                        )
+                    except:
+                        write_emergency_log("Failed to send critical error")
             
             try:
+                write_emergency_log("Proceeding with normal command processor")
                 print(f"🔹 [LATEST-DEBUG] Calling command_processor.handle_command({from_number}, {message_text})")
                 result_future = self.command_processor.handle_command(from_number, message_text)
                 if not asyncio.iscoroutine(result_future):
@@ -786,9 +903,12 @@ class WhatsAppHandler:
                 except Exception as send_err:
                     print(f"🔹 [LATEST-DEBUG] Error sending error message: {str(send_err)}")
         except Exception as e:
-            logger.error(f"Error in async text command processing: {str(e)}")
+            error_msg = f"Error in async text command processing: {str(e)}"
+            write_emergency_log(error_msg)
             import traceback
             error_trace = traceback.format_exc()
+            write_emergency_log(f"Final error traceback: {error_trace}")
+            logger.error(error_msg)
             logger.error(f"Traceback: {error_trace}")
             print(f"🔹 [LATEST-DEBUG] Command processing error: {str(e)}")
             print(f"🔹 [LATEST-DEBUG] Traceback: {error_trace}")
