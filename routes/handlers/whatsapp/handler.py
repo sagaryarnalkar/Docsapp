@@ -536,6 +536,7 @@ class WhatsAppHandler:
                 try:
                     print(f"🔹 [LATEST-DEBUG] docs_app methods: {dir(self.docs_app)}")
                     print(f"🔹 [LATEST-DEBUG] Has list_documents: {'list_documents' in dir(self.docs_app)}")
+                    print(f"🔹 [LATEST-DEBUG] Has get_user_documents: {'get_user_documents' in dir(self.docs_app)}")
                 except Exception as docs_err:
                     print(f"🔹 [LATEST-DEBUG] Error inspecting docs_app: {str(docs_err)}")
             else:
@@ -550,19 +551,65 @@ class WhatsAppHandler:
             if is_list_command:
                 print(f"🔹 [LATEST-DEBUG] ⚠️ EMERGENCY DIRECT HANDLING FOR LIST COMMAND ⚠️")
                 try:
-                    # Try to send a direct message first
-                    direct_debug_msg = f"🧪 EMERGENCY: Detected 'List' command, trying direct processing"
-                    await self.message_sender.send_message(
-                        from_number,
-                        direct_debug_msg,
-                        message_type="list_emergency",
-                        bypass_deduplication=True
-                    )
+                    # Try to send a direct message first - bypass all message_sender logic
+                    try:
+                        print(f"🔹 [LATEST-DEBUG] SUPER DIRECT MESSAGE - List Command detected")
+                        
+                        # Direct API call with minimal dependencies
+                        import aiohttp
+                        import json
+                        
+                        api_url = f"https://graph.facebook.com/v17.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+                        headers = {
+                            "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+                            "Content-Type": "application/json"
+                        }
+                        
+                        # Make message unique with timestamp
+                        timestamp = int(time.time())
+                        direct_debug_msg = f"🧪 SUPER DIRECT: Detected 'List' command at {timestamp}"
+                        
+                        payload = {
+                            "messaging_product": "whatsapp",
+                            "recipient_type": "individual",
+                            "to": from_number,
+                            "type": "text",
+                            "text": {"body": direct_debug_msg}
+                        }
+                        
+                        async with aiohttp.ClientSession() as session:
+                            print(f"🔹 [LATEST-DEBUG] Sending direct WhatsApp API request")
+                            print(f"🔹 [LATEST-DEBUG] API URL: {api_url}")
+                            print(f"🔹 [LATEST-DEBUG] Payload: {json.dumps(payload)}")
+                            print(f"🔹 [LATEST-DEBUG] Headers: Authorization: Bearer {WHATSAPP_ACCESS_TOKEN[:5]}...{WHATSAPP_ACCESS_TOKEN[-5:]}")
+                            
+                            try:
+                                async with session.post(api_url, json=payload, headers=headers) as response:
+                                    status = response.status
+                                    resp_text = await response.text()
+                                    print(f"🔹 [LATEST-DEBUG] Direct API response status: {status}")
+                                    print(f"🔹 [LATEST-DEBUG] Direct API response: {resp_text}")
+                            except Exception as req_err:
+                                print(f"🔹 [LATEST-DEBUG] Direct API request error: {str(req_err)}")
+                    except Exception as super_direct_err:
+                        print(f"🔹 [LATEST-DEBUG] Super direct message failed: {str(super_direct_err)}")
                     
                     # Now try to get documents directly
                     try:
-                        print(f"🔹 [LATEST-DEBUG] Calling docs_app.get_user_documents directly")
-                        documents = await self.docs_app.get_user_documents(from_number)
+                        print(f"🔹 [LATEST-DEBUG] Calling docs_app.get_user_documents directly (SYNC)")
+                        
+                        # IMPORTANT CHANGE: get_user_documents might need to be called synchronously
+                        try:
+                            # Try synchronous call first
+                            documents = self.docs_app.get_user_documents(from_number)
+                            print(f"🔹 [LATEST-DEBUG] Sync call succeeded")
+                        except Exception as sync_err:
+                            print(f"🔹 [LATEST-DEBUG] Sync get_user_documents failed: {str(sync_err)}")
+                            print(f"🔹 [LATEST-DEBUG] Trying async call...")
+                            # Fallback to async call
+                            documents = await self.docs_app.get_user_documents(from_number)
+                            print(f"🔹 [LATEST-DEBUG] Async call succeeded")
+                        
                         doc_count = len(documents) if documents else 0
                         print(f"🔹 [LATEST-DEBUG] Got {doc_count} documents directly: {documents}")
                         
@@ -584,14 +631,43 @@ class WhatsAppHandler:
                         timestamp = int(time.time())
                         message += f"\n\n_Emergency List generated at: {timestamp}_"
                         
-                        # Send directly
-                        send_result = await self.message_sender.send_message(
-                            from_number,
-                            message,
-                            message_type="list_emergency_result",
-                            bypass_deduplication=True
-                        )
-                        print(f"🔹 [LATEST-DEBUG] Emergency list result sent: {send_result}")
+                        # Send message through direct API call
+                        try:
+                            import aiohttp
+                            import json
+                            
+                            api_url = f"https://graph.facebook.com/v17.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+                            headers = {
+                                "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+                                "Content-Type": "application/json"
+                            }
+                            
+                            payload = {
+                                "messaging_product": "whatsapp",
+                                "recipient_type": "individual",
+                                "to": from_number,
+                                "type": "text",
+                                "text": {"body": message}
+                            }
+                            
+                            async with aiohttp.ClientSession() as session:
+                                print(f"🔹 [LATEST-DEBUG] Sending document list via direct API call")
+                                async with session.post(api_url, json=payload, headers=headers) as response:
+                                    status = response.status
+                                    resp_text = await response.text()
+                                    print(f"🔹 [LATEST-DEBUG] Document list API response status: {status}")
+                                    print(f"🔹 [LATEST-DEBUG] Document list API response: {resp_text}")
+                        except Exception as direct_api_err:
+                            print(f"🔹 [LATEST-DEBUG] Document list API error: {str(direct_api_err)}")
+                            
+                            # Last resort - try using message_sender
+                            send_result = await self.message_sender.send_message(
+                                from_number,
+                                message,
+                                message_type="list_emergency_result",
+                                bypass_deduplication=True
+                            )
+                            print(f"🔹 [LATEST-DEBUG] Emergency list result sent through message_sender: {send_result}")
                         
                         # Try to continue with normal command processing
                         print(f"🔹 [LATEST-DEBUG] Continuing with normal command processing...")
@@ -599,13 +675,35 @@ class WhatsAppHandler:
                         print(f"🔹 [LATEST-DEBUG] Emergency document retrieval failed: {str(direct_docs_err)}")
                         print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
                         
-                        # Send error message
-                        await self.message_sender.send_message(
-                            from_number,
-                            f"❌ Emergency handler couldn't retrieve your documents. Error: {str(direct_docs_err)[:50]}...",
-                            message_type="emergency_error",
-                            bypass_deduplication=True
-                        )
+                        # Send error message through direct API
+                        try:
+                            import aiohttp
+                            
+                            api_url = f"https://graph.facebook.com/v17.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+                            headers = {
+                                "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+                                "Content-Type": "application/json"
+                            }
+                            
+                            error_msg = f"❌ Emergency handler couldn't retrieve your documents. Error: {str(direct_docs_err)[:50]}..."
+                            timestamp = int(time.time())
+                            error_msg += f"\n\nTimestamp: {timestamp}"
+                            
+                            payload = {
+                                "messaging_product": "whatsapp",
+                                "recipient_type": "individual",
+                                "to": from_number,
+                                "type": "text",
+                                "text": {"body": error_msg}
+                            }
+                            
+                            async with aiohttp.ClientSession() as session:
+                                async with session.post(api_url, json=payload, headers=headers) as response:
+                                    status = response.status
+                                    resp_text = await response.text()
+                                    print(f"🔹 [LATEST-DEBUG] Error message API response status: {status}")
+                        except Exception as error_api_err:
+                            print(f"🔹 [LATEST-DEBUG] Error message API error: {str(error_api_err)}")
                 except Exception as emergency_err:
                     print(f"🔹 [LATEST-DEBUG] Emergency handler failed: {str(emergency_err)}")
                     print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
