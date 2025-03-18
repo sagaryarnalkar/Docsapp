@@ -674,5 +674,70 @@ def test_redis():
             "traceback": traceback.format_exc()
         }, 500
 
+@app.route("/direct-whatsapp-test")
+def direct_whatsapp_test():
+    """
+    Direct test endpoint for WhatsApp messaging
+    """
+    from flask import jsonify
+    import traceback
+    import asyncio
+    
+    test_time = int(time.time())
+    test_phone = "919823623966"  # Hardcoded test number for Sagar
+    
+    try:
+        # Run the async code in a synchronous context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        async def test_message():
+            # Create a test message
+            test_message = f"🧪 DIRECT TEST MESSAGE from Flask endpoint. Time: {test_time}"
+            
+            # Log diagnostic info
+            log_debug(f"[DIRECT-TEST] Starting test with number: {test_phone}")
+            log_debug(f"[DIRECT-TEST] WhatsApp handler exists: {whatsapp_handler is not None}")
+            log_debug(f"[DIRECT-TEST] Message sender exists: {whatsapp_handler.message_sender is not None}")
+            
+            if not whatsapp_handler.message_sender:
+                return {"status": "error", "message": "Message sender is None"}
+            
+            # Try to send the message
+            result = await whatsapp_handler.message_sender.send_message(
+                test_phone,
+                test_message,
+                message_type="flask_direct_test",
+                bypass_deduplication=True
+            )
+            
+            log_debug(f"[DIRECT-TEST] Message send result: {result}")
+            
+            return {
+                "status": "success" if result else "failed",
+                "send_result": result,
+                "message": "Direct test message sent successfully" if result else "Failed to send direct test message",
+                "timestamp": test_time,
+                "to": test_phone
+            }
+        
+        # Run the async function in the event loop
+        result = loop.run_until_complete(test_message())
+        loop.close()
+        
+        return jsonify(result)
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        log_debug(f"[DIRECT-TEST] Error: {str(e)}")
+        log_debug(f"[DIRECT-TEST] Trace: {error_trace}")
+        
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "trace": error_trace,
+            "timestamp": test_time,
+            "to": test_phone
+        })
+
 if __name__ == "__main__":
     app.run(debug=True)
