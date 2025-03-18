@@ -544,6 +544,71 @@ class WhatsAppHandler:
             # Add a small delay to ensure the 200 response has been sent back to WhatsApp
             # This helps prevent race conditions where the response is sent before the 200 acknowledgment
             await asyncio.sleep(0.5)
+
+            # 🚨🚨🚨 EMERGENCY DIRECT HANDLING FOR LIST COMMAND 🚨🚨🚨
+            is_list_command = message_text.strip().lower() == 'list'
+            if is_list_command:
+                print(f"🔹 [LATEST-DEBUG] ⚠️ EMERGENCY DIRECT HANDLING FOR LIST COMMAND ⚠️")
+                try:
+                    # Try to send a direct message first
+                    direct_debug_msg = f"🧪 EMERGENCY: Detected 'List' command, trying direct processing"
+                    await self.message_sender.send_message(
+                        from_number,
+                        direct_debug_msg,
+                        message_type="list_emergency",
+                        bypass_deduplication=True
+                    )
+                    
+                    # Now try to get documents directly
+                    try:
+                        print(f"🔹 [LATEST-DEBUG] Calling docs_app.get_user_documents directly")
+                        documents = await self.docs_app.get_user_documents(from_number)
+                        doc_count = len(documents) if documents else 0
+                        print(f"🔹 [LATEST-DEBUG] Got {doc_count} documents directly: {documents}")
+                        
+                        message = f"📄 *Your Documents (Emergency Mode):*\n\n"
+                        if documents and doc_count > 0:
+                            for i, doc in enumerate(documents, 1):
+                                try:
+                                    doc_name = doc.get('name', 'Unnamed Document')
+                                    doc_type = doc.get('type', 'Unknown Type')
+                                    doc_id = doc.get('id', 'unknown')
+                                    message += f"{i}. *{doc_name}*\n   Type: {doc_type}\n   ID: {doc_id}\n\n"
+                                except Exception as format_err:
+                                    print(f"🔹 [LATEST-DEBUG] Error formatting document {i}: {str(format_err)}")
+                                    message += f"{i}. Error formatting document\n\n"
+                        else:
+                            message = "📂 You don't have any documents stored yet. Send a document to store it."
+                        
+                        # Add timestamp to prevent deduplication
+                        timestamp = int(time.time())
+                        message += f"\n\n_Emergency List generated at: {timestamp}_"
+                        
+                        # Send directly
+                        send_result = await self.message_sender.send_message(
+                            from_number,
+                            message,
+                            message_type="list_emergency_result",
+                            bypass_deduplication=True
+                        )
+                        print(f"🔹 [LATEST-DEBUG] Emergency list result sent: {send_result}")
+                        
+                        # Try to continue with normal command processing
+                        print(f"🔹 [LATEST-DEBUG] Continuing with normal command processing...")
+                    except Exception as direct_docs_err:
+                        print(f"🔹 [LATEST-DEBUG] Emergency document retrieval failed: {str(direct_docs_err)}")
+                        print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
+                        
+                        # Send error message
+                        await self.message_sender.send_message(
+                            from_number,
+                            f"❌ Emergency handler couldn't retrieve your documents. Error: {str(direct_docs_err)[:50]}...",
+                            message_type="emergency_error",
+                            bypass_deduplication=True
+                        )
+                except Exception as emergency_err:
+                    print(f"🔹 [LATEST-DEBUG] Emergency handler failed: {str(emergency_err)}")
+                    print(f"🔹 [LATEST-DEBUG] Traceback: {traceback.format_exc()}")
             
             try:
                 print(f"🔹 [LATEST-DEBUG] Calling command_processor.handle_command({from_number}, {message_text})")
