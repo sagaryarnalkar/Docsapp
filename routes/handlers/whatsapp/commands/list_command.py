@@ -44,7 +44,7 @@ class ListCommandHandler(BaseCommandHandler):
         print(f"==================================================")
         
         try:
-            print(f"[DEBUG] {command_id} - Starting docs_app.list_documents")
+            print(f"[DEBUG] {command_id} - Starting docs_app.get_user_documents")
             print(f"[DEBUG] {command_id} - docs_app methods: {dir(self.docs_app)}")
             
             # Try to print some information about the docs_app object
@@ -56,21 +56,21 @@ class ListCommandHandler(BaseCommandHandler):
             # Safely attempt to get documents, with very detailed error handling
             documents = []
             try:
-                print(f"[DEBUG] {command_id} - About to call docs_app.list_documents({from_number})")
-                documents = self.docs_app.list_documents(from_number)
+                print(f"[DEBUG] {command_id} - About to call docs_app.get_user_documents({from_number})")
+                documents = self.docs_app.get_user_documents(from_number)
                 print(f"[DEBUG] {command_id} - Retrieved documents: {documents}")
                 print(f"[DEBUG] {command_id} - Document count: {len(documents)}")
                 print(f"[DEBUG] {command_id} - Document types: {[type(doc) for doc in documents]}")
             except AttributeError as attr_err:
-                print(f"[DEBUG] {command_id} - AttributeError calling list_documents: {str(attr_err)}")
+                print(f"[DEBUG] {command_id} - AttributeError calling get_user_documents: {str(attr_err)}")
                 print(f"[DEBUG] {command_id} - AttributeError traceback: {traceback.format_exc()}")
                 documents = []
             except TypeError as type_err:
-                print(f"[DEBUG] {command_id} - TypeError calling list_documents: {str(type_err)}")
+                print(f"[DEBUG] {command_id} - TypeError calling get_user_documents: {str(type_err)}")
                 print(f"[DEBUG] {command_id} - TypeError traceback: {traceback.format_exc()}")
                 documents = []
             except Exception as doc_err:
-                print(f"[DEBUG] {command_id} - General exception calling list_documents: {str(doc_err)}")
+                print(f"[DEBUG] {command_id} - General exception calling get_user_documents: {str(doc_err)}")
                 print(f"[DEBUG] {command_id} - Exception traceback: {traceback.format_exc()}")
                 documents = []
             
