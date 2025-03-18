@@ -16,7 +16,7 @@ from .commands.help_command import HelpCommandHandler
 from .commands.list_command import ListCommandHandler
 from .commands.find_command import FindCommandHandler
 from .commands.ask_command import AskCommandHandler
-from ..whatsapp_constants import WHATSAPP_WELCOME_MESSAGE
+from ...whatsapp_constants import WHATSAPP_WELCOME_MESSAGE
 
 logger = logging.getLogger(__name__)
 
