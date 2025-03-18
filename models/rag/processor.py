@@ -137,9 +137,9 @@ class RAGProcessor:
             
             print("Initializing Gemini model...")
             try:
-                print("Attempting to initialize model: gemini-1.0-pro")
-                self.language_model = GenerativeModel("gemini-1.0-pro")
-                print("✅ Successfully initialized gemini-1.0-pro model")
+                print("Attempting to initialize model: gemini-pro")
+                self.language_model = GenerativeModel("gemini-pro")
+                print("✅ Successfully initialized gemini-pro model")
             except Exception as model_error:
                 logger.error(f"Error initializing Gemini model: {str(model_error)}")
                 raise RAGProcessorError(f"Failed to initialize language model: {str(model_error)}")
