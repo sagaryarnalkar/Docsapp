@@ -18,7 +18,6 @@ class IntentDetector:
     LIST_PHRASES = ["list", "documents", "files", "show", "view", "show documents", "view documents"]
     FIND_PHRASES = ["find", "search", "locate", "get"]
     ASK_PHRASES = ["ask", "question", "tell me", "explain", "summarize", "how", "what", "why", "when", "where", "who", "which", "is", "are", "can", "do", "does", "will", "should"]
-    NEW_DOCUMENT_PHRASES = ["new", "new document", "start over", "reset", "clear"]
     
     def detect_intent(self, text):
         """
@@ -43,10 +42,6 @@ class IntentDetector:
         if text in self.LIST_PHRASES:
             print(f"[DEBUG] Exact match found for 'list' command: '{text}'")
             return "list"
-            
-        if text in self.NEW_DOCUMENT_PHRASES:
-            print(f"[DEBUG] Exact match found for 'new_document' command: '{text}'")
-            return "new_document"
             
         # Check for prefix matches (e.g., "find document about...")
         for prefix in self.FIND_PHRASES:
@@ -75,10 +70,6 @@ class IntentDetector:
         if any(phrase in text for phrase in self.ASK_PHRASES):
             print(f"[DEBUG] Natural language match for 'ask' command: '{text}'")
             return "ask"
-            
-        if any(phrase in text for phrase in self.NEW_DOCUMENT_PHRASES):
-            print(f"[DEBUG] Natural language match for 'new_document' command: '{text}'")
-            return "new_document"
             
         # No intent detected
         print(f"[DEBUG] No intent detected for: '{text}'")
