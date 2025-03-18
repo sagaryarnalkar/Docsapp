@@ -58,7 +58,36 @@ Required environment variables:
 
 - `app.py`: Main application file
 - `models/`: Database models and business logic
+  - `docs_app.py`: Main document handling logic
+  - `rag/`: Retrieval-augmented generation components
+  - `auth/`: Authentication components
 - `routes/`: API routes and handlers
+  - `handlers/`: Message handling components
+    - `whatsapp/`: WhatsApp-specific handlers
+      - `document/`: Document processing modules
+      - `commands/`: Command processing modules
 - `utils/`: Utility functions
 - `config.py`: Application configuration
 - `.env`: Environment variables 
+
+## Architecture
+
+### WhatsApp Document Processing
+
+The WhatsApp document processing system uses a modular architecture:
+
+```
+WhatsAppHandler
+      |
+      ↓
+WhatsAppDocumentProcessor (compatibility layer)
+      |
+      ↓
+DocumentProcessor (core processing logic)
+     / \
+    /   \
+   ↓     ↓
+DocumentDownloader   DocumentTracker
+```
+
+For more details, see [WhatsApp Document Processing README](routes/handlers/whatsapp/document/README.md). 
