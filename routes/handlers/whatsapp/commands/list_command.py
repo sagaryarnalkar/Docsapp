@@ -116,99 +116,144 @@ class ListCommandHandler(BaseCommandHandler):
             file_log(f"Traceback: {traceback.format_exc()}")
             return f"Error creating message: {str(e)}", 500
         
-        # Step 4: Try to send message
-        extreme_debug("STEP 4: Attempting to send message")
-        print(f"❗❗❗ STEP 4: Attempting to send message ❗❗❗")
-        file_log("STEP 4: Attempting to send message")
+        # Step 4: Try to send message using DIRECT URLLIB - NO ASYNC
+        print(f"❗❗❗ STEP 4: USING DIRECT URLLIB INSTEAD OF ASYNC ❗❗❗")
+        file_log("STEP 4: USING DIRECT URLLIB INSTEAD OF ASYNC")
+        
         try:
-            extreme_debug("About to call send_message")
-            print(f"❗❗❗ About to call send_message ❗❗❗")
-            file_log(f"About to call message_sender.send_message with from_number={from_number}")
-            file_log(f"message_sender: {self.message_sender}")
-            file_log(f"message_sender methods: {dir(self.message_sender)}")
+            # Get API credentials
+            import os
+            import urllib.request
+            import urllib.error
+            import json
+            
+            api_version = os.environ.get('WHATSAPP_API_VERSION', 'v17.0')
+            phone_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+            token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
+            
+            print(f"❗❗❗ STEP 4.1: Using API version: {api_version}, phone_id: {phone_id}, token length: {len(token) if token else 0} ❗❗❗")
+            file_log(f"API parameters: version={api_version}, phone_id={phone_id}, token_length={len(token) if token else 0}")
+            
+            # Construct URL
+            url = f'https://graph.facebook.com/{api_version}/{phone_id}/messages'
+            
+            # Create headers and data
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {token}'
+            }
+            
+            data = {
+                'messaging_product': 'whatsapp',
+                'to': from_number,
+                'type': 'text',
+                'text': {'body': message}
+            }
+            
+            print(f"❗❗❗ STEP 4.2: Request URL: {url} ❗❗❗")
+            print(f"❗❗❗ STEP 4.3: Request data: {data} ❗❗❗")
+            file_log(f"Request URL: {url}")
+            file_log(f"Request data: {data}")
+            
+            # Convert data to JSON and encode
+            data_bytes = json.dumps(data).encode('utf-8')
+            
+            # Create the request
+            req = urllib.request.Request(url, data=data_bytes, headers=headers, method='POST')
+            
+            # Make the request
+            print(f"❗❗❗ STEP 4.4: About to make urllib request at {time.time()} ❗❗❗")
+            file_log(f"About to make urllib request at {time.time()}")
             
             try:
-                success = await self.message_sender.send_message(
-                    from_number,
-                    message,
-                    message_type="fixed_list_response",
-                    bypass_deduplication=True
-                )
-                extreme_debug(f"send_message called, result: {success}")
-                print(f"❗❗❗ send_message called, result: {success} ❗❗❗")
-                file_log(f"send_message called, result: {success}")
-            
-                if success:
-                    extreme_debug("Message sent successfully")
-                    print(f"❗❗❗ Message sent successfully ❗❗❗")
-                    file_log("Message sent successfully")
-                    return "Fixed list response sent", 200
-                else:
-                    extreme_debug("Failed to send message")
-                    print(f"❗❗❗ Failed to send message ❗❗❗")
-                    file_log("Failed to send message - attempting direct message")
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    print(f"❗❗❗ STEP 4.5: Got response at {time.time()} ❗❗❗")
+                    file_log(f"Got response at {time.time()}")
                     
-                    # Try alternative direct sending method if available
-                    if hasattr(self.message_sender, 'send_direct_message'):
-                        file_log("Attempting send_direct_message method")
-                        success = await self.message_sender.send_direct_message(
-                            from_number,
-                            f"FALLBACK: {message}\n\n(Using direct method at {time.time()})",
-                            message_type="direct_list"
-                        )
-                        file_log(f"Direct message result: {success}")
-                        if success:
-                            return "Direct list response sent", 200
+                    # Read and parse response
+                    response_data = response.read().decode('utf-8')
+                    response_status = response.getcode()
                     
-                    return "Failed to send list response", 500
-            except Exception as send_err:
-                file_log(f"Error calling send_message: {str(send_err)}")
-                file_log(f"Traceback: {traceback.format_exc()}")
-                
-                # Try to make direct WhatsApp API call as emergency fallback
-                try:
-                    file_log("Making raw WhatsApp API call as final fallback")
-                    import requests
-                    import os
-                    import json
+                    print(f"❗❗❗ STEP 4.6: Response status: {response_status} ❗❗❗")
+                    print(f"❗❗❗ STEP 4.7: Response data: {response_data} ❗❗❗")
+                    file_log(f"Response status: {response_status}")
+                    file_log(f"Response data: {response_data}")
                     
-                    api_version = os.getenv('WHATSAPP_API_VERSION', 'v17.0')
-                    phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
-                    token = os.getenv('WHATSAPP_ACCESS_TOKEN')
-                    
-                    file_log(f"API params: version={api_version}, phone_id={phone_id}, token_length={len(token) if token else 0}")
-                    
-                    url = f'https://graph.facebook.com/{api_version}/{phone_id}/messages'
-                    headers = {
-                        'Authorization': f'Bearer {token}',
-                        'Content-Type': 'application/json'
-                    }
-                    data = {
-                        'messaging_product': 'whatsapp',
-                        'to': from_number,
-                        'type': 'text',
-                        'text': {'body': f"🆘 EMERGENCY FALLBACK: Your documents list (hardcoded test at {time.time()})"}
-                    }
-                    
-                    file_log(f"Making API POST request to {url}")
-                    response = requests.post(url, headers=headers, json=data)
-                    file_log(f"API response: Status {response.status_code}")
-                    file_log(f"API response: {response.text}")
-                    
-                    if response.status_code == 200:
-                        return "Emergency fallback message sent", 200
+                    if response_status == 200:
+                        print(f"❗❗❗ STEP 4.8: Message sent successfully! ❗❗❗")
+                        file_log("Message sent successfully!")
+                        return "List response sent via urllib", 200
                     else:
-                        return f"All message sending methods failed", 500
-                        
-                except Exception as api_err:
-                    file_log(f"API fallback error: {str(api_err)}")
-                    file_log(f"API fallback traceback: {traceback.format_exc()}")
-                    return f"All messaging methods failed", 500
+                        print(f"❗❗❗ STEP 4.8: API returned non-200 status code: {response_status} ❗❗❗")
+                        file_log(f"API returned non-200 status code: {response_status}")
+                        return f"API error: {response_status}", 500
+            except urllib.error.HTTPError as http_err:
+                error_response = http_err.read().decode('utf-8') if hasattr(http_err, 'read') else str(http_err)
+                print(f"❗❗❗ STEP 4.5: HTTP Error: {http_err.code} - {error_response} ❗❗❗")
+                file_log(f"HTTP Error: {http_err.code}")
+                file_log(f"Error response: {error_response}")
+                return f"HTTP Error: {http_err.code}", 500
+            except urllib.error.URLError as url_err:
+                print(f"❗❗❗ STEP 4.5: URL Error: {str(url_err)} ❗❗❗")
+                print(f"❗❗❗ STEP 4.5: URL Error reason: {url_err.reason} ❗❗❗")
+                file_log(f"URL Error: {str(url_err)}")
+                file_log(f"URL Error reason: {url_err.reason if hasattr(url_err, 'reason') else 'unknown'}")
+                return f"URL Error: {str(url_err)}", 500
+                
         except Exception as e:
-            extreme_debug(f"Global error sending message: {str(e)}")
-            extreme_debug(f"Global traceback: {traceback.format_exc()}")
-            print(f"❗❗❗ Global error sending message: {str(e)} ❗❗❗")
-            print(f"❗❗❗ Global traceback: {traceback.format_exc()} ❗❗❗")
-            file_log(f"Global error sending message: {str(e)}")
-            file_log(f"Global traceback: {traceback.format_exc()}")
-            return f"Error sending message: {str(e)}", 500 
+            print(f"❗❗❗ STEP 4: GLOBAL ERROR in urllib block: {str(e)} ❗❗❗")
+            print(f"❗❗❗ STEP 4: GLOBAL TRACEBACK: {traceback.format_exc()} ❗❗❗")
+            file_log(f"Global error in urllib block: {str(e)}")
+            file_log(f"Traceback: {traceback.format_exc()}")
+            
+            # Last-ditch effort using very basic HTTP
+            try:
+                print(f"❗❗❗ STEP 5: ATTEMPTING RAW SOCKET CONNECTION ❗❗❗")
+                import http.client
+                import json
+                import os
+                
+                api_version = os.environ.get('WHATSAPP_API_VERSION', 'v17.0')
+                phone_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+                token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
+                
+                print(f"❗❗❗ STEP 5.1: Connection to graph.facebook.com ❗❗❗")
+                conn = http.client.HTTPSConnection("graph.facebook.com")
+                
+                payload = json.dumps({
+                    "messaging_product": "whatsapp",
+                    "to": from_number,
+                    "type": "text",
+                    "text": {
+                        "body": f"🆘 EMERGENCY HTTP.CLIENT MESSAGE at {int(time.time())}"
+                    }
+                })
+                
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {token}'
+                }
+                
+                path = f"/{api_version}/{phone_id}/messages"
+                print(f"❗❗❗ STEP 5.2: POST to path {path} ❗❗❗")
+                
+                conn.request("POST", path, payload, headers)
+                
+                print(f"❗❗❗ STEP 5.3: Getting response ❗❗❗")
+                res = conn.getresponse()
+                data = res.read()
+                
+                print(f"❗❗❗ STEP 5.4: Response status: {res.status} ❗❗❗")
+                print(f"❗❗❗ STEP 5.5: Response: {data.decode('utf-8')} ❗❗❗")
+                
+                conn.close()
+                
+                if res.status == 200:
+                    return "Emergency HTTP message sent", 200
+                else:
+                    return f"HTTP error: {res.status}", 500
+                    
+            except Exception as http_err:
+                print(f"❗❗❗ STEP 5 ERROR: {str(http_err)} ❗❗❗")
+                print(f"❗❗❗ STEP 5 TRACEBACK: {traceback.format_exc()} ❗❗❗")
+                return f"All methods failed: {str(e)}", 500 
