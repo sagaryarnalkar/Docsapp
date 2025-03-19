@@ -747,5 +747,98 @@ def direct_whatsapp_test():
             "traceback": traceback.format_exc()
         }), 500
 
+@app.route('/minimal-whatsapp-test', methods=['GET'])
+def minimal_whatsapp_test():
+    """Ultra minimal WhatsApp test that avoids aiohttp completely"""
+    import os
+    import urllib.request
+    import urllib.error
+    import json
+    import time
+    from flask import jsonify
+
+    test_number = "919823623966"
+    timestamp = int(time.time())
+    
+    try:
+        # Get credentials from environment
+        api_version = os.environ.get('WHATSAPP_API_VERSION', 'v22.0')
+        phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+        token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
+        
+        print(f"MINIMAL TEST - Using API version: {api_version}")
+        print(f"MINIMAL TEST - Using phone_id: {phone_number_id}")
+        print(f"MINIMAL TEST - Token length: {len(token) if token else 0}")
+        
+        # Construct the request URL
+        url = f'https://graph.facebook.com/{api_version}/{phone_number_id}/messages'
+        
+        # Create headers and data
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
+        }
+        
+        data = {
+            'messaging_product': 'whatsapp',
+            'to': test_number,
+            'type': 'text',
+            'text': {'body': f"🧪 ULTRA MINIMAL TEST at {timestamp} - Using urllib directly without aiohttp"}
+        }
+        
+        # Convert data to JSON string and encode
+        data_bytes = json.dumps(data).encode('utf-8')
+        
+        # Create the request
+        req = urllib.request.Request(url, data=data_bytes, headers=headers, method='POST')
+        
+        print(f"MINIMAL TEST - Request prepared at {time.time()}")
+        print(f"MINIMAL TEST - URL: {url}")
+        print(f"MINIMAL TEST - Data: {data}")
+        
+        # Make the request - this is the line that might fail
+        print(f"MINIMAL TEST - About to make request at {time.time()}")
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                print(f"MINIMAL TEST - Got response at {time.time()}")
+                response_data = response.read().decode('utf-8')
+                response_status = response.status
+                print(f"MINIMAL TEST - Response status: {response_status}")
+                print(f"MINIMAL TEST - Response: {response_data}")
+                
+                return jsonify({
+                    'success': True,
+                    'status': response_status,
+                    'response': response_data
+                })
+        except urllib.error.HTTPError as http_err:
+            error_response = http_err.read().decode('utf-8')
+            print(f"MINIMAL TEST - HTTP Error: {http_err.code}")
+            print(f"MINIMAL TEST - Error response: {error_response}")
+            return jsonify({
+                'success': False,
+                'error': f"HTTP Error: {http_err.code}",
+                'details': error_response
+            }), 500
+        except urllib.error.URLError as url_err:
+            print(f"MINIMAL TEST - URL Error: {str(url_err)}")
+            print(f"MINIMAL TEST - URL Error reason: {url_err.reason}")
+            return jsonify({
+                'success': False,
+                'error': f"URL Error: {str(url_err)}",
+                'details': str(url_err.reason) if hasattr(url_err, 'reason') else 'Unknown reason'
+            }), 500
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"MINIMAL TEST - General error: {str(e)}")
+        print(f"MINIMAL TEST - Traceback: {error_traceback}")
+        
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': error_traceback
+        }), 500
+
 if __name__ == "__main__":
     app.run(debug=True)
