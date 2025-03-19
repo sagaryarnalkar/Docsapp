@@ -148,130 +148,147 @@ class MessageSender:
             print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
             
-            # EXTREME ERROR HANDLING SECTION - ❗❗❗
+            # REPLACE THE ENTIRE AIOHTTP SECTION WITH A DIRECT URLLIB IMPLEMENTATION
             try:
-                print(f"[DEBUG] {message_hash} - ❗❗❗ CRITICAL SECTION - ABOUT TO MAKE API CALL ❗❗❗")
-                print(f"[DEBUG] {message_hash} - Time before API call: {time.time()}")
+                print(f"[DEBUG] {message_hash} - ❗❗❗ USING DIRECT URLLIB INSTEAD OF AIOHTTP ❗❗❗")
+                print(f"[DEBUG] {message_hash} - Time before request: {time.time()}")
                 
-                # The actual API call - THIS IS WHERE EXECUTION STOPS
-                async with aiohttp.ClientSession() as session:
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ aiohttp.ClientSession created successfully ❗❗❗")
-                    try:
-                        # Try a more robust approach to making the API call
-                        print(f"[DEBUG] {message_hash} - ❗❗❗ About to call session.post ❗❗❗")
-                        
-                        # Create a timeout
-                        timeout = aiohttp.ClientTimeout(total=30)  # 30 seconds timeout
-                        
-                        # Make the API call with a timeout
-                        async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ session.post COMPLETED ❗❗❗")
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ Got API response at {time.time()} ❗❗❗")
-                            print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
-                            
-                            # Get headers and print them for debugging
-                            response_headers = dict(response.headers)
-                            print(f"[DEBUG] {message_hash} - Response Headers: {response_headers}")
-                            
-                            # Read the response body
-                            response_text = await response.text()
-                            print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
-                            
-                            # Parse the response JSON
-                            try:
-                                response_json = await response.json()
-                                print(f"[DEBUG] {message_hash} - Response parsed as JSON successfully")
-                            except Exception as json_err:
-                                print(f"[DEBUG] {message_hash} - Error parsing response as JSON: {str(json_err)}")
-                                print(f"[DEBUG] {message_hash} - Raw response text: {response_text}")
-                                response_json = {}
-                            
-                            # Check if the request was successful
-                            if response.status == HTTPStatus.OK:
-                                print(f"[DEBUG] {message_hash} - Message sent successfully! Message ID: {response_json.get('messages', [{}])[0].get('id', 'unknown')}")
-                                print(f"[DEBUG] {message_hash} - Message delivery successful after 0 retries")
-                                return True
-                            else:
-                                print(f"[DEBUG] {message_hash} - API returned non-200 status code: {response.status}")
-                                print(f"[DEBUG] {message_hash} - API error response: {response_text}")
-                                # Try using direct API call via aiohttp.request
-                                print(f"[DEBUG] {message_hash} - ❗❗❗ Attempting fallback via aiohttp.request ❗❗❗")
-                                try:
-                                    raw_response = await session.request(method="POST", url=url, json=data, headers=headers, timeout=timeout)
-                                    raw_text = await raw_response.text()
-                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback response: Status {raw_response.status} ❗❗❗")
-                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback response text: {raw_text} ❗❗❗")
-                                    if raw_response.status == 200:
-                                        print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback succeeded! ❗❗❗")
-                                        return True
-                                except Exception as fallback_err:
-                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback also failed: {str(fallback_err)} ❗❗❗")
-                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback traceback: {traceback.format_exc()} ❗❗❗")
-                                
-                                print(f"[DEBUG] {message_hash} - API fallbacks exhausted, message sending failed")
-                                return False
-                    except Exception as post_err:
-                        print(f"[DEBUG] {message_hash} - ❗❗❗ session.post EXCEPTION: {str(post_err)} ❗❗❗")
-                        print(f"[DEBUG] {message_hash} - ❗❗❗ TRACEBACK for session.post: {traceback.format_exc()} ❗❗❗")
-                        
-                        # Try alternatives - Direct requests library as last resort
-                        try:
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK: Using requests library directly ❗❗❗")
-                            import requests
-                            
-                            # Make a synchronous request
-                            sync_response = requests.post(url, json=data, headers=headers, timeout=30)
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ requests.post completed with status: {sync_response.status_code} ❗❗❗")
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ synchronous response text: {sync_response.text} ❗❗❗")
-                            
-                            if sync_response.status_code == 200:
-                                print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK SUCCEEDED! ❗❗❗")
-                                return True
-                            else:
-                                print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK FAILED with status {sync_response.status_code} ❗❗❗")
-                                raise Exception(f"FINAL FALLBACK FAILED: {sync_response.text}")
-                        except Exception as req_err:
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK EXCEPTION: {str(req_err)} ❗❗❗")
-                            print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK TRACEBACK: {traceback.format_exc()} ❗❗❗")
-                            raise req_err
-            except Exception as session_err:
-                print(f"[DEBUG] {message_hash} - ❗❗❗ CLIENT SESSION EXCEPTION: {str(session_err)} ❗❗❗")
-                print(f"[DEBUG] {message_hash} - ❗❗❗ CLIENT SESSION TRACEBACK: {traceback.format_exc()} ❗❗❗")
+                # Import necessary modules
+                import urllib.request
+                import urllib.error
                 
-                # ABSOLUTE LAST RESORT - DIRECT URLLIB3 
+                # Encode the data as JSON
+                data_bytes = json.dumps(data).encode('utf-8')
+                
+                # Create the request
+                req = urllib.request.Request(url, data=data_bytes, headers=headers, method='POST')
+                
+                # Make the request with a timeout
+                print(f"[DEBUG] {message_hash} - ❗❗❗ About to make urllib.request at {time.time()} ❗❗❗")
                 try:
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ ABSOLUTE LAST RESORT: Using urllib3 directly ❗❗❗")
+                    with urllib.request.urlopen(req, timeout=30) as response:
+                        print(f"[DEBUG] {message_hash} - ❗❗❗ urllib.request COMPLETED ❗❗❗")
+                        print(f"[DEBUG] {message_hash} - Got response at {time.time()}")
+                        
+                        # Read and parse response
+                        response_data = response.read().decode('utf-8')
+                        response_status = response.status
+                        
+                        print(f"[DEBUG] {message_hash} - Response Status: {response_status}")
+                        print(f"[DEBUG] {message_hash} - Response Data: {response_data}")
+                        
+                        # Parse JSON response if possible
+                        try:
+                            response_json = json.loads(response_data)
+                            message_id = response_json.get('messages', [{}])[0].get('id', 'unknown')
+                            print(f"[DEBUG] {message_hash} - Message ID: {message_id}")
+                        except Exception as json_err:
+                            print(f"[DEBUG] {message_hash} - Error parsing JSON response: {str(json_err)}")
+                        
+                        if response_status == 200:
+                            print(f"[DEBUG] {message_hash} - Message sent successfully!")
+                            return True
+                        else:
+                            print(f"[DEBUG] {message_hash} - API returned non-200 status code: {response_status}")
+                            return False
+                            
+                except urllib.error.HTTPError as http_err:
+                    error_response = http_err.read().decode('utf-8') if hasattr(http_err, 'read') else str(http_err)
+                    print(f"[DEBUG] {message_hash} - HTTP Error: {http_err.code} - {error_response}")
+                    
+                    # Try with http.client as a fallback
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ Trying http.client fallback ❗❗❗")
+                    try:
+                        import http.client
+                        
+                        conn = http.client.HTTPSConnection("graph.facebook.com")
+                        
+                        payload = json.dumps(data)
+                        
+                        path = f"/{self.api_version}/{self.phone_number_id}/messages"
+                        print(f"[DEBUG] {message_hash} - POST to path {path}")
+                        
+                        conn.request("POST", path, payload, headers)
+                        
+                        print(f"[DEBUG] {message_hash} - Getting response")
+                        res = conn.getresponse()
+                        data = res.read()
+                        
+                        print(f"[DEBUG] {message_hash} - http.client Response Status: {res.status}")
+                        print(f"[DEBUG] {message_hash} - http.client Response: {data.decode('utf-8')}")
+                        
+                        conn.close()
+                        
+                        if res.status == 200:
+                            print(f"[DEBUG] {message_hash} - Message sent via http.client fallback!")
+                            return True
+                        else:
+                            print(f"[DEBUG] {message_hash} - http.client fallback failed")
+                            return False
+                    except Exception as http_client_err:
+                        print(f"[DEBUG] {message_hash} - http.client fallback error: {str(http_client_err)}")
+                        print(f"[DEBUG] {message_hash} - http.client fallback traceback: {traceback.format_exc()}")
+                        return False
+                        
+                except urllib.error.URLError as url_err:
+                    print(f"[DEBUG] {message_hash} - URL Error: {str(url_err)}")
+                    print(f"[DEBUG] {message_hash} - URL Error reason: {url_err.reason if hasattr(url_err, 'reason') else 'unknown'}")
+                    
+                    # Try with requests library as a final fallback
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ Trying requests library fallback ❗❗❗")
+                    try:
+                        import requests
+                        
+                        response = requests.post(url, headers=headers, json=data, timeout=30)
+                        
+                        print(f"[DEBUG] {message_hash} - requests Response Status: {response.status_code}")
+                        print(f"[DEBUG] {message_hash} - requests Response: {response.text}")
+                        
+                        if response.status_code == 200:
+                            print(f"[DEBUG] {message_hash} - Message sent via requests fallback!")
+                            return True
+                        else:
+                            print(f"[DEBUG] {message_hash} - requests fallback failed")
+                            return False
+                    except Exception as requests_err:
+                        print(f"[DEBUG] {message_hash} - requests fallback error: {str(requests_err)}")
+                        print(f"[DEBUG] {message_hash} - requests fallback traceback: {traceback.format_exc()}")
+                        return False
+                
+            except Exception as urllib_err:
+                print(f"[DEBUG] {message_hash} - General urllib error: {str(urllib_err)}")
+                print(f"[DEBUG] {message_hash} - urllib traceback: {traceback.format_exc()}")
+                
+                # Try the absolute simplest approach with urllib3
+                try:
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ Final attempt with urllib3 ❗❗❗")
                     import urllib3
-                    import json as json_lib
                     
                     http = urllib3.PoolManager()
-                    encoded_data = json_lib.dumps(data).encode('utf-8')
+                    encoded_data = json.dumps(data).encode('utf-8')
                     
                     response = http.request(
                         'POST',
                         url,
                         body=encoded_data,
-                        headers={
-                            'Content-Type': 'application/json',
-                            'Authorization': f'Bearer {self.access_token}'
-                        }
+                        headers=headers,
+                        timeout=30.0
                     )
                     
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 RESPONSE: {response.status} ❗❗❗")
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 DATA: {response.data.decode('utf-8')} ❗❗❗")
+                    print(f"[DEBUG] {message_hash} - urllib3 Response Status: {response.status}")
+                    print(f"[DEBUG] {message_hash} - urllib3 Response: {response.data.decode('utf-8')}")
                     
                     if response.status == 200:
-                        print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 SUCCEEDED! ❗❗❗")
+                        print(f"[DEBUG] {message_hash} - Message sent via urllib3!")
                         return True
                     else:
-                        print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 FAILED ❗❗❗")
+                        print(f"[DEBUG] {message_hash} - All methods failed")
                         return False
-                except Exception as urllib_err:
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 EXCEPTION: {str(urllib_err)} ❗❗❗")
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 TRACEBACK: {traceback.format_exc()} ❗❗❗")
-                    # Don't raise, just return False
+                except Exception as urllib3_err:
+                    print(f"[DEBUG] {message_hash} - urllib3 error: {str(urllib3_err)}")
+                    print(f"[DEBUG] {message_hash} - urllib3 traceback: {traceback.format_exc()}")
                     return False
-            
+                    
         except Exception as e:
             print(f"[DEBUG] ❌ ERROR SENDING MESSAGE: {str(e)}")
             print(f"[DEBUG] ❌ TRACEBACK: {traceback.format_exc()}")
