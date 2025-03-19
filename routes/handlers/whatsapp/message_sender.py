@@ -148,105 +148,135 @@ class MessageSender:
             print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
             print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
             
-            # Check for duplicate messages
-            current_time = time.time()
-            if not bypass_deduplication and message_hash in self._recent_messages:
-                last_sent = self._recent_messages[message_hash]
-                time_diff = current_time - last_sent
+            # EXTREME ERROR HANDLING SECTION - ❗❗❗
+            try:
+                print(f"[DEBUG] {message_hash} - ❗❗❗ CRITICAL SECTION - ABOUT TO MAKE API CALL ❗❗❗")
+                print(f"[DEBUG] {message_hash} - Time before API call: {time.time()}")
                 
-                if time_diff < self._deduplication_window:
-                    print(f"[DEBUG] Duplicate message detected! Last sent {time_diff:.2f}s ago. Skipping.")
-                    logger.warning(f"[DEBUG] Duplicate message detected! Last sent {time_diff:.2f}s ago. Skipping.")
-                    return False
-            
-            # Clean up old messages
-            self._cleanup_old_messages(current_time)
-            
-            # Add message to recent messages
-            if not bypass_deduplication:
-                self._recent_messages[message_hash] = current_time
-            
-            # Implement retry logic
-            retry_count = 0
-            success = False
-            last_error = None
-            
-            while retry_count < max_retries and not success:
-                if retry_count > 0:
-                    print(f"[DEBUG] {message_hash} - Retry attempt {retry_count}/{max_retries}")
-                    # Add a small delay between retries with exponential backoff
-                    await asyncio.sleep(2 ** retry_count)
-                
-                try:
-                    # Send the message
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(url, headers=headers, json=data, timeout=30) as response:
-                            response_text = await response.text()
+                # The actual API call - THIS IS WHERE EXECUTION STOPS
+                async with aiohttp.ClientSession() as session:
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ aiohttp.ClientSession created successfully ❗❗❗")
+                    try:
+                        # Try a more robust approach to making the API call
+                        print(f"[DEBUG] {message_hash} - ❗❗❗ About to call session.post ❗❗❗")
+                        
+                        # Create a timeout
+                        timeout = aiohttp.ClientTimeout(total=30)  # 30 seconds timeout
+                        
+                        # Make the API call with a timeout
+                        async with session.post(url, json=data, headers=headers, timeout=timeout) as response:
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ session.post COMPLETED ❗❗❗")
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ Got API response at {time.time()} ❗❗❗")
                             print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
-                            print(f"[DEBUG] {message_hash} - Response Headers: {dict(response.headers)}")
+                            
+                            # Get headers and print them for debugging
+                            response_headers = dict(response.headers)
+                            print(f"[DEBUG] {message_hash} - Response Headers: {response_headers}")
+                            
+                            # Read the response body
+                            response_text = await response.text()
                             print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
                             
-                            if response.status == 200:
-                                try:
-                                    response_data = json.loads(response_text)
-                                    message_id = response_data.get('messages', [{}])[0].get('id')
-                                    print(f"[DEBUG] {message_hash} - Message sent successfully! Message ID: {message_id}")
-                                    success = True
-                                    break  # Exit the retry loop on success
-                                except Exception as parse_err:
-                                    print(f"[DEBUG] {message_hash} - Error parsing response: {str(parse_err)}")
-                                    success = True  # Assume success if status is 200
-                                    break  # Exit the retry loop on success
+                            # Parse the response JSON
+                            try:
+                                response_json = await response.json()
+                                print(f"[DEBUG] {message_hash} - Response parsed as JSON successfully")
+                            except Exception as json_err:
+                                print(f"[DEBUG] {message_hash} - Error parsing response as JSON: {str(json_err)}")
+                                print(f"[DEBUG] {message_hash} - Raw response text: {response_text}")
+                                response_json = {}
+                            
+                            # Check if the request was successful
+                            if response.status == HTTPStatus.OK:
+                                print(f"[DEBUG] {message_hash} - Message sent successfully! Message ID: {response_json.get('messages', [{}])[0].get('id', 'unknown')}")
+                                print(f"[DEBUG] {message_hash} - Message delivery successful after 0 retries")
+                                return True
                             else:
-                                print(f"[DEBUG] {message_hash} - Failed to send message. Response: {response_text}")
-                                
-                                # Check for token expiration
+                                print(f"[DEBUG] {message_hash} - API returned non-200 status code: {response.status}")
+                                print(f"[DEBUG] {message_hash} - API error response: {response_text}")
+                                # Try using direct API call via aiohttp.request
+                                print(f"[DEBUG] {message_hash} - ❗❗❗ Attempting fallback via aiohttp.request ❗❗❗")
                                 try:
-                                    error_data = json.loads(response_text)
-                                    error_message = error_data.get('error', {}).get('message', '')
-                                    error_code = error_data.get('error', {}).get('code', '')
-                                    
-                                    print(f"[DEBUG] {message_hash} - Error Code: {error_code}")
-                                    print(f"[DEBUG] {message_hash} - Error Message: {error_message}")
-                                    
-                                    if 'access token' in error_message.lower() or error_code == 190:
-                                        print(f"[DEBUG] {message_hash} - ⚠️ WhatsApp access token has expired or is invalid!")
-                                        # Don't retry token errors
-                                        break
-                                    
-                                    # Store the error for logging
-                                    last_error = f"Error {error_code}: {error_message}"
-                                except Exception as e:
-                                    print(f"[DEBUG] {message_hash} - Error parsing error response: {str(e)}")
-                                    last_error = f"HTTP {response.status}: {response_text}"
+                                    raw_response = await session.request(method="POST", url=url, json=data, headers=headers, timeout=timeout)
+                                    raw_text = await raw_response.text()
+                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback response: Status {raw_response.status} ❗❗❗")
+                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback response text: {raw_text} ❗❗❗")
+                                    if raw_response.status == 200:
+                                        print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback succeeded! ❗❗❗")
+                                        return True
+                                except Exception as fallback_err:
+                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback also failed: {str(fallback_err)} ❗❗❗")
+                                    print(f"[DEBUG] {message_hash} - ❗❗❗ Fallback traceback: {traceback.format_exc()} ❗❗❗")
                                 
-                                # Continue to retry for non-token errors
-                except Exception as request_err:
-                    print(f"[DEBUG] {message_hash} - Request error: {str(request_err)}")
-                    last_error = str(request_err)
-                
-                retry_count += 1
-            
-            # Log the final outcome
-            if success:
-                print(f"[DEBUG] {message_hash} - Message delivery successful after {retry_count} retries")
-                return True
-            else:
-                print(f"[DEBUG] {message_hash} - Message delivery failed after {retry_count} retries. Last error: {last_error}")
-                
-                # Log to a persistent file for debugging
-                try:
-                    with open("message_delivery_failures.log", "a") as f:
-                        f.write(f"{datetime.now().isoformat()} - To: {to_number}, Type: {message_type}, Error: {last_error}\n")
-                except Exception as log_err:
-                    print(f"[DEBUG] {message_hash} - Error writing to failure log: {str(log_err)}")
-                
-                return False
+                                print(f"[DEBUG] {message_hash} - API fallbacks exhausted, message sending failed")
+                                return False
+                    except Exception as post_err:
+                        print(f"[DEBUG] {message_hash} - ❗❗❗ session.post EXCEPTION: {str(post_err)} ❗❗❗")
+                        print(f"[DEBUG] {message_hash} - ❗❗❗ TRACEBACK for session.post: {traceback.format_exc()} ❗❗❗")
                         
+                        # Try alternatives - Direct requests library as last resort
+                        try:
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK: Using requests library directly ❗❗❗")
+                            import requests
+                            
+                            # Make a synchronous request
+                            sync_response = requests.post(url, json=data, headers=headers, timeout=30)
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ requests.post completed with status: {sync_response.status_code} ❗❗❗")
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ synchronous response text: {sync_response.text} ❗❗❗")
+                            
+                            if sync_response.status_code == 200:
+                                print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK SUCCEEDED! ❗❗❗")
+                                return True
+                            else:
+                                print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK FAILED with status {sync_response.status_code} ❗❗❗")
+                                raise Exception(f"FINAL FALLBACK FAILED: {sync_response.text}")
+                        except Exception as req_err:
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK EXCEPTION: {str(req_err)} ❗❗❗")
+                            print(f"[DEBUG] {message_hash} - ❗❗❗ FINAL FALLBACK TRACEBACK: {traceback.format_exc()} ❗❗❗")
+                            raise req_err
+            except Exception as session_err:
+                print(f"[DEBUG] {message_hash} - ❗❗❗ CLIENT SESSION EXCEPTION: {str(session_err)} ❗❗❗")
+                print(f"[DEBUG] {message_hash} - ❗❗❗ CLIENT SESSION TRACEBACK: {traceback.format_exc()} ❗❗❗")
+                
+                # ABSOLUTE LAST RESORT - DIRECT URLLIB3 
+                try:
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ ABSOLUTE LAST RESORT: Using urllib3 directly ❗❗❗")
+                    import urllib3
+                    import json as json_lib
+                    
+                    http = urllib3.PoolManager()
+                    encoded_data = json_lib.dumps(data).encode('utf-8')
+                    
+                    response = http.request(
+                        'POST',
+                        url,
+                        body=encoded_data,
+                        headers={
+                            'Content-Type': 'application/json',
+                            'Authorization': f'Bearer {self.access_token}'
+                        }
+                    )
+                    
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 RESPONSE: {response.status} ❗❗❗")
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 DATA: {response.data.decode('utf-8')} ❗❗❗")
+                    
+                    if response.status == 200:
+                        print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 SUCCEEDED! ❗❗❗")
+                        return True
+                    else:
+                        print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 FAILED ❗❗❗")
+                        return False
+                except Exception as urllib_err:
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 EXCEPTION: {str(urllib_err)} ❗❗❗")
+                    print(f"[DEBUG] {message_hash} - ❗❗❗ URLLIB3 TRACEBACK: {traceback.format_exc()} ❗❗❗")
+                    # Don't raise, just return False
+                    return False
+            
         except Exception as e:
-            print(f"[ERROR] Error sending message: {str(e)}")
-            import traceback
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            print(f"[DEBUG] ❌ ERROR SENDING MESSAGE: {str(e)}")
+            print(f"[DEBUG] ❌ TRACEBACK: {traceback.format_exc()}")
+            logger.error(f"Error sending WhatsApp message: {str(e)}")
+            logger.error(traceback.format_exc())
             return False
 
     async def mark_message_as_read(self, message_id):
