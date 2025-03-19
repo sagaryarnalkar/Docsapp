@@ -17,6 +17,9 @@ from http import HTTPStatus
 from config import WHATSAPP_API_URL, WHATSAPP_PHONE_NUMBER_ID
 import traceback
 import random
+import urllib.request
+import urllib.error
+import http.client
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,96 @@ class MessageSender:
         logger.info(f"[DEBUG] MessageSender initialized with API URL: {self.base_url}")
         print(f"[DEBUG] MessageSender initialized with API URL: {self.base_url}")
         
+    async def send_whatsapp_api_request(self, payload, message_hash="unknown", request_type="message"):
+        """
+        Core method for making WhatsApp API requests.
+        
+        Args:
+            payload: The JSON payload to send to the WhatsApp API
+            message_hash: Identifier for this message (for logging)
+            request_type: Type of request (message, mark_read, etc.)
+            
+        Returns:
+            tuple: (success, response_data, status_code)
+        """
+        url = self.base_url
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.access_token}"
+        }
+        
+        print(f"[DEBUG] {message_hash} - Making WhatsApp API {request_type} request")
+        print(f"[DEBUG] {message_hash} - URL: {url}")
+        print(f"[DEBUG] {message_hash} - Payload: {json.dumps(payload)}")
+        
+        # Try multiple methods to ensure message delivery
+        
+        # Method 1: Using urllib
+        try:
+            print(f"[DEBUG] {message_hash} - Trying urllib.request method")
+            data_bytes = json.dumps(payload).encode('utf-8')
+            req = urllib.request.Request(url, data=data_bytes, headers=headers, method='POST')
+            
+            with urllib.request.urlopen(req, timeout=30) as response:
+                print(f"[DEBUG] {message_hash} - urllib.request succeeded")
+                response_data = response.read().decode('utf-8')
+                status_code = response.status
+                
+                print(f"[DEBUG] {message_hash} - Response Status: {status_code}")
+                print(f"[DEBUG] {message_hash} - Response Data: {response_data}")
+                
+                return (status_code == 200, response_data, status_code)
+        
+        except (urllib.error.HTTPError, urllib.error.URLError) as err:
+            print(f"[DEBUG] {message_hash} - urllib.request failed: {str(err)}")
+            error_response = ""
+            if hasattr(err, 'read'):
+                try:
+                    error_response = err.read().decode('utf-8')
+                    print(f"[DEBUG] {message_hash} - Error response: {error_response}")
+                except:
+                    pass
+        
+        # Method 2: Using http.client
+        try:
+            print(f"[DEBUG] {message_hash} - Trying http.client method")
+            conn = http.client.HTTPSConnection("graph.facebook.com")
+            path = f"/{self.api_version}/{self.phone_number_id}/messages"
+            
+            conn.request("POST", path, json.dumps(payload), headers)
+            res = conn.getresponse()
+            response_data = res.read().decode('utf-8')
+            
+            print(f"[DEBUG] {message_hash} - http.client Response Status: {res.status}")
+            print(f"[DEBUG] {message_hash} - http.client Response: {response_data}")
+            
+            conn.close()
+            return (res.status == 200, response_data, res.status)
+            
+        except Exception as http_client_err:
+            print(f"[DEBUG] {message_hash} - http.client failed: {str(http_client_err)}")
+        
+        # Method 3: Using requests if available
+        try:
+            print(f"[DEBUG] {message_hash} - Trying requests library method")
+            import requests
+            
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            
+            print(f"[DEBUG] {message_hash} - requests Response Status: {response.status_code}")
+            print(f"[DEBUG] {message_hash} - requests Response: {response.text}")
+            
+            return (response.status_code == 200, response.text, response.status_code)
+            
+        except ImportError:
+            print(f"[DEBUG] {message_hash} - requests library not available")
+        except Exception as requests_err:
+            print(f"[DEBUG] {message_hash} - requests method failed: {str(requests_err)}")
+        
+        # If we got here, all methods failed
+        print(f"[DEBUG] {message_hash} - All API request methods failed")
+        return (False, "All request methods failed", 500)
+        
     async def send_message(self, to_number, message, message_type="text", bypass_deduplication=False, max_retries=3):
         """
         Send a message to a WhatsApp user.
@@ -122,14 +215,7 @@ class MessageSender:
                 message = f"{message}\n\nTimestamp: {timestamp} ({readable_time})"
                 print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
             
-            # Prepare the API request - Fix: Use the base_url property that's already correctly constructed
-            url = self.base_url
-            
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.access_token}"
-            }
-            
+            # Prepare payload
             data = {
                 'messaging_product': 'whatsapp',
                 'to': to_number,
@@ -137,165 +223,34 @@ class MessageSender:
                 'text': {'body': message}
             }
             
-            print(f"[DEBUG] {message_hash} - Sending message to WhatsApp API")
-            print(f"[DEBUG] {message_hash} - URL: {url}")
-            print(f"[DEBUG] {message_hash} - URL COMPONENTS:")
-            print(f"[DEBUG] {message_hash} -   Base: https://graph.facebook.com")
-            print(f"[DEBUG] {message_hash} -   API Version: {self.api_version}")
-            print(f"[DEBUG] {message_hash} -   Phone Number ID: {self.phone_number_id}")
-            print(f"[DEBUG] {message_hash} - HEADERS:")
-            print(f"[DEBUG] {message_hash} -   Content-Type: {headers['Content-Type']}")
-            print(f"[DEBUG] {message_hash} -   Authorization: Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
-            print(f"[DEBUG] {message_hash} - Data: {json.dumps(data)}")
+            # Send the request using the unified API method
+            success, response_data, status_code = await self.send_whatsapp_api_request(
+                payload=data,
+                message_hash=message_hash,
+                request_type="text_message"
+            )
             
-            # REPLACE THE ENTIRE AIOHTTP SECTION WITH A DIRECT URLLIB IMPLEMENTATION
-            try:
-                print(f"[DEBUG] {message_hash} - ❗❗❗ USING DIRECT URLLIB INSTEAD OF AIOHTTP ❗❗❗")
-                print(f"[DEBUG] {message_hash} - Time before request: {time.time()}")
+            if success:
+                print(f"[DEBUG] {message_hash} - Message sent successfully!")
                 
-                # Import necessary modules
-                import urllib.request
-                import urllib.error
-                
-                # Encode the data as JSON
-                data_bytes = json.dumps(data).encode('utf-8')
-                
-                # Create the request
-                req = urllib.request.Request(url, data=data_bytes, headers=headers, method='POST')
-                
-                # Make the request with a timeout
-                print(f"[DEBUG] {message_hash} - ❗❗❗ About to make urllib.request at {time.time()} ❗❗❗")
+                # Try to get message ID from response
                 try:
-                    with urllib.request.urlopen(req, timeout=30) as response:
-                        print(f"[DEBUG] {message_hash} - ❗❗❗ urllib.request COMPLETED ❗❗❗")
-                        print(f"[DEBUG] {message_hash} - Got response at {time.time()}")
-                        
-                        # Read and parse response
-                        response_data = response.read().decode('utf-8')
-                        response_status = response.status
-                        
-                        print(f"[DEBUG] {message_hash} - Response Status: {response_status}")
-                        print(f"[DEBUG] {message_hash} - Response Data: {response_data}")
-                        
-                        # Parse JSON response if possible
-                        try:
-                            response_json = json.loads(response_data)
-                            message_id = response_json.get('messages', [{}])[0].get('id', 'unknown')
-                            print(f"[DEBUG] {message_hash} - Message ID: {message_id}")
-                        except Exception as json_err:
-                            print(f"[DEBUG] {message_hash} - Error parsing JSON response: {str(json_err)}")
-                        
-                        if response_status == 200:
-                            print(f"[DEBUG] {message_hash} - Message sent successfully!")
-                            return True
-                        else:
-                            print(f"[DEBUG] {message_hash} - API returned non-200 status code: {response_status}")
-                            return False
-                            
-                except urllib.error.HTTPError as http_err:
-                    error_response = http_err.read().decode('utf-8') if hasattr(http_err, 'read') else str(http_err)
-                    print(f"[DEBUG] {message_hash} - HTTP Error: {http_err.code} - {error_response}")
-                    
-                    # Try with http.client as a fallback
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ Trying http.client fallback ❗❗❗")
-                    try:
-                        import http.client
-                        
-                        conn = http.client.HTTPSConnection("graph.facebook.com")
-                        
-                        payload = json.dumps(data)
-                        
-                        path = f"/{self.api_version}/{self.phone_number_id}/messages"
-                        print(f"[DEBUG] {message_hash} - POST to path {path}")
-                        
-                        conn.request("POST", path, payload, headers)
-                        
-                        print(f"[DEBUG] {message_hash} - Getting response")
-                        res = conn.getresponse()
-                        data = res.read()
-                        
-                        print(f"[DEBUG] {message_hash} - http.client Response Status: {res.status}")
-                        print(f"[DEBUG] {message_hash} - http.client Response: {data.decode('utf-8')}")
-                        
-                        conn.close()
-                        
-                        if res.status == 200:
-                            print(f"[DEBUG] {message_hash} - Message sent via http.client fallback!")
-                            return True
-                        else:
-                            print(f"[DEBUG] {message_hash} - http.client fallback failed")
-                            return False
-                    except Exception as http_client_err:
-                        print(f"[DEBUG] {message_hash} - http.client fallback error: {str(http_client_err)}")
-                        print(f"[DEBUG] {message_hash} - http.client fallback traceback: {traceback.format_exc()}")
-                        return False
-                        
-                except urllib.error.URLError as url_err:
-                    print(f"[DEBUG] {message_hash} - URL Error: {str(url_err)}")
-                    print(f"[DEBUG] {message_hash} - URL Error reason: {url_err.reason if hasattr(url_err, 'reason') else 'unknown'}")
-                    
-                    # Try with requests library as a final fallback
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ Trying requests library fallback ❗❗❗")
-                    try:
-                        import requests
-                        
-                        response = requests.post(url, headers=headers, json=data, timeout=30)
-                        
-                        print(f"[DEBUG] {message_hash} - requests Response Status: {response.status_code}")
-                        print(f"[DEBUG] {message_hash} - requests Response: {response.text}")
-                        
-                        if response.status_code == 200:
-                            print(f"[DEBUG] {message_hash} - Message sent via requests fallback!")
-                            return True
-                        else:
-                            print(f"[DEBUG] {message_hash} - requests fallback failed")
-                            return False
-                    except Exception as requests_err:
-                        print(f"[DEBUG] {message_hash} - requests fallback error: {str(requests_err)}")
-                        print(f"[DEBUG] {message_hash} - requests fallback traceback: {traceback.format_exc()}")
-                        return False
+                    response_json = json.loads(response_data)
+                    message_id = response_json.get('messages', [{}])[0].get('id', 'unknown')
+                    print(f"[DEBUG] {message_hash} - Message ID: {message_id}")
+                except Exception as json_err:
+                    print(f"[DEBUG] {message_hash} - Error parsing JSON response: {str(json_err)}")
                 
-            except Exception as urllib_err:
-                print(f"[DEBUG] {message_hash} - General urllib error: {str(urllib_err)}")
-                print(f"[DEBUG] {message_hash} - urllib traceback: {traceback.format_exc()}")
+                return True
+            else:
+                print(f"[DEBUG] {message_hash} - Failed to send message. Status: {status_code}")
+                return False
                 
-                # Try the absolute simplest approach with urllib3
-                try:
-                    print(f"[DEBUG] {message_hash} - ❗❗❗ Final attempt with urllib3 ❗❗❗")
-                    import urllib3
-                    
-                    http = urllib3.PoolManager()
-                    encoded_data = json.dumps(data).encode('utf-8')
-                    
-                    response = http.request(
-                        'POST',
-                        url,
-                        body=encoded_data,
-                        headers=headers,
-                        timeout=30.0
-                    )
-                    
-                    print(f"[DEBUG] {message_hash} - urllib3 Response Status: {response.status}")
-                    print(f"[DEBUG] {message_hash} - urllib3 Response: {response.data.decode('utf-8')}")
-                    
-                    if response.status == 200:
-                        print(f"[DEBUG] {message_hash} - Message sent via urllib3!")
-                        return True
-                    else:
-                        print(f"[DEBUG] {message_hash} - All methods failed")
-                        return False
-                except Exception as urllib3_err:
-                    print(f"[DEBUG] {message_hash} - urllib3 error: {str(urllib3_err)}")
-                    print(f"[DEBUG] {message_hash} - urllib3 traceback: {traceback.format_exc()}")
-                    return False
-                    
         except Exception as e:
-            print(f"[DEBUG] ❌ ERROR SENDING MESSAGE: {str(e)}")
-            print(f"[DEBUG] ❌ TRACEBACK: {traceback.format_exc()}")
-            logger.error(f"Error sending WhatsApp message: {str(e)}")
-            logger.error(traceback.format_exc())
+            print(f"[DEBUG] {message_hash} - Unexpected error in send_message: {str(e)}")
+            print(f"[DEBUG] {message_hash} - Traceback: {traceback.format_exc()}")
             return False
-
+            
     async def mark_message_as_read(self, message_id):
         """
         Mark a WhatsApp message as read to update read receipts.
@@ -319,42 +274,38 @@ class MessageSender:
                 logger.error("[DEBUG] Cannot mark message as read: WhatsApp access token is invalid")
                 return False
             
-            # Use the base_url property that's already correctly constructed
-            url = self.base_url
-            
+            # Prepare payload
             data = {
                 'messaging_product': 'whatsapp',
                 'status': 'read',
                 'message_id': message_id
             }
             
-            logger.info(f"[DEBUG] Mark as read URL: {url}")
-            logger.info(f"[DEBUG] Mark as read data: {json.dumps(data)}")
-            logger.info(f"[DEBUG] Mark as read headers: Content-Type={self.headers['Content-Type']}, Authorization=Bearer {self.access_token[:5]}...{self.access_token[-5:] if len(self.access_token) > 10 else ''}")
+            # Generate a hash for this request for logging
+            mark_read_hash = hashlib.md5(f"mark_read:{message_id}:{int(time.time())}".encode()).hexdigest()[:8]
             
-            # Use aiohttp for async HTTP requests
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=self.headers, json=data) as response:
-                    response_text = await response.text()
-                    logger.info(f"[DEBUG] Mark as read response status: {response.status}")
-                    logger.info(f"[DEBUG] Mark as read response body: {response_text}")
-                    
-                    # Handle token expiration errors
-                    if response.status in [400, 401]:
-                        try:
-                            error_data = json.loads(response_text)
-                            error_message = error_data.get('error', {}).get('message', '')
-                            if 'access token' in error_message.lower():
-                                self.token_valid = False
-                                logger.error(f"[DEBUG] WhatsApp access token error: {error_message}")
-                                print(f"⚠️ WhatsApp access token error: {error_message}")
-                                print("Please update the WHATSAPP_ACCESS_TOKEN in your .env file")
-                                return False
-                        except Exception as e:
-                            logger.error(f"[DEBUG] Error parsing error response: {str(e)}")
-                    
-                    return response.status == 200
-                    
+            # Send the request using the unified API method
+            success, response_data, status_code = await self.send_whatsapp_api_request(
+                payload=data,
+                message_hash=mark_read_hash,
+                request_type="mark_as_read"
+            )
+            
+            # Handle token expiration errors
+            if not success and status_code in [400, 401]:
+                try:
+                    error_data = json.loads(response_data)
+                    error_message = error_data.get('error', {}).get('message', '')
+                    if 'access token' in error_message.lower():
+                        self.token_valid = False
+                        logger.error(f"[DEBUG] WhatsApp access token error: {error_message}")
+                        print(f"⚠️ WhatsApp access token error: {error_message}")
+                        print("Please update the WHATSAPP_ACCESS_TOKEN in your .env file")
+                except Exception as e:
+                    logger.error(f"[DEBUG] Error parsing error response: {str(e)}")
+            
+            return success
+                
         except Exception as e:
             logger.error(f"[DEBUG] Error marking message as read: {str(e)}")
             import traceback
@@ -394,14 +345,7 @@ class MessageSender:
                 message = f"{message}\n\nTimestamp: {timestamp} ({readable_time})"
                 print(f"[DEBUG] {message_hash} - Added timestamp {timestamp} to message")
             
-            # Prepare the API request
-            url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
-            
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.access_token}"
-            }
-            
+            # Prepare payload
             data = {
                 'messaging_product': 'whatsapp',
                 'to': to_number,
@@ -409,43 +353,33 @@ class MessageSender:
                 'text': {'body': message}
             }
             
-            print(f"[DEBUG] {message_hash} - Sending direct message to WhatsApp API")
-            print(f"[DEBUG] {message_hash} - URL: {url}")
+            # Send the request using the unified API method
+            success, response_data, status_code = await self.send_whatsapp_api_request(
+                payload=data,
+                message_hash=message_hash,
+                request_type="direct_message"
+            )
             
-            # Send the message
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=data, timeout=30) as response:
-                    response_text = await response.text()
-                    print(f"[DEBUG] {message_hash} - Response Status: {response.status}")
-                    print(f"[DEBUG] {message_hash} - Response Body: {response_text}")
-                    
-                    if response.status == 200:
-                        try:
-                            response_data = json.loads(response_text)
-                            message_id = response_data.get('messages', [{}])[0].get('id')
-                            print(f"[DEBUG] {message_hash} - Direct message sent successfully! Message ID: {message_id}")
-                            return True
-                        except Exception as parse_err:
-                            print(f"[DEBUG] {message_hash} - Error parsing response: {str(parse_err)}")
-                            return True  # Assume success if status is 200
-                    else:
-                        print(f"[DEBUG] {message_hash} - Failed to send direct message. Response: {response_text}")
-                        return False
-                        
+            if success:
+                print(f"[DEBUG] {message_hash} - Direct message sent successfully!")
+                return True
+            else:
+                print(f"[DEBUG] {message_hash} - Failed to send direct message. Status: {status_code}")
+                return False
+                
         except Exception as e:
-            print(f"[ERROR] Error sending direct message: {str(e)}")
-            import traceback
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
-            return False 
+            print(f"[DEBUG] {message_hash} - Error in send_message_direct: {str(e)}")
+            print(f"[DEBUG] {message_hash} - Traceback: {traceback.format_exc()}")
+            return False
 
     def _cleanup_old_messages(self, current_time):
         """
         Remove old messages from the deduplication cache.
         
         Args:
-            current_time: The current time
+            current_time: Current timestamp for comparison
         """
-        # Remove messages older than the deduplication window
+        # Identify messages older than the deduplication window
         old_messages = [
             msg_hash for msg_hash, sent_time in self._recent_messages.items()
             if current_time - sent_time > self._deduplication_window
@@ -485,12 +419,6 @@ class MessageSender:
             timestamp = int(time.time())
             message_with_timestamp = f"{message}\n\n⏰ {timestamp}"
             
-            # Prepare the direct API request
-            headers = {
-                "Authorization": f"Bearer {self.access_token}",
-                "Content-Type": "application/json"
-            }
-            
             # Construct the payload directly
             payload = {
                 "messaging_product": "whatsapp",
@@ -501,53 +429,31 @@ class MessageSender:
                 }
             }
             
-            print(f"[DIRECT] {message_id} - API URL: {self.base_url}")
-            print(f"[DIRECT] {message_id} - Headers (partial): Authorization: Bearer {self.access_token[:5]}...")
-            print(f"[DIRECT] {message_id} - Payload: {json.dumps(payload)[:200]}...")
+            # Send the request using the unified API method
+            success, response_data, status_code = await self.send_whatsapp_api_request(
+                payload=payload,
+                message_hash=message_id,
+                request_type="emergency_direct"
+            )
             
-            # Make the API request
-            async with aiohttp.ClientSession() as session:
-                start_time = time.time()
-                async with session.post(
-                    self.base_url,
-                    json=payload,
-                    headers=headers,
-                    timeout=30  # 30 second timeout
-                ) as response:
-                    end_time = time.time()
-                    elapsed = round(end_time - start_time, 2)
+            if success:
+                print(f"[DIRECT] {message_id} - Message sent successfully!")
+                
+                # Try to parse and log the message ID
+                try:
+                    response_json = json.loads(response_data)
+                    wa_message_id = response_json.get("messages", [{}])[0].get("id", "unknown")
+                    print(f"[DIRECT] {message_id} - WhatsApp message ID: {wa_message_id}")
+                except Exception as json_err:
+                    print(f"[DIRECT] {message_id} - Could not parse message ID: {str(json_err)}")
                     
-                    status_code = response.status
-                    response_text = await response.text()
-                    
-                    print(f"[DIRECT] {message_id} - Response status: {status_code} (took {elapsed}s)")
-                    print(f"[DIRECT] {message_id} - Response: {response_text[:200]}...")
-                    
-                    # Check if the request was successful
-                    if status_code in (200, 201):
-                        print(f"[DIRECT] {message_id} - Message sent successfully!")
-                        
-                        # Try to parse and log the message ID
-                        try:
-                            response_json = json.loads(response_text)
-                            wa_message_id = response_json.get("messages", [{}])[0].get("id", "unknown")
-                            print(f"[DIRECT] {message_id} - WhatsApp message ID: {wa_message_id}")
-                        except Exception as json_err:
-                            print(f"[DIRECT] {message_id} - Could not parse message ID: {str(json_err)}")
-                            
-                        return True
-                    else:
-                        # Request failed
-                        print(f"[DIRECT] {message_id} - Failed to send message: {status_code}")
-                        print(f"[DIRECT] {message_id} - Error response: {response_text}")
-                        return False
-                        
-        except aiohttp.ClientError as client_err:
-            print(f"[DIRECT] {message_id} - HTTP client error: {str(client_err)}")
-            return False
-        except asyncio.TimeoutError:
-            print(f"[DIRECT] {message_id} - Request timed out after 30 seconds")
-            return False
+                return True
+            else:
+                # Request failed
+                print(f"[DIRECT] {message_id} - Failed to send message: {status_code}")
+                print(f"[DIRECT] {message_id} - Error response: {response_data}")
+                return False
+                
         except Exception as e:
             print(f"[DIRECT] {message_id} - Unexpected error: {str(e)}")
             print(f"[DIRECT] {message_id} - Traceback: {traceback.format_exc()}")
