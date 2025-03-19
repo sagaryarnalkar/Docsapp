@@ -179,10 +179,9 @@ class CommandProcessor:
                 print(f"🔴🔴🔴 ❗❗❗ LIST COMMAND BRANCH ENTERED ❗❗❗")
                 print(f"[DEBUG-CMD] {command_id} Processing list command")
                 
-                # Write to a file for emergency debugging
-                with open("critical_list_command.log", "a") as f:
-                    f.write(f"[{time.time()}] LIST COMMAND RECEIVED from {from_number}\n")
-                    f.write(f"[{time.time()}] Intent detection worked correctly: {intent}\n")
+                # Print debug info instead of writing to file
+                print(f"🔴🔴🔴 LIST COMMAND RECEIVED from {from_number} at {time.time()}")
+                print(f"🔴🔴🔴 Intent detection worked correctly: {intent}")
                 
                 # EXTREME EMERGENCY DIRECT RESPONSE
                 print(f"🔴🔴🔴 ❗❗❗ EMERGENCY LIST RESPONSE - DIRECT EXECUTION ❗❗❗")
@@ -190,19 +189,18 @@ class CommandProcessor:
                 
                 try:
                     # First try message sender
+                    print(f"🔴🔴🔴 STEP 1: Attempting standard message_sender.send_message")
                     success = await self.message_sender.send_message(
                         from_number,
                         f"EMERGENCY Direct Response from CommandProcessor: This bypasses the list handler completely. Time: {int(time.time())}\n\nTimestamp: {int(time.time())} ({time.strftime('%H:%M:%S')})",
                         message_type="emergency_cmd_processor_direct",
                         bypass_deduplication=True
                     )
-                    with open("critical_list_command.log", "a") as f:
-                        f.write(f"[{time.time()}] DIRECT MESSAGE SENDER RESULT: {success}\n")
+                    print(f"🔴🔴🔴 STEP 1 RESULT: message_sender.send_message returned {success}")
                     
                     # ATOMIC DIRECT API CALL AS FINAL RESORT
                     try:
-                        with open("critical_list_command.log", "a") as f:
-                            f.write(f"[{time.time()}] ATTEMPTING DIRECT API CALL\n")
+                        print(f"🔴🔴🔴 STEP 2: ATTEMPTING DIRECT API CALL AT {time.time()}")
                             
                         # Get API credentials directly from environment
                         import os
@@ -214,8 +212,7 @@ class CommandProcessor:
                         token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
                         timestamp = int(time.time())
                         
-                        with open("critical_list_command.log", "a") as f:
-                            f.write(f"[{time.time()}] API PARAMS: version={api_version}, phone_id={phone_id}, token_length={len(token) if token else 0}\n")
+                        print(f"🔴🔴🔴 STEP 2.1: Got API parameters: version={api_version}, phone_id={phone_id}, token_length={len(token) if token else 0}")
                         
                         # Create URL and headers for direct API call
                         url = f'https://graph.facebook.com/{api_version}/{phone_id}/messages'
@@ -234,52 +231,68 @@ class CommandProcessor:
                             }
                         }
                         
-                        with open("critical_list_command.log", "a") as f:
-                            f.write(f"[{time.time()}] SENDING API REQUEST to {url}\n")
-                            f.write(f"[{time.time()}] HEADERS: {headers}\n")
-                            f.write(f"[{time.time()}] DATA: {message_data}\n")
+                        print(f"🔴🔴🔴 STEP 2.2: Prepared API request data")
+                        print(f"🔴🔴🔴 STEP 2.3: URL: {url}")
+                        print(f"🔴🔴🔴 STEP 2.4: Data: {message_data}")
                         
                         # Make the API call
                         try:
-                            print(f"MAKING DIRECT API CALL to {url}")
+                            print(f"🔴🔴🔴 STEP 2.5: MAKING DIRECT API CALL to {url} AT {time.time()}")
                             response = requests.post(url, headers=headers, json=message_data)
                             
-                            print(f"DIRECT API RESPONSE: {response.status_code} - {response.text}")
-                            with open("critical_list_command.log", "a") as f:
-                                f.write(f"[{time.time()}] API RESPONSE: Status {response.status_code}\n")
-                                f.write(f"[{time.time()}] API RESPONSE BODY: {response.text}\n")
+                            print(f"🔴🔴🔴 STEP 2.6: GOT RESPONSE AT {time.time()}")
+                            print(f"🔴🔴🔴 STEP 2.7: DIRECT API RESPONSE: Status {response.status_code}")
+                            print(f"🔴🔴🔴 STEP 2.8: DIRECT API RESPONSE BODY: {response.text}")
                                 
                             # Check if successful (status code 200)
                             if response.status_code == 200:
-                                with open("critical_list_command.log", "a") as f:
-                                    f.write(f"[{time.time()}] ATOMIC API CALL SUCCESSFUL!\n")
+                                print(f"🔴🔴🔴 STEP 2.9: ATOMIC API CALL SUCCESSFUL!")
                                 return "Emergency list response sent via direct API", 200
                             else:
-                                with open("critical_list_command.log", "a") as f:
-                                    f.write(f"[{time.time()}] API CALL FAILED WITH STATUS {response.status_code}\n")
+                                print(f"🔴🔴🔴 STEP 2.9: API CALL FAILED WITH STATUS {response.status_code}")
                         except Exception as req_err:
-                            print(f"ERROR MAKING DIRECT API CALL: {str(req_err)}")
-                            with open("critical_list_command.log", "a") as f:
-                                f.write(f"[{time.time()}] API REQUEST EXCEPTION: {str(req_err)}\n")
-                                import traceback
-                                f.write(f"[{time.time()}] TRACEBACK: {traceback.format_exc()}\n")
+                            print(f"🔴🔴🔴 STEP 2.5 ERROR: DIRECT API REQUEST FAILED: {str(req_err)}")
+                            print(f"🔴🔴🔴 STEP 2.5 TRACEBACK: {traceback.format_exc()}")
+
+                        print(f"🔴🔴🔴 STEP 2.10: DIRECT API CALL SECTION COMPLETED AT {time.time()}")
                     except Exception as api_err:
-                        print(f"ERROR IN ATOMIC API BLOCK: {str(api_err)}")
-                        with open("critical_list_command.log", "a") as f:
-                            f.write(f"[{time.time()}] ATOMIC API BLOCK EXCEPTION: {str(api_err)}\n")
-                            import traceback
-                            f.write(f"[{time.time()}] TRACEBACK: {traceback.format_exc()}\n")
+                        print(f"🔴🔴🔴 ERROR IN ATOMIC API BLOCK: {str(api_err)}")
+                        print(f"🔴🔴🔴 API ERROR TRACEBACK: {traceback.format_exc()}")
+                    
+                    # FINAL FALLBACK - ULTRA BASIC PRINT-ONLY MESSAGE
+                    print(f"🔴🔴🔴 STEP 3: SENDING ULTRA BASIC REQUEST DIRECTLY TO API")
+                    try:
+                        import requests
+                        ultra_url = f'https://graph.facebook.com/v17.0/{os.environ.get("WHATSAPP_PHONE_NUMBER_ID")}/messages'
+                        ultra_headers = {
+                            'Authorization': f'Bearer {os.environ.get("WHATSAPP_ACCESS_TOKEN")}',
+                            'Content-Type': 'application/json'
+                        }
+                        ultra_data = {
+                            'messaging_product': 'whatsapp',
+                            'to': from_number,
+                            'type': 'text',
+                            'text': {'body': f"🔥 FINAL FALLBACK: List command response at {time.time()}"}
+                        }
+                        
+                        print(f"🔴🔴🔴 STEP 3.1: FINAL FALLBACK REQUEST PREPARED")
+                        print(f"🔴🔴🔴 STEP 3.2: SENDING FINAL FALLBACK REQUEST AT {time.time()}")
+                        
+                        ultra_response = requests.post(ultra_url, headers=ultra_headers, json=ultra_data)
+                        
+                        print(f"🔴🔴🔴 STEP 3.3: FINAL FALLBACK RESPONSE: Status {ultra_response.status_code}")
+                        print(f"🔴🔴🔴 STEP 3.4: FINAL FALLBACK RESPONSE BODY: {ultra_response.text}")
+                    except Exception as ultra_err:
+                        print(f"🔴🔴🔴 FINAL FALLBACK ERROR: {str(ultra_err)}")
+                        print(f"🔴🔴🔴 FINAL FALLBACK TRACEBACK: {traceback.format_exc()}")
                     
                     # Return a response regardless of success or failure
-                    # This ensures the handler completes properly
+                    print(f"🔴🔴🔴 STEP 4: ALL MESSAGE ATTEMPTS COMPLETED AT {time.time()}")
                     return "List command emergency handling completed", 200
                     
                 except Exception as e:
-                    print(f"🔴🔴🔴 ERROR SENDING EMERGENCY MESSAGE: {str(e)}")
-                    with open("critical_list_command.log", "a") as f:
-                        f.write(f"[{time.time()}] ERROR SENDING EMERGENCY MESSAGE: {str(e)}\n")
-                        import traceback
-                        f.write(f"[{time.time()}] TRACEBACK: {traceback.format_exc()}\n")
+                    print(f"🔴🔴🔴 GLOBAL ERROR SENDING EMERGENCY MESSAGE: {str(e)}")
+                    print(f"🔴🔴🔴 GLOBAL ERROR TRACEBACK: {traceback.format_exc()}")
                     return f"Error processing list command: {str(e)}", 500
                 
             elif intent == "help":
