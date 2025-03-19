@@ -136,244 +136,178 @@ class CommandProcessor:
         
     async def handle_command(self, from_number, command_text):
         """
-        Process a command from a WhatsApp user.
+        Process a command and return a response.
         
         Args:
-            from_number: The sender's phone number
+            from_number: The user's phone number
             command_text: The command text
             
         Returns:
             tuple: (response_message, status_code)
         """
-        extreme_debug(f"CommandProcessor.handle_command ENTERED with from_number={from_number}, command_text={command_text}")
-        cmd_trace_id = f"CMD-{time.time()}-{random.randint(1000, 9999)}"
-        print(f"\n==================================================")
-        print(f"[DEBUG-CMD] {cmd_trace_id} COMMAND PROCESSING START")
-        print(f"[DEBUG-CMD] {cmd_trace_id} From: {from_number}")
-        print(f"[DEBUG-CMD] {cmd_trace_id} Text: '{command_text}'")
-        print(f"[DEBUG-CMD] {cmd_trace_id} Command processor object: {self}")
-        print(f"[DEBUG-CMD] {cmd_trace_id} docs_app: {self.docs_app}")
-        print(f"[DEBUG-CMD] {cmd_trace_id} message_sender: {self.message_sender}")
+        command_id = f"CMD-{time.time()}-{random.randint(1000, 9999)}"
+        print(f"🔴🔴🔴 CommandProcessor.handle_command ENTERED with from_number={from_number}, command_text={command_text}")
+        
+        # Print extensive debug information
+        print(f"==================================================")
+        print(f"[DEBUG-CMD] {command_id} COMMAND PROCESSING START")
+        print(f"[DEBUG-CMD] {command_id} From: {from_number}")
+        print(f"🔴🔴🔴 CommandProcessor.handle_command ENTERED with from_number={from_number}, command_text={command_text}")
+        print(f"[DEBUG-CMD] {command_id} Text: '{command_text}'")
+        print(f"[DEBUG-CMD] {command_id} Command processor object: {self}")
+        print(f"[DEBUG-CMD] {command_id} docs_app: {self.docs_app}")
+        print(f"[DEBUG-CMD] {command_id} message_sender: {self.message_sender}")
         print(f"==================================================")
         
         try:
-            extreme_debug(f"CommandProcessor.handle_command - try block entered")
-            print(f"[DEBUG-CMD] {cmd_trace_id} Normalizing command text")
-            # Normalize command text
-            normalized_text = command_text.strip().lower()
-            print(f"[DEBUG-CMD] {cmd_trace_id} Normalized text: '{normalized_text}'")
+            # Log the entry into the try block to check for exceptions
+            print(f"🔴🔴🔴 CommandProcessor.handle_command - try block entered")
+            print(f"🔴🔴🔴 CommandProcessor.handle_command - try block entered")
             
-            print(f"[DEBUG-CMD] {cmd_trace_id} Detecting intent via intent_detector: {self.intent_detector}")
-            # Detect command intent
-            command_intent = self.intent_detector.detect_intent(normalized_text)
-            print(f"[DEBUG-CMD] {cmd_trace_id} Detected intent: {command_intent}")
-            extreme_debug(f"Detected intent: {command_intent}")
+            print(f"[DEBUG-CMD] {command_id} Normalizing command text")
+            command_text = command_text.lower().strip()
+            print(f"[DEBUG-CMD] {command_id} Normalized text: '{command_text}'")
             
-            # Process the command based on the detected intent
-            if command_intent == "help":
-                extreme_debug(f"Help command branch entered")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Processing help command")
-                if self.help_handler is None:
-                    print(f"[DEBUG-CMD] {cmd_trace_id} ERROR: help_handler is None!")
-                    return "Help handler unavailable", 500
-                print(f"[DEBUG-CMD] {cmd_trace_id} Calling help_handler.handle")
-                return await self.help_handler.handle(from_number)
+            # Detect intent using the intent detector
+            print(f"[DEBUG-CMD] {command_id} Detecting intent via intent_detector: {self.intent_detector}")
+            intent = self.intent_detector.detect_intent(command_text)
+            print(f"[DEBUG-CMD] {command_id} Detected intent: {intent}")
+            print(f"🔴🔴🔴 Detected intent: {intent}")
+            
+            # ULTRA DIRECT LIST COMMAND HANDLING FOR DEBUGGING
+            if intent == "list":
+                print(f"🔴🔴🔴 ❗❗❗ LIST COMMAND BRANCH ENTERED ❗❗❗")
+                print(f"[DEBUG-CMD] {command_id} Processing list command")
                 
-            elif command_intent == "list":
-                extreme_debug(f"❗❗❗ LIST COMMAND BRANCH ENTERED ❗❗❗")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Processing list command")
+                # Write to a file for emergency debugging
+                with open("critical_list_command.log", "a") as f:
+                    f.write(f"[{time.time()}] LIST COMMAND RECEIVED from {from_number}\n")
+                    f.write(f"[{time.time()}] Intent detection worked correctly: {intent}\n")
                 
-                # ULTRA BASIC EMERGENCY HANDLER - BYPASS EVERYTHING AND SEND MESSAGE DIRECTLY
+                # EXTREME EMERGENCY DIRECT RESPONSE
+                print(f"🔴🔴🔴 ❗❗❗ EMERGENCY LIST RESPONSE - DIRECT EXECUTION ❗❗❗")
+                print(f"🔴🔴🔴 ❗❗❗ Sending ultra simple message to {from_number} ❗❗❗")
+                
                 try:
-                    extreme_debug(f"❗❗❗ EMERGENCY LIST RESPONSE - DIRECT EXECUTION ❗❗❗")
-                    # Just send a direct message as proof of execution
-                    timestamp = int(time.time())
-                    ultra_simple_msg = f"EMERGENCY Direct Response from CommandProcessor: This bypasses the list handler completely. Time: {timestamp}"
-                    
-                    # Use direct message sender to maximize chances of success
-                    extreme_debug(f"❗❗❗ Sending ultra simple message to {from_number} ❗❗❗")
-                    await self.message_sender.send_message(
-                        from_number, 
-                        ultra_simple_msg,
-                        message_type="emergency_cmd_processor_direct", 
+                    # First try message sender
+                    success = await self.message_sender.send_message(
+                        from_number,
+                        f"EMERGENCY Direct Response from CommandProcessor: This bypasses the list handler completely. Time: {int(time.time())}\n\nTimestamp: {int(time.time())} ({time.strftime('%H:%M:%S')})",
+                        message_type="emergency_cmd_processor_direct",
                         bypass_deduplication=True
                     )
-                    extreme_debug(f"❗❗❗ Ultra simple message sent! ❗❗❗")
-                    return "Emergency direct list response sent", 200
-                except Exception as emerg_err:
-                    extreme_debug(f"❗❗❗ EMERGENCY HANDLER FAILED: {str(emerg_err)} ❗❗❗")
-                    extreme_debug(f"❗❗❗ TRACE: {traceback.format_exc()} ❗❗❗")
-                    # Continue to regular handler logic if emergency fails
-                
-                # CONTINUE WITH NORMAL HANDLER LOGIC BELOW (now a fallback)
-                if self.list_handler is None:
-                    extreme_debug(f"❗❗❗ LIST HANDLER IS NONE! ❗❗❗")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} ERROR: list_handler is None!")
-                    # FALLBACK FOR LIST COMMAND
+                    with open("critical_list_command.log", "a") as f:
+                        f.write(f"[{time.time()}] DIRECT MESSAGE SENDER RESULT: {success}\n")
+                    
+                    # ATOMIC DIRECT API CALL AS FINAL RESORT
                     try:
-                        extreme_debug(f"❗❗❗ ATTEMPTING FALLBACK FOR NULL LIST HANDLER ❗❗❗")
-                        print(f"[DEBUG-CMD] {cmd_trace_id} Attempting direct message for list command fallback")
-                        # Try to get documents directly from docs_app
+                        with open("critical_list_command.log", "a") as f:
+                            f.write(f"[{time.time()}] ATTEMPTING DIRECT API CALL\n")
+                            
+                        # Get API credentials directly from environment
+                        import os
+                        import requests
+                        import json
+                        
+                        api_version = os.environ.get('WHATSAPP_API_VERSION', 'v17.0')
+                        phone_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+                        token = os.environ.get('WHATSAPP_ACCESS_TOKEN')
+                        timestamp = int(time.time())
+                        
+                        with open("critical_list_command.log", "a") as f:
+                            f.write(f"[{time.time()}] API PARAMS: version={api_version}, phone_id={phone_id}, token_length={len(token) if token else 0}\n")
+                        
+                        # Create URL and headers for direct API call
+                        url = f'https://graph.facebook.com/{api_version}/{phone_id}/messages'
+                        headers = {
+                            'Authorization': f'Bearer {token}',
+                            'Content-Type': 'application/json'
+                        }
+                        
+                        # Prepare message data
+                        message_data = {
+                            'messaging_product': 'whatsapp',
+                            'to': from_number,
+                            'type': 'text',
+                            'text': {
+                                'body': f"🆘 ATOMIC API CALL from CommandProcessor: This is the deepest level emergency response at {timestamp}.\n\n1. Sample Document 1.pdf\n2. Sample Document 2.docx"
+                            }
+                        }
+                        
+                        with open("critical_list_command.log", "a") as f:
+                            f.write(f"[{time.time()}] SENDING API REQUEST to {url}\n")
+                            f.write(f"[{time.time()}] HEADERS: {headers}\n")
+                            f.write(f"[{time.time()}] DATA: {message_data}\n")
+                        
+                        # Make the API call
                         try:
-                            extreme_debug(f"❗❗❗ Calling docs_app.get_user_documents({from_number}) ❗❗❗")
-                            documents = await self.docs_app.get_user_documents(from_number)
-                            doc_count = len(documents) if documents else 0
-                            extreme_debug(f"❗❗❗ Got {doc_count} documents directly ❗❗❗")
-                            print(f"[DEBUG-CMD] {cmd_trace_id} Got {doc_count} documents directly")
+                            print(f"MAKING DIRECT API CALL to {url}")
+                            response = requests.post(url, headers=headers, json=message_data)
                             
-                            message = "📄 *Your Documents:*\n\n"
-                            if documents:
-                                for i, doc in enumerate(documents, 1):
-                                    doc_name = doc.get('name', 'Unnamed Document')
-                                    doc_type = doc.get('type', 'Unknown Type')
-                                    message += f"{i}. *{doc_name}* ({doc_type})\n"
+                            print(f"DIRECT API RESPONSE: {response.status_code} - {response.text}")
+                            with open("critical_list_command.log", "a") as f:
+                                f.write(f"[{time.time()}] API RESPONSE: Status {response.status_code}\n")
+                                f.write(f"[{time.time()}] API RESPONSE BODY: {response.text}\n")
+                                
+                            # Check if successful (status code 200)
+                            if response.status_code == 200:
+                                with open("critical_list_command.log", "a") as f:
+                                    f.write(f"[{time.time()}] ATOMIC API CALL SUCCESSFUL!\n")
+                                return "Emergency list response sent via direct API", 200
                             else:
-                                message = "📂 You don't have any documents stored yet. Send a document to store it."
-                            
-                            # Add timestamp to prevent deduplication
-                            message += f"\n\n_Generated at: {int(time.time())}_"
-                            
-                            # Send directly
-                            extreme_debug(f"❗❗❗ Sending fallback message via message_sender ❗❗❗")
-                            await self.message_sender.send_message(
-                                from_number,
-                                message,
-                                message_type="list_fallback",
-                                bypass_deduplication=True
-                            )
-                            extreme_debug(f"❗❗❗ Fallback message sent successfully ❗❗❗")
-                            return "List command fallback sent", 200
-                        except Exception as direct_docs_err:
-                            extreme_debug(f"❗❗❗ Direct document retrieval failed: {str(direct_docs_err)} ❗❗❗")
-                            extreme_debug(f"❗❗❗ Traceback: {traceback.format_exc()} ❗❗❗")
-                            print(f"[DEBUG-CMD] {cmd_trace_id} Direct document retrieval failed: {str(direct_docs_err)}")
-                            await self.message_sender.send_message(
-                                from_number,
-                                "❌ Sorry, I couldn't retrieve your documents. Please try again later.",
-                                message_type="error",
-                                bypass_deduplication=True
-                            )
-                    except Exception as fallback_err:
-                        extreme_debug(f"❗❗❗ List fallback failed with error: {str(fallback_err)} ❗❗❗")
-                        extreme_debug(f"❗❗❗ Traceback: {traceback.format_exc()} ❗❗❗")
-                        print(f"[DEBUG-CMD] {cmd_trace_id} List fallback failed: {str(fallback_err)}")
+                                with open("critical_list_command.log", "a") as f:
+                                    f.write(f"[{time.time()}] API CALL FAILED WITH STATUS {response.status_code}\n")
+                        except Exception as req_err:
+                            print(f"ERROR MAKING DIRECT API CALL: {str(req_err)}")
+                            with open("critical_list_command.log", "a") as f:
+                                f.write(f"[{time.time()}] API REQUEST EXCEPTION: {str(req_err)}\n")
+                                import traceback
+                                f.write(f"[{time.time()}] TRACEBACK: {traceback.format_exc()}\n")
+                    except Exception as api_err:
+                        print(f"ERROR IN ATOMIC API BLOCK: {str(api_err)}")
+                        with open("critical_list_command.log", "a") as f:
+                            f.write(f"[{time.time()}] ATOMIC API BLOCK EXCEPTION: {str(api_err)}\n")
+                            import traceback
+                            f.write(f"[{time.time()}] TRACEBACK: {traceback.format_exc()}\n")
                     
-                    return "List handler unavailable", 500
+                    # Return a response regardless of success or failure
+                    # This ensures the handler completes properly
+                    return "List command emergency handling completed", 200
                     
-                # Extra debugging on list_handler
-                extreme_debug(f"❗❗❗ LIST HANDLER EXISTS: {self.list_handler} ❗❗❗")
-                print(f"[DEBUG-CMD] {cmd_trace_id} list_handler: {self.list_handler}")
-                extreme_debug(f"❗❗❗ list_handler.docs_app: {self.list_handler.docs_app} ❗❗❗")
-                print(f"[DEBUG-CMD] {cmd_trace_id} list_handler.docs_app: {self.list_handler.docs_app}")
-                extreme_debug(f"❗❗❗ list_handler methods: {dir(self.list_handler)} ❗❗❗")
-                print(f"[DEBUG-CMD] {cmd_trace_id} list_handler methods: {dir(self.list_handler)}")
+                except Exception as e:
+                    print(f"🔴🔴🔴 ERROR SENDING EMERGENCY MESSAGE: {str(e)}")
+                    with open("critical_list_command.log", "a") as f:
+                        f.write(f"[{time.time()}] ERROR SENDING EMERGENCY MESSAGE: {str(e)}\n")
+                        import traceback
+                        f.write(f"[{time.time()}] TRACEBACK: {traceback.format_exc()}\n")
+                    return f"Error processing list command: {str(e)}", 500
                 
-                try:
-                    extreme_debug(f"❗❗❗ ENTERING CRITICAL SECTION FOR LIST HANDLER ❗❗❗")
-                    # Even more debugging
-                    extreme_debug(f"❗❗❗ Getting handle method from list_handler ❗❗❗")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} Calling handle method on list_handler")
-                    handle_method = getattr(self.list_handler, 'handle')
-                    extreme_debug(f"❗❗❗ Handle method exists: {handle_method} ❗❗❗")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} Handle method exists: {handle_method}")
-                    extreme_debug(f"❗❗❗ Handle method signature: {inspect.signature(handle_method)} ❗❗❗")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} Handle method signature: {inspect.signature(handle_method)}")
-                    
-                    # Try direct message before calling handle
-                    try:
-                        extreme_debug(f"❗❗❗ Sending pre-handle debug message ❗❗❗")
-                        direct_msg = f"🧪 DIRECT DEBUG from command_processor before calling list_handler.handle ({time.time()})"
-                        extreme_debug(f"❗❗❗ Message: {direct_msg} ❗❗❗")
-                        send_result = await self.message_sender.send_message(
-                            from_number,
-                            direct_msg,
-                            message_type="list_pre",
-                            bypass_deduplication=True
-                        )
-                        extreme_debug(f"❗❗❗ Pre-handle message sent: {send_result} ❗❗❗")
-                    except Exception as pre_msg_err:
-                        extreme_debug(f"❗❗❗ Failed to send pre-handle message: {str(pre_msg_err)} ❗❗❗")
-                        extreme_debug(f"❗❗❗ Traceback: {traceback.format_exc()} ❗❗❗")
-                        print(f"[DEBUG-CMD] {cmd_trace_id} Failed to send pre-handle message: {str(pre_msg_err)}")
-                    
-                    # Call the handle method with proper await
-                    extreme_debug(f"❗❗❗ ABOUT TO CALL list_handler.handle({from_number}) ❗❗❗")
-                    extreme_debug(f"❗❗❗ LIST HANDLER: {self.list_handler} ❗❗❗")
-                    extreme_debug(f"❗❗❗ HANDLE METHOD: {handle_method} ❗❗❗")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} Awaiting list_handler.handle({from_number})")
-                    
-                    # Get the coroutine object but don't await it yet
-                    try:
-                        extreme_debug(f"❗❗❗ Creating coroutine for handle method ❗❗❗")
-                        handle_coro = handle_method(from_number)
-                        extreme_debug(f"❗❗❗ Coroutine created: {handle_coro} ❗❗❗")
-                        extreme_debug(f"❗❗❗ Coroutine type: {type(handle_coro)} ❗❗❗")
-                        
-                        # Check if it's actually a coroutine
-                        if asyncio.iscoroutine(handle_coro):
-                            extreme_debug(f"❗❗❗ handle_coro IS a coroutine, awaiting it ❗❗❗")
-                            result = await handle_coro
-                            extreme_debug(f"❗❗❗ HANDLE METHOD COMPLETED with result: {result} ❗❗❗")
-                        else:
-                            extreme_debug(f"❗❗❗ handle_coro is NOT a coroutine! Type: {type(handle_coro)} ❗❗❗")
-                            # Just use the value directly
-                            result = handle_coro
-                            extreme_debug(f"❗❗❗ Got non-coroutine result: {result} ❗❗❗")
-                    except Exception as coro_err:
-                        extreme_debug(f"❗❗❗ ERROR HANDLING COROUTINE: {str(coro_err)} ❗❗❗")
-                        extreme_debug(f"❗❗❗ CORO ERROR TRACEBACK: {traceback.format_exc()} ❗❗❗")
-                        # Try direct await as fallback
-                        extreme_debug(f"❗❗❗ Falling back to direct await ❗❗❗")
-                        result = await self.list_handler.handle(from_number)
-                        extreme_debug(f"❗❗❗ Direct await completed with result: {result} ❗❗❗")
-                    
-                    print(f"[DEBUG-CMD] {cmd_trace_id} List command result: {result}")
-                    extreme_debug(f"❗❗❗ EXITING LIST HANDLER CRITICAL SECTION, returning result: {result} ❗❗❗")
-                    return result
-                except Exception as list_err:
-                    extreme_debug(f"❗❗❗ LIST COMMAND EXECUTION ERROR: {str(list_err)} ❗❗❗")
-                    extreme_debug(f"❗❗❗ TRACEBACK: {traceback.format_exc()} ❗❗❗")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} List command execution error: {str(list_err)}")
-                    print(f"[DEBUG-CMD] {cmd_trace_id} List error traceback: {traceback.format_exc()}")
-                    
-                    # Last resort - try to send a simple error message directly
-                    try:
-                        extreme_debug(f"❗❗❗ Sending fallback error message ❗❗❗")
-                        print(f"[DEBUG-CMD] {cmd_trace_id} Sending fallback error message")
-                        error_msg = f"❌ Error executing list command: {str(list_err)[:100]}..."
-                        error_msg += f"\n\nTimestamp: {int(time.time())}"
-                        await self.message_sender.send_message(
-                            from_number,
-                            error_msg,
-                            message_type="error",
-                            bypass_deduplication=True
-                        )
-                        extreme_debug(f"❗❗❗ Fallback error message sent ❗❗❗")
-                    except Exception as msg_err:
-                        extreme_debug(f"❗❗❗ Failed to send error message: {str(msg_err)} ❗❗❗")
-                        extreme_debug(f"❗❗❗ Traceback: {traceback.format_exc()} ❗❗❗")
-                        print(f"[DEBUG-CMD] {cmd_trace_id} Failed to send error message: {str(msg_err)}")
-                        
-                    extreme_debug(f"❗❗❗ EXITING LIST HANDLER ERROR SECTION ❗❗❗")
-                    return f"Error processing list command: {str(list_err)}", 500
+            elif intent == "help":
+                extreme_debug(f"Help command branch entered")
+                print(f"[DEBUG-CMD] {command_id} Processing help command")
+                if self.help_handler is None:
+                    print(f"[DEBUG-CMD] {command_id} ERROR: help_handler is None!")
+                    return "Help handler unavailable", 500
+                print(f"[DEBUG-CMD] {command_id} Calling help_handler.handle")
+                return await self.help_handler.handle(from_number)
                 
-            elif command_intent == "find":
+            elif intent == "find":
                 extreme_debug(f"Find command branch entered")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Processing find command")
+                print(f"[DEBUG-CMD] {command_id} Processing find command")
                 if self.find_handler is None:
-                    print(f"[DEBUG-CMD] {cmd_trace_id} ERROR: find_handler is None!")
+                    print(f"[DEBUG-CMD] {command_id} ERROR: find_handler is None!")
                     return "Find handler unavailable", 500
-                print(f"[DEBUG-CMD] {cmd_trace_id} Calling find_handler.handle")
-                return await self.find_handler.handle(from_number, normalized_text)
+                print(f"[DEBUG-CMD] {command_id} Calling find_handler.handle")
+                return await self.find_handler.handle(from_number, command_text)
                 
-            elif command_intent == "ask":
+            elif intent == "ask":
                 extreme_debug(f"Ask command branch entered")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Processing ask command")
+                print(f"[DEBUG-CMD] {command_id} Processing ask command")
                 if self.ask_handler is None:
-                    print(f"[DEBUG-CMD] {cmd_trace_id} ERROR: ask_handler is None!")
+                    print(f"[DEBUG-CMD] {command_id} ERROR: ask_handler is None!")
                     return "Ask handler unavailable", 500
                 
-                print(f"[DEBUG-CMD] {cmd_trace_id} Extracting question from command text")
+                print(f"[DEBUG-CMD] {command_id} Extracting question from command text")
                 # Extract question by removing the 'ask' keyword
                 # e.g., "ask what is in document" -> "what is in document"
                 question = command_text.strip()
@@ -382,13 +316,13 @@ class CommandProcessor:
                         question = question[len(ask_phrase):].strip()
                         break
                 
-                print(f"[DEBUG-CMD] {cmd_trace_id} Extracted question: '{question}'")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Calling ask_handler.handle")
+                print(f"[DEBUG-CMD] {command_id} Extracted question: '{question}'")
+                print(f"[DEBUG-CMD] {command_id} Calling ask_handler.handle")
                 return await self.ask_handler.handle(from_number, question)
                 
-            elif command_intent == "new_document":
+            elif intent == "new_document":
                 extreme_debug(f"New document command branch entered")
-                print(f"[DEBUG-CMD] {cmd_trace_id} New document command detected but handler not implemented")
+                print(f"[DEBUG-CMD] {command_id} New document command detected but handler not implemented")
                 await self.message_sender.send_message(
                     from_number,
                     "Creating new documents is not implemented yet. Please try using 'help' for available commands.",
@@ -400,7 +334,7 @@ class CommandProcessor:
             else:
                 # Unknown command intent, send welcome message
                 extreme_debug(f"Unknown command branch entered")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Unknown command intent: {command_intent}, sending welcome message")
+                print(f"[DEBUG-CMD] {command_id} Unknown command intent: {intent}, sending welcome message")
                 await self.message_sender.send_message(
                     from_number,
                     WHATSAPP_WELCOME_MESSAGE
@@ -410,8 +344,8 @@ class CommandProcessor:
         except Exception as e:
             extreme_debug(f"❗❗❗ COMMAND PROCESSOR GLOBAL ERROR: {str(e)} ❗❗❗")
             extreme_debug(f"❗❗❗ GLOBAL TRACEBACK: {traceback.format_exc()} ❗❗❗")
-            print(f"[DEBUG-CMD] {cmd_trace_id} Command processor error: {str(e)}")
-            print(f"[DEBUG-CMD] {cmd_trace_id} Command processor traceback: {traceback.format_exc()}")
+            print(f"[DEBUG-CMD] {command_id} Command processor error: {str(e)}")
+            print(f"[DEBUG-CMD] {command_id} Command processor traceback: {traceback.format_exc()}")
             # Send error message to user
             try:
                 error_message = f"❌ Sorry, I couldn't process your command. Error: {str(e)[:100]}..."
@@ -424,6 +358,6 @@ class CommandProcessor:
                 )
             except Exception as err_msg_err:
                 extreme_debug(f"Failed to send error message: {str(err_msg_err)}")
-                print(f"[DEBUG-CMD] {cmd_trace_id} Failed to send error message: {str(err_msg_err)}")
+                print(f"[DEBUG-CMD] {command_id} Failed to send error message: {str(err_msg_err)}")
             
             return "Error processing command", 500 
